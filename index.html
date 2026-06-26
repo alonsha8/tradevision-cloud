@@ -1,0 +1,1659 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TradeVision AI</title>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Heebo:wght@300;400;600;700&display=swap');
+  :root{--bg:#0b0e14;--surface:#111520;--surface2:#171d2e;--border:#1e2740;--accent:#00d4a8;--accent2:#f5a623;--red:#ff4d6a;--green:#00d4a8;--text:#e2e8f0;--muted:#64748b;--mono:'IBM Plex Mono',monospace;--sans:'Heebo',sans-serif;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;direction:rtl;}
+  header{border-bottom:1px solid var(--border);padding:16px 32px;display:flex;align-items:center;gap:14px;background:var(--surface);}
+  .logo-mark{width:36px;height:36px;background:var(--accent);clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#000;}
+  .logo-text{font-size:18px;font-weight:700;}
+  .logo-sub{font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:2px;margin-top:2px;}
+  .header-badge{margin-right:auto;background:rgba(0,212,168,0.1);border:1px solid rgba(0,212,168,0.3);color:var(--accent);font-family:var(--mono);font-size:10px;padding:4px 10px;border-radius:20px;letter-spacing:1px;}
+  .tabs{display:flex;border-bottom:1px solid var(--border);background:var(--surface);padding:0 32px;}
+  .tab{padding:14px 24px;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s;margin-bottom:-1px;}
+  .tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+  .tab-content{display:none;}
+  .tab-content.active{display:block;}
+  main{max-width:1100px;margin:0 auto;padding:32px 24px;display:grid;grid-template-columns:1fr 400px;gap:24px;}
+  @media(max-width:800px){main{grid-template-columns:1fr;}}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+  .card-header{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;letter-spacing:0.5px;color:var(--muted);text-transform:uppercase;}
+  .card-header .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);}
+  .card-body{padding:20px;}
+  #drop-zone{border:2px dashed var(--border);border-radius:10px;padding:40px 20px;text-align:center;cursor:pointer;transition:border-color 0.2s,background 0.2s;position:relative;}
+  #drop-zone:hover,#drop-zone.drag-over{border-color:var(--accent);background:rgba(0,212,168,0.04);}
+  #drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+  .upload-icon{font-size:40px;margin-bottom:12px;}.upload-title{font-size:15px;font-weight:600;margin-bottom:6px;}.upload-sub{font-size:13px;color:var(--muted);}
+  .upload-hint{margin-top:16px;font-family:var(--mono);font-size:11px;color:var(--accent);background:rgba(0,212,168,0.07);padding:8px 14px;border-radius:6px;display:inline-block;}
+  #preview-wrap{display:none;margin-top:16px;}
+  #preview-wrap img{width:100%;border-radius:8px;border:1px solid var(--border);}
+  .field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
+  .field{display:flex;flex-direction:column;gap:6px;}
+  .field label{font-size:11px;color:var(--muted);font-family:var(--mono);letter-spacing:0.5px;}
+  .field input,.field select{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-family:var(--sans);font-size:14px;outline:none;transition:border-color 0.2s;direction:rtl;}
+  .field input:focus,.field select:focus{border-color:var(--accent);}
+  .field select option{background:var(--surface2);}
+  .btn-primary{width:100%;padding:13px;background:var(--accent);color:#000;font-family:var(--sans);font-size:15px;font-weight:700;border:none;border-radius:10px;cursor:pointer;margin-top:16px;transition:opacity 0.2s;display:flex;align-items:center;justify-content:center;gap:8px;}
+  .btn-primary:hover:not(:disabled){opacity:0.9;}.btn-primary:disabled{opacity:0.5;cursor:not-allowed;}
+  .signal-box{padding:18px;border-radius:12px;text-align:center;border:1px solid;}
+  .signal-box.buy{background:rgba(0,212,168,0.08);border-color:rgba(0,212,168,0.3);}
+  .signal-box.sell{background:rgba(255,77,106,0.08);border-color:rgba(255,77,106,0.3);}
+  .signal-box.wait{background:rgba(245,166,35,0.08);border-color:rgba(245,166,35,0.3);}
+  .signal-label{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:2px;margin-bottom:6px;}
+  .signal-value{font-size:26px;font-weight:700;}
+  .signal-box.buy .signal-value{color:var(--green);}.signal-box.sell .signal-value{color:var(--red);}.signal-box.wait .signal-value{color:var(--accent2);}
+  .signal-conf{font-size:12px;color:var(--muted);margin-top:4px;}
+  .targets-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .target-item{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;}
+  .target-item.entry{border-right:3px solid var(--accent2);}.target-item.tp{border-right:3px solid var(--green);}.target-item.sl{border-right:3px solid var(--red);}.target-item.rr{border-right:3px solid #8b5cf6;}
+  .target-label{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:5px;}
+  .target-value{font-family:var(--mono);font-size:17px;font-weight:600;}
+  .target-item.entry .target-value{color:var(--accent2);}.target-item.tp .target-value{color:var(--green);}.target-item.sl .target-value{color:var(--red);}.target-item.rr .target-value{color:#8b5cf6;}
+  .analysis-section{margin-bottom:14px;}
+  .analysis-title{font-family:var(--mono);font-size:11px;color:var(--accent);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border);}
+  .analysis-text{font-size:13px;line-height:1.7;color:var(--text);}
+  .indicators{display:flex;flex-wrap:wrap;gap:8px;}
+  .indicator-chip{font-family:var(--mono);font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);}
+  .indicator-chip.bull{border-color:rgba(0,212,168,0.4);color:var(--green);}.indicator-chip.bear{border-color:rgba(255,77,106,0.4);color:var(--red);}.indicator-chip.neutral{border-color:rgba(245,166,35,0.4);color:var(--accent2);}
+  #empty-state{padding:50px 20px;text-align:center;color:var(--muted);}
+  .empty-icon{font-size:44px;margin-bottom:14px;opacity:0.4;}
+  #loading-state{display:none;padding:50px 20px;text-align:center;}
+  .spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 14px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .loading-text{font-family:var(--mono);font-size:12px;color:var(--accent);letter-spacing:1px;}
+  .error-box{background:rgba(255,77,106,0.08);border:1px solid rgba(255,77,106,0.3);border-radius:10px;padding:14px;font-size:13px;color:var(--red);}
+  .disclaimer{font-size:11px;color:var(--muted);text-align:center;padding:14px;border-top:1px solid var(--border);line-height:1.6;}
+  .source-links{margin-top:14px;padding:12px;background:var(--surface2);border-radius:10px;border:1px solid var(--border);}
+  .source-links-title{font-size:11px;color:var(--muted);margin-bottom:8px;font-family:var(--mono);}
+  .source-links a{display:inline-block;margin:3px 5px 3px 0;padding:4px 10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--accent);text-decoration:none;font-size:12px;}
+  .source-links a:hover{border-color:var(--accent);}
+  /* Scanner */
+  .scanner-wrap{max-width:1300px;margin:0 auto;padding:32px 24px;}
+  .scanner-top{display:flex;align-items:center;gap:16px;margin-bottom:16px;flex-wrap:wrap;}
+  .scanner-top h2{font-size:18px;font-weight:700;flex:1;}
+  .filter-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .filter-chip{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 14px;font-size:12px;color:var(--muted);cursor:pointer;transition:all 0.15s;font-family:var(--mono);}
+  .filter-chip.active{background:rgba(0,212,168,0.1);border-color:var(--accent);color:var(--accent);}
+  .scan-btn{background:var(--accent);color:#000;border:none;border-radius:10px;padding:11px 28px;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--sans);transition:opacity 0.2s;white-space:nowrap;}
+  .scan-btn:hover:not(:disabled){opacity:0.85;}.scan-btn:disabled{opacity:0.5;cursor:not-allowed;}
+  .alert-bar{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 18px;margin-bottom:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  .alert-bar label{font-size:12px;color:var(--muted);font-family:var(--mono);}
+  .toggle-wrap{display:flex;align-items:center;gap:8px;cursor:pointer;}
+  .toggle{width:38px;height:20px;background:var(--border);border-radius:10px;position:relative;transition:background 0.2s;flex-shrink:0;}
+  .toggle.on{background:var(--accent);}
+  .toggle::after{content:'';width:16px;height:16px;background:#fff;border-radius:50%;position:absolute;top:2px;left:2px;transition:left 0.2s;}
+  .toggle.on::after{left:20px;}
+  .alert-input{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:4px 10px;color:var(--text);font-family:var(--mono);font-size:13px;width:56px;text-align:center;outline:none;}
+  .alert-msg{font-size:11px;font-family:var(--mono);margin-right:auto;color:var(--muted);}
+  .alert-msg.ok{color:var(--green);}
+  .history-bar{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 18px;margin-bottom:16px;}
+  .history-title{font-size:11px;color:var(--muted);font-family:var(--mono);letter-spacing:0.8px;margin-bottom:8px;}
+  .history-chips{display:flex;gap:8px;flex-wrap:wrap;}
+  .h-chip{font-size:11px;font-family:var(--mono);padding:4px 12px;border-radius:20px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);cursor:pointer;}
+  .h-chip:hover{border-color:var(--accent);color:var(--accent);}
+  .scan-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;}
+  .stat-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center;}
+  .stat-val{font-family:var(--mono);font-size:22px;font-weight:600;margin-bottom:4px;}
+  .stat-lbl{font-size:11px;color:var(--muted);}
+  .stat-box.green .stat-val{color:var(--green);}.stat-box.red .stat-val{color:var(--red);}.stat-box.yellow .stat-val{color:var(--accent2);}
+  .results-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;overflow-x:auto;}
+  .results-table-wrap table{width:100%;border-collapse:collapse;min-width:1050px;}
+  .results-table-wrap th{padding:10px 12px;font-size:10px;font-family:var(--mono);color:var(--muted);letter-spacing:0.8px;text-align:right;border-bottom:1px solid var(--border);background:var(--surface2);white-space:nowrap;}
+  .results-table-wrap td{padding:9px 12px;font-size:13px;border-bottom:1px solid rgba(30,39,64,0.5);vertical-align:middle;}
+  .results-table-wrap tr:last-child td{border-bottom:none;}
+  .results-table-wrap tr:hover td{background:rgba(0,212,168,0.03);}
+  .ticker-cell{font-family:var(--mono);font-weight:600;font-size:14px;color:var(--accent);}
+  .score-bar-wrap{display:flex;align-items:center;gap:8px;}
+  .score-bar{height:6px;border-radius:3px;background:var(--border);flex:1;min-width:40px;overflow:hidden;}
+  .score-fill{height:100%;border-radius:3px;}
+  .score-num{font-family:var(--mono);font-size:12px;min-width:24px;}
+  .rsi-val{font-family:var(--mono);font-size:13px;}
+  .rsi-val.oversold{color:var(--green);}.rsi-val.overbought{color:var(--red);}.rsi-val.neutral-r{color:var(--muted);}
+  .signal-pill{font-size:11px;padding:3px 10px;border-radius:20px;font-family:var(--mono);font-weight:600;}
+  .signal-pill.buy{background:rgba(0,212,168,0.15);color:var(--green);border:1px solid rgba(0,212,168,0.3);}
+  .signal-pill.sell{background:rgba(255,77,106,0.15);color:var(--red);border:1px solid rgba(255,77,106,0.3);}
+  .signal-pill.wait{background:rgba(245,166,35,0.15);color:var(--accent2);border:1px solid rgba(245,166,35,0.3);}
+  .p-entry{font-family:var(--mono);font-size:12px;color:var(--accent2);font-weight:600;}
+  .p-target{font-family:var(--mono);font-size:12px;color:var(--green);font-weight:600;}
+  .p-sl{font-family:var(--mono);font-size:12px;color:var(--red);font-weight:600;}
+  .rr-pill{font-family:var(--mono);font-size:11px;color:#8b5cf6;background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.3);padding:2px 8px;border-radius:10px;white-space:nowrap;}
+  .chart-link{color:var(--accent);text-decoration:none;font-size:12px;font-family:var(--mono);}
+  .chart-link:hover{text-decoration:underline;}
+  .pct-pos{color:var(--green);font-family:var(--mono);}.pct-neg{color:var(--red);font-family:var(--mono);}
+  .prev-score{font-size:10px;color:var(--muted);font-family:var(--mono);}
+  .score-up{color:var(--green);}
+  .hot-badge{font-size:10px;font-family:var(--mono);padding:1px 6px;border-radius:8px;background:rgba(0,212,168,0.15);color:var(--green);border:1px solid rgba(0,212,168,0.3);margin-left:4px;}
+  .scan-empty{padding:60px 20px;text-align:center;color:var(--muted);}
+  .scan-loading{padding:60px 20px;text-align:center;display:none;}
+  .scan-loading .spinner{margin:0 auto 16px;}
+  /* Trading Desk */
+  .td-wrap{max-width:1300px;margin:0 auto;padding:32px 24px;}
+  .td-stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+  .td-stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center;}
+  .td-stat-label{font-size:11px;color:var(--muted);font-family:var(--mono);letter-spacing:0.5px;margin-bottom:6px;}
+  .td-stat-value{font-family:var(--mono);font-size:22px;font-weight:700;}
+  .td-setup-bar{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  .td-setup-bar label{font-size:12px;color:var(--muted);font-family:var(--mono);}
+  .td-input{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 12px;color:var(--text);font-family:var(--mono);font-size:13px;width:120px;outline:none;}
+  .td-section-title{font-size:14px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+  .td-order-form{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:20px;}
+  .td-order-row{display:grid;grid-template-columns:1.2fr 0.8fr 0.8fr 0.8fr 0.8fr 1fr 1fr;gap:10px;align-items:end;}
+  .td-order-row .field label{font-size:10px;}
+  .buy-btn{background:var(--green);color:#000;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;font-family:var(--sans);font-size:13px;transition:opacity 0.2s;}
+  .buy-btn:hover{opacity:0.85;}
+  .sell-btn{background:var(--red);color:#fff;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;font-family:var(--sans);font-size:13px;transition:opacity 0.2s;}
+  .sell-btn:hover{opacity:0.85;}
+  .td-positions-table{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;overflow-x:auto;margin-bottom:20px;}
+  .td-positions-table table{width:100%;border-collapse:collapse;min-width:900px;}
+  .td-positions-table th{padding:10px 12px;font-size:10px;font-family:var(--mono);color:var(--muted);letter-spacing:0.8px;text-align:right;border-bottom:1px solid var(--border);background:var(--surface2);white-space:nowrap;}
+  .td-positions-table td{padding:10px 12px;font-size:13px;border-bottom:1px solid rgba(30,39,64,0.5);vertical-align:middle;}
+  .td-positions-table tr:last-child td{border-bottom:none;}
+  .close-pos-btn{background:var(--surface2);border:1px solid var(--red);color:var(--red);border-radius:6px;padding:5px 12px;font-size:11px;cursor:pointer;font-family:var(--sans);}
+  .close-pos-btn:hover{background:var(--red);color:#fff;}
+  .order-status-pill{font-size:10px;padding:3px 9px;border-radius:12px;font-family:var(--mono);font-weight:600;}
+  .order-status-pill.open{background:rgba(245,166,35,0.15);color:var(--accent2);border:1px solid rgba(245,166,35,0.3);}
+  .order-status-pill.closed{background:rgba(100,116,139,0.15);color:var(--muted);border:1px solid rgba(100,116,139,0.3);}
+  .order-status-pill.filled{background:rgba(0,212,168,0.15);color:var(--green);border:1px solid rgba(0,212,168,0.3);}
+  .order-status-pill.stopped{background:rgba(255,77,106,0.15);color:var(--red);border:1px solid rgba(255,77,106,0.3);}
+  .td-empty-state{padding:40px 20px;text-align:center;color:var(--muted);font-size:13px;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo-mark">TV</div>
+  <div><div class="logo-text">TradeVision AI</div><div class="logo-sub">POWERED BY CLAUDE</div></div>
+  <div class="header-badge">BETA v6.1</div>
+</header>
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('analyzer')">📊 ניתוח גרף</div>
+  <div class="tab" onclick="switchTab('scanner')">🔍 סורק נאסד"ק</div>
+  <div class="tab" onclick="switchTab('ta125')">🇮🇱 סורק ת"א 125</div>
+  <div class="tab" onclick="switchTab('portfolio')">💼 בנאי תיק AI</div>
+  <div class="tab" onclick="switchTab('trading')">💹 דסק מסחר</div>
+</div>
+
+<!-- TAB 1 -->
+<div id="tab-analyzer" class="tab-content active">
+<main>
+  <div style="display:flex;flex-direction:column;gap:20px;">
+    <div class="card">
+      <div class="card-header"><span class="dot"></span>העלאת גרף</div>
+      <div class="card-body">
+        <div id="drop-zone">
+          <input type="file" id="file-input" accept="image/*">
+          <div class="upload-icon">📊</div><div class="upload-title">גרור גרף לכאן או לחץ לבחירה</div>
+          <div class="upload-sub">תמיכה ב-PNG, JPG, WEBP</div>
+          <div class="upload-hint">Yahoo Finance · TradingView · מיטב · כל ברוקר</div>
+        </div>
+        <div id="preview-wrap">
+          <img id="preview-img" src="" alt="גרף">
+          <div style="margin-top:12px;"><button onclick="clearImage()" style="background:rgba(255,77,106,0.1);border:1px solid rgba(255,77,106,0.3);color:var(--red);padding:7px 14px;border-radius:8px;cursor:pointer;font-family:var(--sans);font-size:13px;">✕ מחק גרף</button></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="dot"></span>פרטי ניתוח</div>
+      <div class="card-body">
+        <div class="field-row">
+          <div class="field"><label>שם / סימול מניה</label><input type="text" id="stock-name" placeholder="AAPL / בנק הפועלים"></div>
+          <div class="field"><label>טווח הגרף</label><select id="timeframe"><option value="daily">יומי</option><option value="weekly" selected>שבועי</option><option value="monthly">חודשי</option><option value="intraday">תוך-יומי</option></select></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>מחיר נוכחי (אופציונלי)</label><input type="text" id="current-price" placeholder="₪ / $"></div>
+          <div class="field"><label>סגנון מסחר</label><select id="trade-style"><option value="swing">סווינג</option><option value="position">פוזיציה</option><option value="scalp">סקאלפ</option></select></div>
+        </div>
+        <div class="field"><label>הקשר / הערות (אופציונלי)</label><input type="text" id="context" placeholder="לאחר דוח רווחים, קרוב לתמיכה..."></div>
+        <button class="btn-primary" id="analyze-btn" onclick="analyze()" disabled>⚡ נתח גרף</button>
+      </div>
+    </div>
+    <div class="source-links">
+      <div class="source-links-title">📎 אתרים מומלצים</div>
+      <a href="https://finance.yahoo.com" target="_blank">Yahoo Finance</a>
+      <a href="https://www.tradingview.com" target="_blank">TradingView</a>
+      <a href="https://www.tase.co.il" target="_blank">בורסת ת"א</a>
+      <a href="https://www.investing.com" target="_blank">Investing.com</a>
+    </div>
+  </div>
+  <div id="results-col">
+    <div class="card" style="flex:1">
+      <div class="card-header"><span class="dot"></span>ניתוח AI</div>
+      <div id="empty-state"><div class="empty-icon">🎯</div><p style="font-size:13px;">העלה גרף ולחץ נתח גרף</p></div>
+      <div id="loading-state"><div class="spinner"></div><div class="loading-text">מנתח את הגרף...</div></div>
+      <div id="results-content" style="display:none;padding:20px;flex-direction:column;gap:14px;"></div>
+    </div>
+    <div class="disclaimer">⚠️ הניתוח לצרכי מידע בלבד ואינו ייעוץ השקעות.</div>
+  </div>
+</main>
+</div>
+
+<!-- TAB 2 -->
+<div id="tab-scanner" class="tab-content">
+<div class="scanner-wrap">
+  <div class="scanner-top">
+    <h2>🔍 סורק הזדמנויות – S&P 500 + NASDAQ 100 (ארה"ב)</h2>
+    <div class="filter-row">
+      <span style="font-size:12px;color:var(--muted);">סנן:</span>
+      <div class="filter-chip active" id="fc-buy" onclick="toggleFilter('buy')">🟢 קנייה</div>
+      <div class="filter-chip active" id="fc-wait" onclick="toggleFilter('wait')">🟡 המתנה</div>
+      <div class="filter-chip" id="fc-sell" onclick="toggleFilter('sell')">🔴 מכירה</div>
+      <button class="scan-btn" id="scan-btn" onclick="runScan()">⚡ סרוק עכשיו</button>
+      <button class="scan-btn" style="background:var(--surface2);color:var(--accent);border:1px solid var(--accent);" onclick="showDebugLog()">🐛 הצג שגיאות</button>
+    </div>
+  </div>
+
+  <!-- Alert bar -->
+  <div class="alert-bar">
+    <label>🔔 התראות מייל:</label>
+    <div class="toggle-wrap" onclick="toggleAlerts()">
+      <div class="toggle" id="alert-tog"></div>
+      <span style="font-size:13px" id="alert-lbl">כבוי</span>
+    </div>
+    <label>שלח כשציון עולה מעל</label>
+    <input type="number" class="alert-input" id="alert-thr" value="80" min="50" max="99">
+    <label>| alonsha8@gmail.com</label>
+    <span class="alert-msg" id="alert-msg">ממתין...</span>
+  </div>
+
+  <!-- History -->
+  <div class="history-bar">
+    <div class="history-title">📋 היסטוריית סריקות (לחץ לטעינה)</div>
+    <div class="history-chips" id="hist-chips"><span style="font-size:12px;color:var(--muted);">אין היסטוריה עדיין</span></div>
+  </div>
+
+  <div class="scan-stats" id="scan-stats" style="display:none;">
+    <div class="stat-box green"><div class="stat-val" id="stat-buy">0</div><div class="stat-lbl">הזדמנויות קנייה</div></div>
+    <div class="stat-box yellow"><div class="stat-val" id="stat-wait">0</div><div class="stat-lbl">המתנה</div></div>
+    <div class="stat-box red"><div class="stat-val" id="stat-sell">0</div><div class="stat-lbl">מכירה / שורט</div></div>
+    <div class="stat-box"><div class="stat-val" id="stat-total" style="color:var(--accent)">0</div><div class="stat-lbl">סרוקו סה"כ</div></div>
+  </div>
+
+  <div class="scan-loading" id="scan-loading">
+    <div class="spinner"></div>
+    <div class="loading-text">סורק מניות...</div>
+    <div class="scan-progress" id="scan-progress">מאתחל...</div>
+  </div>
+
+  <div class="scan-empty" id="scan-empty">
+    <div style="font-size:44px;margin-bottom:14px;opacity:0.4;">🔍</div>
+    <p style="font-size:13px;line-height:1.7;">לחץ "סרוק עכשיו" כדי לאתר הזדמנויות מסחר<br>כולל מחיר כניסה, יעד ו-Stop Loss לכל מניה</p>
+  </div>
+
+  <div class="results-table-wrap" id="scan-results" style="display:none;">
+    <table>
+      <thead><tr>
+        <th>סימול</th><th>מחיר</th><th>שינוי %</th><th>RSI</th>
+        <th>P/E</th><th>מ-52ש"נ</th><th>כוח קונים</th>
+        <th>ציון</th><th>ציון קודם</th><th>סיגנל</th>
+        <th style="color:var(--accent2)">כניסה 💰</th>
+        <th style="color:var(--green)">יעד 🎯</th>
+        <th style="color:var(--red)">Stop Loss 🛑</th>
+        <th style="color:#8b5cf6">R/R</th>
+        <th>גרף</th>
+      </tr></thead>
+      <tbody id="scan-tbody"></tbody>
+    </table>
+  </div>
+  <div style="margin-top:16px;" class="disclaimer">⚠️ נתונים מ-Yahoo Finance. מחירי כניסה/יעד הם הערכה טכנית בלבד – אינם ייעוץ השקעות. "כוח קונים" מבוסס על ניתוח ווליום-מחיר (OBV) ומשקף מומנטום, לא נתון פונדמנטלי.</div>
+</div>
+</div>
+
+<!-- TAB 3: TA-125 -->
+<div id="tab-ta125" class="tab-content">
+<div class="scanner-wrap">
+  <div class="scanner-top">
+    <h2>🇮🇱 סורק הזדמנויות – בורסת תל אביב (TA-125)</h2>
+    <div class="filter-row">
+      <span style="font-size:12px;color:var(--muted);">סנן:</span>
+      <div class="filter-chip active" id="ta-fc-buy" onclick="taToggleFilter('buy')">🟢 קנייה</div>
+      <div class="filter-chip active" id="ta-fc-wait" onclick="taToggleFilter('wait')">🟡 המתנה</div>
+      <div class="filter-chip" id="ta-fc-sell" onclick="taToggleFilter('sell')">🔴 מכירה</div>
+      <button class="scan-btn" id="ta-scan-btn" onclick="runTaScan()">⚡ סרוק עכשיו</button>
+    </div>
+  </div>
+
+  <div class="scan-stats" id="ta-scan-stats" style="display:none;">
+    <div class="stat-box green"><div class="stat-val" id="ta-stat-buy">0</div><div class="stat-lbl">הזדמנויות קנייה</div></div>
+    <div class="stat-box yellow"><div class="stat-val" id="ta-stat-wait">0</div><div class="stat-lbl">המתנה</div></div>
+    <div class="stat-box red"><div class="stat-val" id="ta-stat-sell">0</div><div class="stat-lbl">מכירה / שורט</div></div>
+    <div class="stat-box"><div class="stat-val" id="ta-stat-total" style="color:var(--accent)">0</div><div class="stat-lbl">סרוקו סה"כ</div></div>
+  </div>
+
+  <div class="scan-loading" id="ta-scan-loading">
+    <div class="spinner"></div>
+    <div class="loading-text">סורק מניות ת"א...</div>
+    <div class="scan-progress" id="ta-scan-progress">מאתחל...</div>
+  </div>
+
+  <div class="scan-empty" id="ta-scan-empty">
+    <div style="font-size:44px;margin-bottom:14px;opacity:0.4;">🇮🇱</div>
+    <p style="font-size:13px;line-height:1.7;">לחץ "סרוק עכשיו" כדי לאתר הזדמנויות מסחר<br>במניות הבורסה הישראלית – כולל מחיר כניסה, יעד ו-Stop Loss</p>
+  </div>
+
+  <div class="results-table-wrap" id="ta-scan-results" style="display:none;">
+    <table>
+      <thead><tr>
+        <th>סימול</th><th>מחיר (₪)</th><th>שינוי %</th><th>RSI</th>
+        <th>מ-52ש"נ</th><th>כוח קונים</th>
+        <th>ציון</th><th>סיגנל</th>
+        <th style="color:var(--accent2)">כניסה 💰</th>
+        <th style="color:var(--green)">יעד 🎯</th>
+        <th style="color:var(--red)">Stop Loss 🛑</th>
+        <th style="color:#8b5cf6">R/R</th>
+        <th>גרף</th>
+      </tr></thead>
+      <tbody id="ta-scan-tbody"></tbody>
+    </table>
+  </div>
+  <div style="margin-top:16px;" class="disclaimer">⚠️ נתונים מ-Yahoo Finance (סימולי .TA). מחירי כניסה/יעד הם הערכה טכנית בלבד – אינם ייעוץ השקעות. P/E לא מוצג למניות ת"א בגלל מגבלות נתונים. "כוח קונים" מבוסס ניתוח ווליום-מחיר.</div>
+</div>
+</div>
+
+<!-- TAB 4: PORTFOLIO BUILDER -->
+<div id="tab-portfolio" class="tab-content">
+<div class="scanner-wrap" style="max-width:1100px;">
+  <div class="scanner-top">
+    <h2>💼 בנאי תיק השקעות מבוסס AI</h2>
+  </div>
+
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-header"><span class="dot"></span>הגדרות התיק</div>
+    <div class="card-body">
+      <div class="field-row">
+        <div class="field"><label>סכום להשקעה</label><input type="text" id="pf-amount" placeholder="₪ / $ לדוגמה: 50000"></div>
+        <div class="field"><label>מטבע</label><select id="pf-currency"><option value="ILS">שקל (₪)</option><option value="USD">דולר ($)</option></select></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>אופק השקעה</label><select id="pf-horizon"><option value="long">ארוך טווח (5-10 שנים)</option><option value="medium" selected>בינוני (1-3 שנים)</option><option value="short">קצר (חודשים)</option></select></div>
+        <div class="field"><label>רמת סיכון</label><select id="pf-risk"><option value="low">סולידי – שמירה על הקרן</option><option value="medium" selected>מאוזן</option><option value="high">אגרסיבי – צמיחה</option></select></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>שוק מועדף</label><select id="pf-market"><option value="both" selected>פיזור בין ארה"ב + ת"א</option><option value="us">ארה"ב בלבד</option><option value="il">ת"א בלבד</option></select></div>
+        <div class="field"><label>סגנון תיק</label><select id="pf-style"><option value="balanced" selected>פיזור מקסימלי (גיוון)</option><option value="concentrated">תיק ממוקד (פחות שמות, יותר ביטחון)</option></select></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>סוג נכסים</label><select id="pf-asset-type"><option value="any" selected>מניות + ETF / תעודות סל</option><option value="stocks">מניות בודדות בלבד (ללא ETF)</option></select></div>
+        <div class="field"><label>אופק מעקב (לתיוק)</label><select id="pf-track-period"><option value="1m">חודש</option><option value="3m" selected>3 חודשים</option><option value="6m">6 חודשים</option><option value="1y">שנה</option></select></div>
+      </div>
+      <div class="field"><label>הערות נוספות (אופציונלי)</label><input type="text" id="pf-notes" placeholder="לדוגמה: להעדיף דיבידנדים / להימנע מטכנולוגיה / וכו'"></div>
+      <button class="btn-primary" onclick="buildPortfolio()" id="pf-build-btn">🧠 בנה לי תיק מומלץ</button>
+    </div>
+  </div>
+
+  <!-- Saved portfolios bar -->
+  <div class="history-bar">
+    <div class="history-title">📁 תיקים שמורים (לחץ לבדיקת ביצועים)</div>
+    <div class="history-chips" id="pf-saved-list"><span style="font-size:12px;color:var(--muted);">אין תיקים שמורים עדיין</span></div>
+  </div>
+
+  <div id="pf-empty" class="scan-empty">
+    <div style="font-size:44px;margin-bottom:14px;opacity:0.4;">💼</div>
+    <p style="font-size:13px;line-height:1.7;">מלא את ההגדרות ולחץ "בנה לי תיק מומלץ"<br>תקבל הרכב תיק מלא עם הסבר ההיגיון לכל החזקה</p>
+  </div>
+
+  <div id="pf-loading" class="scan-loading">
+    <div class="spinner"></div>
+    <div class="loading-text">בונה תיק מותאם אישית...</div>
+  </div>
+
+  <div id="pf-results" style="display:none;"></div>
+
+  <!-- Performance tracking results -->
+  <div id="pf-perf-loading" class="scan-loading">
+    <div class="spinner"></div>
+    <div class="loading-text">בודק ביצועים בפועל...</div>
+  </div>
+  <div id="pf-perf-results" style="display:none;"></div>
+
+  <div style="margin-top:16px;" class="disclaimer">⚠️ זוהי הצעת AI לצרכי מידע והשראה בלבד, ואינה ייעוץ השקעות מורשה. כל החזקה דורשת בדיקה עצמאית ואישור שלך לפני ביצוע.</div>
+</div>
+</div>
+
+<!-- TAB 5: TRADING DESK -->
+<div id="tab-trading" class="tab-content">
+<div class="td-wrap">
+
+  <!-- Account setup (shown only if no account exists yet) -->
+  <div id="td-setup-bar" class="td-setup-bar" style="display:none;">
+    <label>💰 הקצב חשבון מסחר מדומה:</label>
+    <input type="text" class="td-input" id="td-initial-balance" placeholder="לדוגמה: 100000">
+    <label>מטבע:</label>
+    <select class="td-input" id="td-currency"><option value="ILS">₪ שקל</option><option value="USD">$ דולר</option></select>
+    <button class="scan-btn" onclick="initTradingAccount()">🚀 התחל מסחר מדומה</button>
+  </div>
+
+  <!-- Account stats -->
+  <div id="td-stats-row" class="td-stats-row" style="display:none;">
+    <div class="td-stat"><div class="td-stat-label">💵 יתרת מזומן</div><div class="td-stat-value" id="td-cash-balance" style="color:var(--accent)">—</div></div>
+    <div class="td-stat"><div class="td-stat-label">📊 שווי פוזיציות</div><div class="td-stat-value" id="td-positions-value" style="color:var(--text)">—</div></div>
+    <div class="td-stat"><div class="td-stat-label">💰 שווי תיק כולל</div><div class="td-stat-value" id="td-total-value" style="color:var(--accent2)">—</div></div>
+    <div class="td-stat"><div class="td-stat-label">📈 P&L כולל</div><div class="td-stat-value" id="td-total-pnl">—</div></div>
+  </div>
+
+  <!-- Order entry form -->
+  <div id="td-order-form" class="td-order-form" style="display:none;">
+    <div class="td-section-title">📝 הזמנה חדשה</div>
+    <div class="td-order-row">
+      <div class="field"><label>סימול</label><input type="text" class="td-input" id="td-order-ticker" placeholder="AAPL / TEVA.TA" style="width:100%;"></div>
+      <div class="field"><label>כמות</label><input type="text" class="td-input" id="td-order-qty" placeholder="10" style="width:100%;"></div>
+      <div class="field"><label>מחיר נוכחי</label><input type="text" class="td-input" id="td-order-price-display" placeholder="—" style="width:100%;" readonly></div>
+      <div class="field"><label>Stop Loss (אופציונלי)</label><input type="text" class="td-input" id="td-order-sl" placeholder="—" style="width:100%;"></div>
+      <div class="field"><label>יעד (אופציונלי)</label><input type="text" class="td-input" id="td-order-tp" placeholder="—" style="width:100%;"></div>
+      <button class="buy-btn" onclick="placeOrder('BUY')">🟢 קנה</button>
+      <button class="sell-btn" onclick="placeOrder('SELL')">🔴 מכור (שורט)</button>
+    </div>
+    <div id="td-order-msg" style="margin-top:10px;font-size:12px;"></div>
+  </div>
+
+  <!-- Open positions -->
+  <div class="td-section-title" id="td-positions-title" style="display:none;">📊 פוזיציות פתוחות</div>
+  <div id="td-positions-table" class="td-positions-table" style="display:none;">
+    <table>
+      <thead><tr>
+        <th>סימול</th><th>כיוון</th><th>כמות</th><th>מחיר כניסה</th><th>מחיר נוכחי</th>
+        <th>שווי</th><th>P&L</th><th>Stop Loss</th><th>יעד</th><th>פעולה</th>
+      </tr></thead>
+      <tbody id="td-positions-tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- Order history -->
+  <div class="td-section-title" id="td-history-title" style="display:none;">📜 היסטוריית הזמנות</div>
+  <div id="td-history-table" class="td-positions-table" style="display:none;">
+    <table>
+      <thead><tr>
+        <th>תאריך</th><th>סימול</th><th>כיוון</th><th>כמות</th><th>מחיר</th><th>סטטוס</th><th>P&L סופי</th>
+      </tr></thead>
+      <tbody id="td-history-tbody"></tbody>
+    </table>
+  </div>
+
+  <div id="td-empty" class="td-empty-state" style="display:none;">
+    <div style="font-size:44px;margin-bottom:14px;opacity:0.4;">💹</div>
+    <p>עדיין אין הזמנות. מלא את טופס ההזמנה למעלה כדי לפתוח פוזיציה ראשונה.</p>
+  </div>
+
+  <div style="margin-top:16px;" class="disclaimer">⚠️ זהו דסק מסחר מדומה (Paper Trading) לצרכי תרגול ולמידה בלבד. אין כאן כסף אמיתי, אין חיבור לברוקר, ואין ביצוע עסקאות בפועל. כל הנתונים נשמרים בדפדפן זה בלבד.</div>
+  <div style="margin-top:8px;text-align:center;"><button onclick="resetTradingAccount()" style="background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;text-decoration:underline;">איפוס חשבון מסחר מדומה</button></div>
+</div>
+</div>
+
+<script>
+// EmailJS init
+emailjs.init('LkDpHo19XM92ZLmZm');
+
+// Tabs
+function switchTab(t){
+  ['analyzer','scanner','ta125','portfolio','trading'].forEach(function(n){document.getElementById('tab-'+n).classList.toggle('active',n===t);});
+  var order=['analyzer','scanner','ta125','portfolio','trading'];
+  document.querySelectorAll('.tab').forEach(function(el,i){el.classList.toggle('active',order[i]===t);});
+  if(t==='trading')renderTradingDesk();
+}
+
+// ── Analyzer ──
+var imageBase64=null,imageMimeType='image/jpeg';
+var dz=document.getElementById('drop-zone');
+dz.addEventListener('dragover',function(e){e.preventDefault();dz.classList.add('drag-over');});
+dz.addEventListener('dragleave',function(){dz.classList.remove('drag-over');});
+dz.addEventListener('drop',function(e){e.preventDefault();dz.classList.remove('drag-over');var f=e.dataTransfer.files[0];if(f&&f.type.startsWith('image/'))handleFile(f);});
+document.getElementById('file-input').addEventListener('change',function(e){if(e.target.files[0])handleFile(e.target.files[0]);});
+function handleFile(file){
+  imageMimeType=file.type||'image/jpeg';
+  var r=new FileReader();
+  r.onload=function(e){
+    var d=e.target.result;imageBase64=d.split(',')[1];
+    document.getElementById('preview-img').src=d;
+    document.getElementById('preview-wrap').style.display='block';
+    dz.querySelectorAll('.upload-icon,.upload-title,.upload-sub,.upload-hint').forEach(function(el){el.style.display='none';});
+    document.getElementById('analyze-btn').disabled=false;
+  };r.readAsDataURL(file);
+}
+function clearImage(){
+  imageBase64=null;document.getElementById('preview-wrap').style.display='none';document.getElementById('file-input').value='';
+  dz.querySelectorAll('.upload-icon,.upload-title,.upload-sub,.upload-hint').forEach(function(el){el.style.display='';});
+  document.getElementById('analyze-btn').disabled=true;document.getElementById('empty-state').style.display='block';document.getElementById('results-content').style.display='none';
+}
+function analyze(){
+  if(!imageBase64)return;
+  var sn=document.getElementById('stock-name').value.trim()||'לא צוין';
+  var tf=document.getElementById('timeframe').value;
+  var cp=document.getElementById('current-price').value.trim();
+  var ts=document.getElementById('trade-style').value;
+  var ctx=document.getElementById('context').value.trim();
+  var tfM={daily:'יומי',weekly:'שבועי',monthly:'חודשי',intraday:'תוך-יומי'};
+  var tsM={swing:'סווינג',position:'פוזיציה',scalp:'סקאלפ'};
+  document.getElementById('empty-state').style.display='none';document.getElementById('loading-state').style.display='block';document.getElementById('results-content').style.display='none';
+  var prompt='אתה אנליסט טכני מוביל. נתח את גרף המניה הבא.\nמניה:'+sn+' טווח:'+tfM[tf]+' מחיר:'+(cp||'ראה בגרף')+' סגנון:'+tsM[ts]+' הקשר:'+(ctx||'ללא')+'\nהחזר JSON בלבד:\n{"signal":"BUY","confidence":"גבוהה","trend":"עולה","entry_price":"מחיר","entry_zone":"אזור","target_1":"מחיר","target_2":null,"stop_loss":"מחיר","risk_reward":"1:X","key_levels":"","patterns":"","indicators_analysis":"","summary":"3 משפטים","risks":"","signal_tags":[],"signal_types":[]}';
+  fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1000,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:imageMimeType,data:imageBase64}},{type:'text',text:prompt}]}]})})
+  .then(function(r){return r.json();}).then(function(data){
+    if(data.error)throw new Error(data.error.message||JSON.stringify(data.error));
+    var raw=(data.content||[]).map(function(b){return b.text||'';}).join('').trim();
+    var p=JSON.parse(raw.replace(/```json|```/g,'').trim());
+    renderResults(p);
+  }).catch(function(err){
+    document.getElementById('loading-state').style.display='none';
+    var rc=document.getElementById('results-content');rc.style.display='flex';rc.innerHTML='<div class="error-box">⚠️ '+err.message+'</div>';
+  });
+}
+function renderResults(d){
+  var sc=d.signal==='BUY'?'buy':d.signal==='SELL'?'sell':'wait';
+  var sh=d.signal==='BUY'?'🟢 קנייה':d.signal==='SELL'?'🔴 מכירה':'🟡 המתנה';
+  var ta=d.trend&&d.trend.indexOf('עול')>=0?'↗':d.trend&&d.trend.indexOf('יור')>=0?'↘':'→';
+  var tags=(d.signal_tags||[]).map(function(t,i){return '<span class="indicator-chip '+((d.signal_types||[])[i]||'neutral')+'">'+t+'</span>';}).join('');
+  document.getElementById('loading-state').style.display='none';
+  var rc=document.getElementById('results-content');rc.style.display='flex';
+  rc.innerHTML='<div class="signal-box '+sc+'"><div class="signal-label">סיגנל מסחר</div><div class="signal-value">'+sh+'</div><div class="signal-conf">ביטחון: '+(d.confidence||'—')+' · מגמה: '+ta+' '+(d.trend||'—')+'</div></div>'+
+    '<div class="targets-grid"><div class="target-item entry"><div class="target-label">נקודת כניסה</div><div class="target-value">'+(d.entry_price||'—')+'</div><div style="font-size:11px;color:var(--muted);margin-top:3px">'+(d.entry_zone||'')+'</div></div>'+
+    '<div class="target-item sl"><div class="target-label">Stop Loss</div><div class="target-value">'+(d.stop_loss||'—')+'</div></div>'+
+    '<div class="target-item tp"><div class="target-label">יעד 1</div><div class="target-value">'+(d.target_1||'—')+'</div></div>'+
+    '<div class="target-item rr"><div class="target-label">Risk / Reward</div><div class="target-value">'+(d.risk_reward||'—')+'</div></div></div>'+
+    (d.target_2?'<div class="target-item tp"><div class="target-label">יעד 2</div><div class="target-value">'+d.target_2+'</div></div>':'')+
+    '<div class="card" style="background:var(--surface2)"><div class="card-body">'+
+    (d.summary?'<div class="analysis-section"><div class="analysis-title">📋 סיכום</div><div class="analysis-text">'+d.summary+'</div></div>':'')+
+    (d.key_levels?'<div class="analysis-section"><div class="analysis-title">🎯 רמות מפתח</div><div class="analysis-text">'+d.key_levels+'</div></div>':'')+
+    (d.patterns?'<div class="analysis-section"><div class="analysis-title">📐 תבניות</div><div class="analysis-text">'+d.patterns+'</div></div>':'')+
+    (d.indicators_analysis?'<div class="analysis-section"><div class="analysis-title">📈 אינדיקטורים</div><div class="analysis-text">'+d.indicators_analysis+'</div></div>':'')+
+    (d.risks?'<div class="analysis-section" style="margin-bottom:0"><div class="analysis-title">⚠️ סיכונים</div><div class="analysis-text">'+d.risks+'</div></div>':'')+
+    '</div></div>'+(tags?'<div class="indicators">'+tags+'</div>':'');
+}
+
+// ── Scanner ──
+var TICKERS=['AAPL','MSFT','NVDA','AMZN','GOOGL','META','TSLA','AVGO','JPM','LLY','UNH','V','XOM','MA','JNJ','PG','HD','COST','MRK','ABBV','CVX','CRM','BAC','NFLX','AMD','KO','PEP','TMO','ORCL','ACN','MCD','CSCO','ABT','INTC','DIS','WMT','GE','CAT','GS','BA','AXP','HON','AMGN','GILD','ISRG','BKNG','SBUX','TXN','QCOM','LOW','SPGI','BLK','SYK','ADI','VRTX','REGN','PLD','CI','ETN','ZTS','LRCX','KLAC','AMAT','MU','SNPS','CDNS','PANW','FTNT','CRWD','NOW','ADBE','INTU','PYPL','UBER','ABNB','DDOG','NET','MDB','MRVL','TEAM','WDAY','ON','WFC','MS','C','SCHW','PGR','MMC','AON','CB','TRV','ALL','MET','AIG','PNC','USB','TFC','COF','BK','AMP','DFS','FITB','PFE','BMY','MDT','DHR','BSX','EW','ELV','HUM','CNC','MCK','HCA','CVS','ZBH','BDX','IDXX','IQV','A','MTD','WAT','RMD','PM','MO','CL','KMB','GIS','HSY','STZ','MNST','KDP','EL','CLX','SYY','KHC','HRL','TAP','CHD','K','CAG','LIN','APD','SHW','ECL','PPG','NUE','DOW','LYB','VMC','MLM','IFF','ALB','FMC','CTVA','EMN','CE','PKG','AVY','UPS','FDX','LMT','RTX','NOC','GD','UNP','CSX','NSC','EMR','ITW','PH','ROK','AME','CMI','XYL','DOV','PCAR','PWR','FAST','WM','RSG','VRSK','NEE','DUK','SO','D','AEP','EXC','SRE','XEL','ED','PEG','WEC','ES','AWK','ATO','SPG','PSA','EQIX','DLR','O'];
+var TA_TICKERS=['TEVA.TA','ICL.TA','NICE.TA','POLI.TA','LUMI.TA','HARL.TA','MZTF.TA','ESLT.TA','DSCT.TA','FIBI.TA','BEZQ.TA','PHOE.TA','MGDL.TA','ALHE.TA','OPCE.TA','PTNR.TA','CEL.TA','DLEKG.TA','TASE.TA','SPNS.TA','MLTM.TA','AZRG.TA','SAE.TA','ARYT.TA','ENRG.TA','ELAL.TA','RTEK.TA','CAST.TA','ORA.TA','SHLD.TA','KEN.TA','ILCO.TA','BIG.TA','AMOT.TA','GZT.TA','MISH.TA','SLAR.TA','NXTL.TA','MTRX.TA','ENLV.TA','SKBN.TA','VTLZ.TA','WIZ.TA','APOL.TA','EQTL.TA','MAXO.TA','PRTC.TA','GAON.TA','SNFL.TA','NWMD.TA','ENOG.TA','DRAL.TA','ASHO.TA','BLSR.TA','CMTR.TA','ALMS.TA','UNCT.TA','ELTR.TA','EPSL.TA','PRGR.TA','OBAS.TA','GADM.TA','PLAZ.TA','MTRN.TA','DANE.TA','MMHD.TA','EQTC.TA','RIT1.TA','SCOP.TA','PARZ.TA','GIBN.TA','TIMI.TA','LAPD.TA','ROBO.TA','ADGR.TA','ZNV.TA','SVDA.TA','KFSA.TA','ASTM.TA','IDIN.TA','TLSY.TA','MNRT.TA','TGAS.TA','NFTA.TA','MGRT.TA','MMI.TA','RLCO.TA','ORMT.TA','SVTL.TA','TRDY.TA','SHGR.TA','VRDS.TA','CRGS.TA','EFRT.TA','SRDR.TA','SNS.TA','MLSR.TA','ICCM.TA','ONE.TA','BONS.TA','LDER.TA','PCBT.TA','EVGN.TA','GVUR.TA','RMNF.TA','SKLN.TA','MVNE.TA','HOGN.TA','KMDA.TA','BOND.TA','TGEU.TA','AURA.TA','ELCRE.TA','PERI.TA','UNCM.TA','GLRS.TA','LRHO.TA'];
+var activeFilters={buy:true,wait:true,sell:false};
+var scanResults=[];
+var prevScores={};
+var history=[];
+var alertsOn=false;
+var alertsSent={};
+
+// Alert toggle
+function toggleAlerts(){
+  alertsOn=!alertsOn;
+  document.getElementById('alert-tog').classList.toggle('on',alertsOn);
+  document.getElementById('alert-lbl').textContent=alertsOn?'פעיל':'כבוי';
+}
+
+function toggleFilter(f){
+  activeFilters[f]=!activeFilters[f];
+  document.getElementById('fc-'+f).classList.toggle('active',activeFilters[f]);
+  if(scanResults.length>0)renderTable();
+}
+
+// ── EXACT same fetchQuote as v2.3 that worked ──
+function showDebugLog(){
+  var log=window.DEBUG_LOG||[];
+  if(log.length===0){alert('אין שגיאות רשומות. אולי עדיין לא רצה סריקה.');return;}
+  alert('נמצאו '+log.length+' שגיאות:\n\n'+log.slice(0,10).join('\n'));
+}
+
+function fetchQuote(ticker){
+  return fetch('/api/yahoo?ticker='+ticker)
+    .then(function(r){return r.json();})
+    .then(function(data){
+      var chart=data&&data.chart&&data.chart.result&&data.chart.result[0];
+      if(!chart){window.DEBUG_LOG=window.DEBUG_LOG||[];window.DEBUG_LOG.push(ticker+': no chart. data='+JSON.stringify(data).substring(0,200));return null;}
+      var q=chart.indicators&&chart.indicators.quote&&chart.indicators.quote[0];
+      if(!q){window.DEBUG_LOG=window.DEBUG_LOG||[];window.DEBUG_LOG.push(ticker+': no quote');return null;}
+      var rawClose=q.close||[];
+      var rawHigh=q.high||[];
+      var rawLow=q.low||[];
+      var rawVolume=q.volume||[];
+      var closes=[],highs=[],lows=[],volumes=[];
+      for(var ii=0;ii<rawClose.length;ii++){
+        if(rawClose[ii]!=null&&rawHigh[ii]!=null&&rawLow[ii]!=null){
+          closes.push(rawClose[ii]);highs.push(rawHigh[ii]);lows.push(rawLow[ii]);
+          volumes.push(rawVolume[ii]!=null?rawVolume[ii]:0);
+        }
+      }
+      var meta=chart.meta||{};
+      if(closes.length<15){window.DEBUG_LOG=window.DEBUG_LOG||[];window.DEBUG_LOG.push(ticker+': only '+closes.length+' closes');return null;}
+      var price=meta.regularMarketPrice||closes[closes.length-1];
+      var prevClose=meta.chartPreviousClose||closes[closes.length-2];
+      var pct=prevClose?((price-prevClose)/prevClose*100):0;
+      var rsi=calcRSI(closes,14);
+      var sma20=avgArr(closes.slice(-20));
+      var sma50=closes.length>=50?avgArr(closes.slice(-50)):null;
+      var atr=calcATR(highs,lows,closes,14);
+      var w52High=meta.fiftyTwoWeekHigh||null;
+      var w52Low=meta.fiftyTwoWeekLow||null;
+      var pctFrom52High=w52High?((price-w52High)/w52High*100):null;
+      var pctFrom52Low=w52Low?((price-w52Low)/w52Low*100):null;
+      var obvSignal=calcOBVTrend(closes,volumes);
+      var volRatio=calcVolRatio(volumes);
+      var score=calcScore(rsi,pct,price,sma20,sma50,closes,pctFrom52High,pctFrom52Low,obvSignal,volRatio);
+      var signal=score>=65?'BUY':score<=35?'SELL':'WAIT';
+      var levels=calcLevels(price,atr,signal);
+      var base={ticker:ticker,price:price,pct:pct,rsi:rsi,score:score,signal:signal,entry:levels.entry,target:levels.target,stopLoss:levels.sl,rr:levels.rr,pctFrom52High:pctFrom52High,pctFrom52Low:pctFrom52Low,obvSignal:obvSignal,volRatio:volRatio,pe:null,marketCap:null,divYield:null};
+
+      // Try to enrich with fundamentals (P/E, market cap) - best effort, fails gracefully
+      return fetch('/api/yahoo-quote?ticker='+ticker).then(function(r2){return r2.json();}).then(function(qd){
+        try{
+          var qr=qd.quoteResponse&&qd.quoteResponse.result&&qd.quoteResponse.result[0];
+          if(qr){
+            base.pe=qr.trailingPE||null;
+            base.marketCap=qr.marketCap||null;
+            base.divYield=qr.trailingAnnualDividendYield?(qr.trailingAnnualDividendYield*100):null;
+          }
+        }catch(e){}
+        return base;
+      }).catch(function(){return base;});
+    })
+    .catch(function(err){window.DEBUG_LOG=window.DEBUG_LOG||[];window.DEBUG_LOG.push(ticker+': EXCEPTION '+err.message);return null;});
+}
+
+// On-Balance Volume trend: positive = buying pressure, negative = selling pressure
+function calcOBVTrend(closes,volumes){
+  if(closes.length<10)return 0;
+  var obv=[0];
+  for(var i=1;i<closes.length;i++){
+    var prevObv=obv[i-1];
+    if(closes[i]>closes[i-1])obv.push(prevObv+volumes[i]);
+    else if(closes[i]<closes[i-1])obv.push(prevObv-volumes[i]);
+    else obv.push(prevObv);
+  }
+  var recent=obv.slice(-10);
+  var trend=recent[recent.length-1]-recent[0];
+  var avgVol=avgArr(volumes.slice(-10))||1;
+  // Normalize: positive means accumulation (buying), negative means distribution (selling)
+  return trend/(avgVol*10);
+}
+
+// Volume ratio: current volume vs recent average (>1.5 = unusual interest)
+function calcVolRatio(volumes){
+  if(volumes.length<10)return 1;
+  var recent=volumes[volumes.length-1];
+  var avg=avgArr(volumes.slice(-20,-1));
+  return avg>0?recent/avg:1;
+}
+
+function calcRSI(c,p){if(c.length<p+1)return 50;var g=0,l=0;for(var i=c.length-p;i<c.length;i++){var d=c[i]-c[i-1];if(d>0)g+=d;else l+=Math.abs(d);}var rs=(g/p)/((l/p)||0.001);return Math.round(100-(100/(1+rs)));}
+function avgArr(a){return a.reduce(function(x,y){return x+y;},0)/a.length;}
+function calcATR(h,l,c,p){if(h.length<p+1)return c[c.length-1]*0.02;var trs=[];for(var i=h.length-p;i<h.length;i++){trs.push(Math.max(h[i]-l[i],Math.abs(h[i]-c[i-1]),Math.abs(l[i]-c[i-1])));}return avgArr(trs);}
+function calcScore(rsi,pct,price,sma20,sma50,closes,pctFrom52High,pctFrom52Low,obvSignal,volRatio){
+  var s=50;
+  if(rsi<30)s+=25;else if(rsi<40)s+=15;else if(rsi<50)s+=5;else if(rsi>70)s-=20;else if(rsi>60)s-=10;
+  if(pct<-3)s+=10;else if(pct<-1.5)s+=5;else if(pct>3)s-=10;
+  if(sma20&&price<sma20*1.02&&price>sma20*0.95)s+=10;
+  if(sma50&&price>sma50)s+=5;else if(sma50)s-=5;
+  var rec=closes.slice(-5);if(rec[rec.length-1]-rec[0]<0&&rsi<45)s+=8;
+  // 52-week positioning: near low with good RSI = opportunity; near high = caution
+  if(pctFrom52Low!=null&&pctFrom52Low<15&&rsi<55)s+=8;
+  if(pctFrom52High!=null&&pctFrom52High>-3)s-=8;
+  // OBV buying/selling pressure
+  if(obvSignal!=null){
+    if(obvSignal>0.3)s+=10;else if(obvSignal>0.1)s+=5;
+    else if(obvSignal<-0.3)s-=10;else if(obvSignal<-0.1)s-=5;
+  }
+  // Unusual volume confirms the move
+  if(volRatio!=null&&volRatio>1.8)s+=5;
+  return Math.min(100,Math.max(0,Math.round(s)));
+}
+function calcLevels(price,atr,signal){
+  var entry,target,sl,rr;
+  if(signal==='BUY'){entry=+(price-atr*0.5).toFixed(2);target=+(price+atr*2).toFixed(2);sl=+(entry-atr).toFixed(2);rr='1:'+((target-entry)/(entry-sl)).toFixed(1);}
+  else if(signal==='SELL'){entry=+(price+atr*0.3).toFixed(2);target=+(price-atr*2).toFixed(2);sl=+(entry+atr).toFixed(2);rr='1:'+((entry-target)/(sl-entry)).toFixed(1);}
+  else{entry=+(price*0.98).toFixed(2);target=+(price*1.05).toFixed(2);sl=+(price*0.95).toFixed(2);rr='1:2.3';}
+  return{entry:entry,target:target,sl:sl,rr:rr};
+}
+
+function sendAlert(r,prev){
+  emailjs.send('service_q8gw0ao','template_4ekkj96',{
+    ticker:r.ticker,score:r.score,prev_score:prev,price:r.price.toFixed(2),
+    signal:r.signal==='BUY'?'קנייה':r.signal==='SELL'?'מכירה':'המתנה',
+    entry:r.entry,target:r.target,stop_loss:r.stopLoss,rr:r.rr,
+    chart_link:'https://finance.yahoo.com/chart/'+r.ticker
+  }).then(function(){
+    var el=document.getElementById('alert-msg');
+    el.textContent='✅ מייל נשלח על '+r.ticker;el.className='alert-msg ok';
+  });
+}
+
+function checkAlerts(results){
+  if(!alertsOn)return;
+  var thr=parseInt(document.getElementById('alert-thr').value)||80;
+  results.forEach(function(r){
+    var prev=prevScores[r.ticker]||0;
+    if(r.score>=thr&&prev<thr&&!alertsSent[r.ticker]){
+      sendAlert(r,prev);alertsSent[r.ticker]=true;
+    }
+  });
+}
+
+function saveHistory(results){
+  var now=new Date();
+  var lbl=now.getHours()+':'+String(now.getMinutes()).padStart(2,'0')+' | '+results.length+' מניות';
+  var snap={lbl:lbl,results:JSON.parse(JSON.stringify(results)),scores:{}};
+  results.forEach(function(r){snap.scores[r.ticker]=r.score;});
+  history.unshift(snap);if(history.length>5)history.pop();
+  var chips=document.getElementById('hist-chips');
+  chips.innerHTML=history.map(function(h,i){return '<div class="h-chip" onclick="loadHist('+i+')">'+h.lbl+'</div>';}).join('');
+}
+
+function loadHist(i){
+  var h=history[i];scanResults=h.results;
+  document.getElementById('stat-buy').textContent=scanResults.filter(function(r){return r.signal==='BUY';}).length;
+  document.getElementById('stat-wait').textContent=scanResults.filter(function(r){return r.signal==='WAIT';}).length;
+  document.getElementById('stat-sell').textContent=scanResults.filter(function(r){return r.signal==='SELL';}).length;
+  document.getElementById('stat-total').textContent=scanResults.length;
+  document.getElementById('scan-stats').style.display='grid';renderTable();
+}
+
+function runScan(){
+  document.getElementById('scan-btn').disabled=true;
+  document.getElementById('scan-empty').style.display='none';
+  document.getElementById('scan-results').style.display='none';
+  document.getElementById('scan-stats').style.display='none';
+  document.getElementById('scan-loading').style.display='block';
+  alertsSent={};
+  var newPrev={};scanResults.forEach(function(r){newPrev[r.ticker]=r.score;});prevScores=newPrev;
+  scanResults=[];
+  var i=0;
+  function next(){
+    if(i>=TICKERS.length){
+      document.getElementById('scan-loading').style.display='none';
+      document.getElementById('scan-btn').disabled=false;
+      scanResults.sort(function(a,b){return b.score-a.score;});
+      document.getElementById('stat-buy').textContent=scanResults.filter(function(r){return r.signal==='BUY';}).length;
+      document.getElementById('stat-wait').textContent=scanResults.filter(function(r){return r.signal==='WAIT';}).length;
+      document.getElementById('stat-sell').textContent=scanResults.filter(function(r){return r.signal==='SELL';}).length;
+      document.getElementById('stat-total').textContent=scanResults.length;
+      document.getElementById('scan-stats').style.display='grid';
+      checkAlerts(scanResults);saveHistory(scanResults);renderTable();return;
+    }
+    var batch=TICKERS.slice(i,i+5);i+=5;
+    Promise.all(batch.map(fetchQuote)).then(function(res){
+      res.forEach(function(r){if(r)scanResults.push(r);});
+      document.getElementById('scan-progress').textContent='סרוקו '+Math.min(i,TICKERS.length)+'/'+TICKERS.length+' מניות... ('+scanResults.length+' תוצאות)';
+      setTimeout(next,300);
+    });
+  }
+  next();
+}
+
+function renderObvBadge(obvSignal){
+  if(obvSignal==null)return '<span style="color:var(--muted);font-size:11px;">—</span>';
+  if(obvSignal>0.3)return '<span style="color:var(--green);font-family:var(--mono);font-size:11px;">▲▲ חזק</span>';
+  if(obvSignal>0.1)return '<span style="color:var(--green);font-family:var(--mono);font-size:11px;">▲ קונים</span>';
+  if(obvSignal<-0.3)return '<span style="color:var(--red);font-family:var(--mono);font-size:11px;">▼▼ חזק</span>';
+  if(obvSignal<-0.1)return '<span style="color:var(--red);font-family:var(--mono);font-size:11px;">▼ מוכרים</span>';
+  return '<span style="color:var(--muted);font-family:var(--mono);font-size:11px;">― נייטרלי</span>';
+}
+function render52Badge(pctFromLow,pctFromHigh){
+  if(pctFromLow==null)return '<span style="color:var(--muted);font-size:11px;">—</span>';
+  var nearLow=pctFromLow<15;
+  var nearHigh=pctFromHigh!=null&&pctFromHigh>-5;
+  if(nearLow)return '<span style="color:var(--green);font-family:var(--mono);font-size:11px;">+'+pctFromLow.toFixed(0)+'% משפל</span>';
+  if(nearHigh)return '<span style="color:var(--red);font-family:var(--mono);font-size:11px;">'+pctFromHigh.toFixed(0)+'% משיא</span>';
+  return '<span style="color:var(--muted);font-family:var(--mono);font-size:11px;">+'+pctFromLow.toFixed(0)+'% משפל</span>';
+}
+function renderPE(pe){
+  if(pe==null)return '<span style="color:var(--muted);font-size:11px;">—</span>';
+  var color=pe<15?'var(--green)':pe>40?'var(--red)':'var(--text)';
+  return '<span style="font-family:var(--mono);font-size:12px;color:'+color+';">'+pe.toFixed(1)+'</span>';
+}
+
+function renderTable(){
+  var thr=parseInt(document.getElementById('alert-thr').value)||80;
+  var filtered=scanResults.filter(function(r){return activeFilters[r.signal.toLowerCase()];});
+  var tbody=document.getElementById('scan-tbody');
+  if(filtered.length===0){
+    tbody.innerHTML='<tr><td colspan="15" style="text-align:center;padding:30px;color:var(--muted);">אין תוצאות לפי הפילטרים</td></tr>';
+  }else{
+    tbody.innerHTML=filtered.map(function(r){
+      var pStr=(r.pct>=0?'+':'')+r.pct.toFixed(2)+'%';
+      var pc=r.pct>=0?'pct-pos':'pct-neg';
+      var rc=r.rsi<35?'oversold':r.rsi>65?'overbought':'neutral-r';
+      var sc=r.score>=65?'var(--green)':r.score<=35?'var(--red)':'var(--accent2)';
+      var sp=r.signal==='BUY'?'buy':r.signal==='SELL'?'sell':'wait';
+      var sh=r.signal==='BUY'?'קנייה':r.signal==='SELL'?'מכירה':'המתנה';
+      var prev=prevScores[r.ticker];
+      var prevCell=prev?(prev<r.score?'<span class="prev-score score-up">↑ '+prev+'</span>':'<span class="prev-score">'+prev+'</span>'):'<span class="prev-score">—</span>';
+      var hot=r.score>=thr?'<span class="hot-badge">🔔 חם</span>':'';
+      return '<tr>'+
+        '<td class="ticker-cell">'+hot+r.ticker+'</td>'+
+        '<td style="font-family:var(--mono)">$'+r.price.toFixed(2)+'</td>'+
+        '<td class="'+pc+'">'+pStr+'</td>'+
+        '<td class="rsi-val '+rc+'">'+r.rsi+'</td>'+
+        '<td>'+renderPE(r.pe)+'</td>'+
+        '<td>'+render52Badge(r.pctFrom52Low,r.pctFrom52High)+'</td>'+
+        '<td>'+renderObvBadge(r.obvSignal)+'</td>'+
+        '<td><div class="score-bar-wrap"><div class="score-bar"><div class="score-fill" style="width:'+r.score+'%;background:'+sc+'"></div></div><span class="score-num" style="color:'+sc+'">'+r.score+'</span></div></td>'+
+        '<td>'+prevCell+'</td>'+
+        '<td><span class="signal-pill '+sp+'">'+sh+'</span></td>'+
+        '<td class="p-entry">$'+r.entry+'</td>'+
+        '<td class="p-target">$'+r.target+'</td>'+
+        '<td class="p-sl">$'+r.stopLoss+'</td>'+
+        '<td><span class="rr-pill">'+r.rr+'</span></td>'+
+        '<td><a href="https://finance.yahoo.com/chart/'+r.ticker+'" target="_blank" class="chart-link">גרף ↗</a></td>'+
+        '</tr>';
+    }).join('');
+  }
+  document.getElementById('scan-results').style.display='block';
+}
+
+// ══ TA-125 SCANNER (reuses same calc functions: calcRSI, avgArr, calcATR, calcScore, calcLevels) ══
+var taActiveFilters={buy:true,wait:true,sell:false};
+var taScanResults=[];
+
+function taToggleFilter(f){
+  taActiveFilters[f]=!taActiveFilters[f];
+  document.getElementById('ta-fc-'+f).classList.toggle('active',taActiveFilters[f]);
+  if(taScanResults.length>0)renderTaTable();
+}
+
+function runTaScan(){
+  document.getElementById('ta-scan-btn').disabled=true;
+  document.getElementById('ta-scan-empty').style.display='none';
+  document.getElementById('ta-scan-results').style.display='none';
+  document.getElementById('ta-scan-stats').style.display='none';
+  document.getElementById('ta-scan-loading').style.display='block';
+  taScanResults=[];
+  var i=0;
+  function next(){
+    if(i>=TA_TICKERS.length){
+      document.getElementById('ta-scan-loading').style.display='none';
+      document.getElementById('ta-scan-btn').disabled=false;
+      taScanResults.sort(function(a,b){return b.score-a.score;});
+      document.getElementById('ta-stat-buy').textContent=taScanResults.filter(function(r){return r.signal==='BUY';}).length;
+      document.getElementById('ta-stat-wait').textContent=taScanResults.filter(function(r){return r.signal==='WAIT';}).length;
+      document.getElementById('ta-stat-sell').textContent=taScanResults.filter(function(r){return r.signal==='SELL';}).length;
+      document.getElementById('ta-stat-total').textContent=taScanResults.length;
+      document.getElementById('ta-scan-stats').style.display='grid';
+      renderTaTable();return;
+    }
+    var batch=TA_TICKERS.slice(i,i+5);i+=5;
+    Promise.all(batch.map(fetchQuote)).then(function(res){
+      res.forEach(function(r){if(r)taScanResults.push(r);});
+      document.getElementById('ta-scan-progress').textContent='סרוקו '+Math.min(i,TA_TICKERS.length)+'/'+TA_TICKERS.length+' מניות... ('+taScanResults.length+' תוצאות)';
+      setTimeout(next,300);
+    });
+  }
+  next();
+}
+
+function renderTaTable(){
+  var filtered=taScanResults.filter(function(r){return taActiveFilters[r.signal.toLowerCase()];});
+  var tbody=document.getElementById('ta-scan-tbody');
+  if(filtered.length===0){
+    tbody.innerHTML='<tr><td colspan="12" style="text-align:center;padding:30px;color:var(--muted);">אין תוצאות לפי הפילטרים, או שהסריקה עדיין לא רצה</td></tr>';
+  }else{
+    tbody.innerHTML=filtered.map(function(r){
+      var pStr=(r.pct>=0?'+':'')+r.pct.toFixed(2)+'%';
+      var pc=r.pct>=0?'pct-pos':'pct-neg';
+      var rc=r.rsi<35?'oversold':r.rsi>65?'overbought':'neutral-r';
+      var sc=r.score>=65?'var(--green)':r.score<=35?'var(--red)':'var(--accent2)';
+      var sp=r.signal==='BUY'?'buy':r.signal==='SELL'?'sell':'wait';
+      var sh=r.signal==='BUY'?'קנייה':r.signal==='SELL'?'מכירה':'המתנה';
+      var cleanTicker=r.ticker.replace('.TA','');
+      return '<tr>'+
+        '<td class="ticker-cell">'+cleanTicker+'</td>'+
+        '<td style="font-family:var(--mono)">₪'+r.price.toFixed(2)+'</td>'+
+        '<td class="'+pc+'">'+pStr+'</td>'+
+        '<td class="rsi-val '+rc+'">'+r.rsi+'</td>'+
+        '<td>'+render52Badge(r.pctFrom52Low,r.pctFrom52High)+'</td>'+
+        '<td>'+renderObvBadge(r.obvSignal)+'</td>'+
+        '<td><div class="score-bar-wrap"><div class="score-bar"><div class="score-fill" style="width:'+r.score+'%;background:'+sc+'"></div></div><span class="score-num" style="color:'+sc+'">'+r.score+'</span></div></td>'+
+        '<td><span class="signal-pill '+sp+'">'+sh+'</span></td>'+
+        '<td class="p-entry">₪'+r.entry+'</td>'+
+        '<td class="p-target">₪'+r.target+'</td>'+
+        '<td class="p-sl">₪'+r.stopLoss+'</td>'+
+        '<td><span class="rr-pill">'+r.rr+'</span></td>'+
+        '<td><a href="https://finance.yahoo.com/chart/'+r.ticker+'" target="_blank" class="chart-link">גרף ↗</a></td>'+
+        '</tr>';
+    }).join('');
+  }
+  document.getElementById('ta-scan-results').style.display='block';
+}
+
+// ══ PORTFOLIO BUILDER (uses Claude via /api/analyze proxy) ══
+function buildPortfolio(){
+  var amount=document.getElementById('pf-amount').value.trim()||'לא צוין';
+  var currency=document.getElementById('pf-currency').value;
+  var horizon=document.getElementById('pf-horizon').value;
+  var risk=document.getElementById('pf-risk').value;
+  var market=document.getElementById('pf-market').value;
+  var style=document.getElementById('pf-style').value;
+  var assetType=document.getElementById('pf-asset-type').value;
+  var trackPeriod=document.getElementById('pf-track-period').value;
+  var notes=document.getElementById('pf-notes').value.trim();
+
+  var curMap={ILS:'שקל (₪)',USD:'דולר ($)'};
+  var horMap={long:'ארוך טווח (5-10 שנים)',medium:'בינוני (1-3 שנים)',short:'קצר (חודשים)'};
+  var riskMap={low:'סולידי',medium:'מאוזן',high:'אגרסיבי'};
+  var marketMap={both:'פיזור בין ארה"ב ות"א',us:'ארה"ב בלבד',il:'ת"א בלבד'};
+  var styleMap={balanced:'פיזור מקסימלי',concentrated:'תיק ממוקד'};
+  var assetMap={any:'מניות וגם ETF/תעודות סל',stocks:'מניות בודדות בלבד - אסור להמליץ על ETF, קרנות סל, או מדדים, רק מניות ספציפיות של חברות'};
+
+  document.getElementById('pf-empty').style.display='none';
+  document.getElementById('pf-results').style.display='none';
+  document.getElementById('pf-perf-results').style.display='none';
+  document.getElementById('pf-loading').style.display='block';
+  document.getElementById('pf-build-btn').disabled=true;
+
+  var assetInstruction=assetType==='stocks'?'\nחשוב מאוד: בנה תיק המורכב ממניות בודדות בלבד! אסור בהחלט להמליץ על ETF, תעודות סל, קרנות מדד, או REIT. כל אחזקה חייבת להיות מניה ספציפית של חברה בודדת (למשל AAPL, TEVA.TA) ולא קרן.':'';
+
+  var prompt='אתה יועץ השקעות מומחה הבונה תיק השקעות לדוגמה. בנה תיק מומלץ לפי הפרמטרים:\n'+
+    'סכום: '+amount+' '+curMap[currency]+'\n'+
+    'אופק השקעה: '+horMap[horizon]+'\n'+
+    'רמת סיכון: '+riskMap[risk]+'\n'+
+    'שוק: '+marketMap[market]+'\n'+
+    'סגנון: '+styleMap[style]+'\n'+
+    'סוג נכסים: '+assetMap[assetType]+assetInstruction+'\n'+
+    'הערות: '+(notes||'ללא')+'\n\n'+
+    'החזר JSON בלבד ללא backticks, במבנה הזה:\n'+
+    '{"strategy_summary":"2-3 משפטים המסבירים את האסטרטגיה הכוללת","allocations":[{"name":"שם הנכס/מניה","ticker":"סימול","category":"קטגוריה","percent":מספר,"amount":"סכום מחושב","rationale":"הסבר קצר למה זה נבחר"}],"sector_breakdown":[{"sector":"שם הסקטור","percent":מספר}],"risk_notes":"2-3 משפטים על הסיכונים העיקריים בתיק הזה","rebalance_tip":"טיפ קצר על תדירות איזון מומלצת"}\n\n'+
+    'ודא שהאחוזים מסתכמים ל-100. תן 6-10 אחזקות לפיזור מקסימלי או 3-5 לתיק ממוקד. היה ספציפי עם סימולים אמיתיים שקיימים ב-Yahoo Finance (לדוגמה AAPL, MSFT, TEVA.TA, ICL.TA).';
+
+  fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:4000,messages:[{role:'user',content:[{type:'text',text:prompt}]}]})})
+  .then(function(r){return r.json();})
+  .then(function(data){
+    if(data.error)throw new Error(data.error.message||JSON.stringify(data.error));
+    var raw=(data.content||[]).map(function(b){return b.text||'';}).join('').trim();
+    var parsed=JSON.parse(raw.replace(/```json|```/g,'').trim());
+    renderPortfolio(parsed,currency,trackPeriod);
+  })
+  .catch(function(err){
+    document.getElementById('pf-loading').style.display='none';
+    document.getElementById('pf-build-btn').disabled=false;
+    var rc=document.getElementById('pf-results');
+    rc.style.display='block';
+    rc.innerHTML='<div class="error-box">⚠️ '+err.message+'</div>';
+  });
+}
+
+function renderPortfolio(d,currency,trackPeriod){
+  var symbol=currency==='ILS'?'₪':'$';
+  document.getElementById('pf-loading').style.display='none';
+  document.getElementById('pf-build-btn').disabled=false;
+  var rc=document.getElementById('pf-results');
+  rc.style.display='block';
+
+  var allocHtml=(d.allocations||[]).map(function(a){
+    return '<div class="target-item" style="border-right:3px solid var(--accent);margin-bottom:8px;">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'+
+        '<div><span class="ticker-cell">'+(a.ticker||'')+'</span> <span style="font-size:13px;color:var(--text)">'+(a.name||'')+'</span></div>'+
+        '<div style="font-family:var(--mono);font-size:16px;font-weight:700;color:var(--accent)">'+(a.percent||0)+'%</div>'+
+      '</div>'+
+      '<div style="font-size:11px;color:var(--muted);margin-bottom:4px;">'+(a.category||'')+' · '+symbol+(a.amount||'')+'</div>'+
+      '<div style="font-size:12px;color:var(--text);line-height:1.5;">'+(a.rationale||'')+'</div>'+
+    '</div>';
+  }).join('');
+
+  var sectorHtml=(d.sector_breakdown||[]).map(function(s){
+    return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'+
+      '<div style="width:90px;font-size:12px;color:var(--muted);">'+s.sector+'</div>'+
+      '<div class="score-bar" style="flex:1;"><div class="score-fill" style="width:'+s.percent+'%;background:var(--accent)"></div></div>'+
+      '<div style="font-family:var(--mono);font-size:12px;width:36px;">'+s.percent+'%</div>'+
+    '</div>';
+  }).join('');
+
+  rc.innerHTML=
+    '<div class="card" style="margin-bottom:16px;"><div class="card-body">'+
+      '<div class="analysis-title">🧠 אסטרטגיית התיק</div>'+
+      '<div class="analysis-text" style="margin-top:8px;">'+(d.strategy_summary||'')+'</div>'+
+    '</div></div>'+
+    '<div class="card-header" style="background:none;border:none;padding:0 4px 10px;">📊 הרכב התיק המומלץ</div>'+
+    allocHtml+
+    (sectorHtml?'<div class="card" style="margin-top:16px;margin-bottom:16px;"><div class="card-body"><div class="analysis-title">🥧 פיזור סקטוריאלי</div><div style="margin-top:12px;">'+sectorHtml+'</div></div></div>':'')+
+    '<div class="card" style="background:var(--surface2);margin-top:16px;margin-bottom:16px;"><div class="card-body">'+
+      (d.risk_notes?'<div class="analysis-section"><div class="analysis-title">⚠️ סיכונים עיקריים</div><div class="analysis-text">'+d.risk_notes+'</div></div>':'')+
+      (d.rebalance_tip?'<div class="analysis-section" style="margin-bottom:0"><div class="analysis-title">🔄 טיפ איזון תיק</div><div class="analysis-text">'+d.rebalance_tip+'</div></div>':'')+
+    '</div></div>'+
+    '<button class="btn-primary" onclick="savePortfolio()" id="pf-save-btn" style="margin-bottom:10px;">💾 שמור תיק זה למעקב</button>'+
+    '<button class="buy-btn" onclick="executePortfolioToTradingDesk()" id="pf-execute-btn" style="width:100%;padding:13px;border-radius:10px;font-size:15px;">🚀 בצע תיק זה בדסק מסחר מדומה</button>'+
+    '<div id="pf-execute-msg" style="margin-top:10px;font-size:12px;"></div>';
+
+  window.LAST_PORTFOLIO={data:d,currency:currency,trackPeriod:trackPeriod};
+}
+
+// ══ Save / Load / Track portfolios (cloud-synced across devices) ══
+function getSavedPortfolios(){
+  return fetch('/api/saved-portfolios')
+    .then(function(r){return r.json();})
+    .then(function(data){
+      var arr=Array.isArray(data)?data:[];
+      try{localStorage.setItem('tv_portfolios_cache',JSON.stringify(arr));}catch(e){}
+      return arr;
+    })
+    .catch(function(){
+      try{return JSON.parse(localStorage.getItem('tv_portfolios_cache')||'[]');}catch(e){return [];}
+    });
+}
+function setSavedPortfolios(arr){
+  try{localStorage.setItem('tv_portfolios_cache',JSON.stringify(arr));}catch(e){}
+  return fetch('/api/saved-portfolios',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(arr)})
+    .then(function(r){return r.json();})
+    .catch(function(err){console.error('Failed to sync portfolios to cloud:',err);});
+}
+
+function savePortfolio(){
+  if(!window.LAST_PORTFOLIO)return;
+  var p=window.LAST_PORTFOLIO;
+  var allocations=(p.data.allocations||[]).map(function(a){return{ticker:a.ticker,name:a.name,percent:a.percent,category:a.category};});
+
+  document.getElementById('pf-save-btn').disabled=true;
+  document.getElementById('pf-save-btn').textContent='⏳ שומר מחירי כניסה...';
+
+  Promise.all(allocations.map(function(a){
+    var clean=(a.ticker||'').trim();
+    if(!clean||a.category&&a.category.indexOf('ETF')>=0&&false)return Promise.resolve(null);
+    return fetch('/api/yahoo?ticker='+clean).then(function(r){return r.json();}).then(function(data){
+      try{
+        var chart=data.chart.result[0];
+        var price=chart.meta.regularMarketPrice;
+        return{ticker:clean,entryPrice:price};
+      }catch(e){return{ticker:clean,entryPrice:null};}
+    }).catch(function(){return{ticker:clean,entryPrice:null};});
+  })).then(function(prices){
+    var priceMap={};
+    prices.forEach(function(pr){if(pr)priceMap[pr.ticker]=pr.entryPrice;});
+
+    var record={
+      id:Date.now(),
+      createdAt:new Date().toISOString(),
+      currency:p.currency,
+      trackPeriod:p.trackPeriod,
+      strategySummary:p.data.strategy_summary,
+      allocations:allocations.map(function(a){
+        return{ticker:a.ticker,name:a.name,percent:a.percent,category:a.category,entryPrice:priceMap[a.ticker]||null};
+      })
+    };
+    return getSavedPortfolios().then(function(saved){
+      saved.unshift(record);
+      if(saved.length>10)saved.pop();
+      return setSavedPortfolios(saved);
+    });
+  }).then(function(){
+    renderSavedList();
+    document.getElementById('pf-save-btn').disabled=false;
+    document.getElementById('pf-save-btn').textContent='✅ נשמר בהצלחה! (גלול למטה ל"תיקים שמורים")';
+  });
+}
+
+// ══ Execute Portfolio to Trading Desk ══
+function executePortfolioToTradingDesk(){
+  if(!window.LAST_PORTFOLIO)return;
+  var p=window.LAST_PORTFOLIO;
+  var allocations=p.data.allocations||[];
+  var msgEl=document.getElementById('pf-execute-msg');
+  var btn=document.getElementById('pf-execute-btn');
+
+  // Get total amount from the form
+  var amountInput=document.getElementById('pf-amount').value.trim();
+  var totalAmount=parseFloat(amountInput);
+  if(!totalAmount||totalAmount<=0){
+    msgEl.innerHTML='<span style="color:var(--red)">⚠️ לא נמצא סכום השקעה תקין. ודא שמילאת "סכום להשקעה" בטופס למעלה.</span>';
+    return;
+  }
+
+  var accCurrency=p.currency;
+  btn.disabled=true;
+  btn.textContent='⏳ בודק חשבון מסחר...';
+
+  getTradingAccount().then(function(acc){
+    if(!acc){
+      // Auto-create a trading account using the portfolio amount as initial balance
+      acc={
+        currency:accCurrency,
+        initialBalance:totalAmount,
+        cash:totalAmount,
+        positions:[],
+        history:[],
+        createdAt:new Date().toISOString()
+      };
+      msgEl.innerHTML='<span style="color:var(--accent)">ℹ️ לא היה חשבון מסחר מדומה פעיל - נוצר חשבון חדש עם '+(accCurrency==='ILS'?'₪':'$')+totalAmount.toFixed(0)+' לפי סכום התיק.</span>';
+    }else if(acc.cash<totalAmount){
+      msgEl.innerHTML='<span style="color:var(--red)">⚠️ אין מספיק יתרת מזומן בדסק המסחר ('+(acc.currency==='ILS'?'₪':'$')+acc.cash.toFixed(0)+') לביצוע תיק בסכום '+(accCurrency==='ILS'?'₪':'$')+totalAmount.toFixed(0)+'. תוכל לאפס את החשבון בטאב דסק מסחר ולהתחיל מסכום גדול יותר.</span>';
+      btn.disabled=false;
+      btn.textContent='🚀 בצע תיק זה בדסק מסחר מדומה';
+      return;
+    }
+
+    btn.textContent='⏳ מבצע הזמנות...';
+    msgEl.innerHTML='<span style="color:var(--accent)">⏳ שולף מחירים חיים ומבצע הזמנות לכל אחזקה...</span>';
+
+    return Promise.all(allocations.map(function(a){
+      var ticker=(a.ticker||'').trim();
+      if(!ticker)return Promise.resolve(null);
+      return fetchQuote(ticker).then(function(q){
+        return{alloc:a,price:q?q.price:null};
+      });
+    })).then(function(results){
+      var executed=[];
+      var failed=[];
+
+      results.forEach(function(r){
+        if(!r||!r.price){
+          if(r&&r.alloc)failed.push(r.alloc.ticker);
+          return;
+        }
+        var allocAmount=totalAmount*(r.alloc.percent/100);
+        var qty=Math.floor(allocAmount/r.price);
+        if(qty<1){failed.push(r.alloc.ticker+' (סכום קטן מדי למניה אחת)');return;}
+
+        var cost=qty*r.price;
+        acc.cash-=cost;
+
+        var position={
+          id:Date.now()+Math.floor(Math.random()*1000),
+          ticker:r.alloc.ticker,
+          direction:'BUY',
+          qty:qty,
+          entryPrice:r.price,
+          stopLoss:null,
+          takeProfit:null,
+          openedAt:new Date().toISOString(),
+          status:'open',
+          sourceLabel:'בנאי תיק AI'
+        };
+        acc.positions.push(position);
+        acc.history.unshift({
+          id:position.id,date:new Date().toISOString(),ticker:r.alloc.ticker,direction:'BUY',
+          qty:qty,price:r.price,status:'filled',pnl:null
+        });
+        executed.push(r.alloc.ticker+' ('+qty+' יח׳ @ '+r.price.toFixed(2)+')');
+      });
+
+      return setTradingAccount(acc).then(function(){
+        var resultHtml='<div style="color:var(--green);font-weight:600;margin-bottom:6px;">✅ בוצעו '+executed.length+' פקודות קנייה בדסק המסחר!</div>';
+        if(executed.length>0)resultHtml+='<div style="font-size:11px;color:var(--muted);margin-bottom:6px;">'+executed.join(' · ')+'</div>';
+        if(failed.length>0)resultHtml+='<div style="font-size:11px;color:var(--accent2);">⚠️ לא בוצעו: '+failed.join(', ')+'</div>';
+        resultHtml+='<div style="margin-top:10px;"><button class="scan-btn" onclick="switchTab(\'trading\')">💹 עבור לדסק המסחר לראות את התיק</button></div>';
+
+        msgEl.innerHTML=resultHtml;
+        btn.disabled=false;
+        btn.textContent='🚀 בצע תיק זה בדסק מסחר מדומה';
+      });
+    });
+  });
+}
+
+function renderSavedList(){
+  var el=document.getElementById('pf-saved-list');
+  el.innerHTML='<span style="font-size:12px;color:var(--muted);">⏳ טוען תיקים שמורים...</span>';
+  getSavedPortfolios().then(function(saved){
+    window._cachedSavedPortfolios=saved;
+    if(saved.length===0){el.innerHTML='<span style="font-size:12px;color:var(--muted);">אין תיקים שמורים עדיין</span>';return;}
+    var periodMap={'1m':'חודש','3m':'3 חודשים','6m':'6 חודשים','1y':'שנה'};
+    el.innerHTML=saved.map(function(p,i){
+      var d=new Date(p.createdAt);
+      var lbl=d.getDate()+'/'+(d.getMonth()+1)+' · '+p.allocations.length+' אחזקות · '+(periodMap[p.trackPeriod]||p.trackPeriod);
+      return '<div class="h-chip" onclick="checkPerformance('+i+')">'+lbl+'</div>';
+    }).join('');
+  });
+}
+
+function checkPerformance(idx){
+  var saved=window._cachedSavedPortfolios||[];
+  var p=saved[idx];
+  if(!p)return;
+
+  document.getElementById('pf-results').style.display='none';
+  document.getElementById('pf-perf-results').style.display='none';
+  document.getElementById('pf-perf-loading').style.display='block';
+
+  Promise.all(p.allocations.map(function(a){
+    return fetch('/api/yahoo?ticker='+a.ticker).then(function(r){return r.json();}).then(function(data){
+      try{
+        var chart=data.chart.result[0];
+        var currentPrice=chart.meta.regularMarketPrice;
+        return{ticker:a.ticker,currentPrice:currentPrice};
+      }catch(e){return{ticker:a.ticker,currentPrice:null};}
+    }).catch(function(){return{ticker:a.ticker,currentPrice:null};});
+  })).then(function(results){
+    var priceMap={};
+    results.forEach(function(r){priceMap[r.ticker]=r.currentPrice;});
+    renderPerformance(p,priceMap);
+  });
+}
+
+function renderPerformance(p,priceMap){
+  document.getElementById('pf-perf-loading').style.display='none';
+  var rc=document.getElementById('pf-perf-results');
+  rc.style.display='block';
+  var symbol=p.currency==='ILS'?'₪':'$';
+  var d=new Date(p.createdAt);
+  var dateStr=d.getDate()+'/'+(d.getMonth()+1)+'/'+d.getFullYear();
+
+  var totalWeightedReturn=0;
+  var rows=p.allocations.map(function(a){
+    var current=priceMap[a.ticker];
+    var entry=a.entryPrice;
+    var pct=null;
+    if(current!=null&&entry!=null&&entry>0){
+      pct=((current-entry)/entry*100);
+      totalWeightedReturn+=pct*(a.percent/100);
+    }
+    var pctStr=pct!=null?(pct>=0?'+':'')+pct.toFixed(2)+'%':'אין נתון';
+    var pctClass=pct!=null?(pct>=0?'pct-pos':'pct-neg'):'';
+    return '<div class="target-item" style="margin-bottom:8px;border-right:3px solid '+(pct!=null&&pct>=0?'var(--green)':'var(--red)')+';">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;">'+
+        '<div><span class="ticker-cell">'+a.ticker+'</span> <span style="font-size:12px;color:var(--muted)">'+(a.percent||0)+'% מהתיק</span></div>'+
+        '<div class="'+pctClass+'" style="font-family:var(--mono);font-size:16px;font-weight:700;">'+pctStr+'</div>'+
+      '</div>'+
+      '<div style="font-size:11px;color:var(--muted);margin-top:4px;">כניסה: '+symbol+(entry!=null?entry.toFixed(2):'—')+' → נוכחי: '+symbol+(current!=null?current.toFixed(2):'—')+'</div>'+
+    '</div>';
+  }).join('');
+
+  var totalClass=totalWeightedReturn>=0?'pct-pos':'pct-neg';
+  var totalStr=(totalWeightedReturn>=0?'+':'')+totalWeightedReturn.toFixed(2)+'%';
+
+  rc.innerHTML=
+    '<div class="signal-box '+(totalWeightedReturn>=0?'buy':'sell')+'" style="margin-bottom:16px;">'+
+      '<div class="signal-label">תשואת התיק מאז '+dateStr+'</div>'+
+      '<div class="signal-value '+totalClass+'">'+totalStr+'</div>'+
+      '<div class="signal-conf">תשואה משוקללת לפי אחוזי הקצאה</div>'+
+    '</div>'+
+    '<button class="btn-primary" onclick="runHealthCheck(this)" data-portfolio="'+JSON.stringify(p).replace(/"/g,'&quot;')+'" style="margin-bottom:16px;">🩺 בדוק בריאות תיק (זהה מניות חלשות)</button>'+
+    '<div class="card-header" style="background:none;border:none;padding:0 4px 10px;">📈 פירוט לפי מניה</div>'+
+    rows+
+    '<div id="pf-health-results" style="margin-top:16px;"></div>';
+}
+
+// ══ Portfolio Health Check + Replacement Finder ══
+function runHealthCheck(btn){
+  var p=JSON.parse(btn.getAttribute('data-portfolio').replace(/&quot;/g,'"'));
+  btn.disabled=true;
+  btn.textContent='⏳ בודק כל מניה טכנית...';
+  var healthEl=document.getElementById('pf-health-results');
+  healthEl.innerHTML='<div class="scan-loading" style="display:block;"><div class="spinner"></div><div class="loading-text">מריץ ניתוח טכני על כל אחזקה...</div></div>';
+
+  Promise.all(p.allocations.map(function(a){
+    return fetchQuote(a.ticker).then(function(q){
+      return q?Object.assign({},q,{percent:a.percent,name:a.name}):{ticker:a.ticker,percent:a.percent,name:a.name,score:null,signal:null};
+    });
+  })).then(function(healthResults){
+    btn.disabled=false;
+    btn.textContent='🩺 בדוק בריאות תיק (זהה מניות חלשות)';
+    renderHealthResults(healthResults,p);
+  });
+}
+
+function renderHealthResults(results,portfolio){
+  var healthEl=document.getElementById('pf-health-results');
+  var weak=results.filter(function(r){return r.score!=null&&r.score<=40;});
+  var strong=results.filter(function(r){return r.score!=null&&r.score>=60;});
+
+  var rowsHtml=results.map(function(r){
+    if(r.score==null){
+      return '<div class="target-item" style="margin-bottom:8px;border-right:3px solid var(--muted);"><div class="ticker-cell">'+r.ticker+'</div><div style="font-size:12px;color:var(--muted);margin-top:4px;">לא ניתן לקבל נתונים טכניים כרגע</div></div>';
+    }
+    var statusColor=r.score>=60?'var(--green)':r.score<=40?'var(--red)':'var(--accent2)';
+    var statusText=r.score>=60?'✅ תקין':r.score<=40?'⚠️ מועמד להחלפה':'🟡 בינוני';
+    var replaceBtn=r.score<=40?'<button class="scan-btn" style="margin-top:8px;font-size:12px;padding:6px 14px;" onclick="findReplacement(\''+r.ticker+'\',\''+(r.category||'')+'\')">🔄 מצא חלופה</button>':'';
+    return '<div class="target-item" style="margin-bottom:8px;border-right:3px solid '+statusColor+';">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;">'+
+        '<div><span class="ticker-cell">'+r.ticker+'</span> <span style="font-size:12px;color:var(--muted)">'+(r.percent||0)+'% מהתיק</span></div>'+
+        '<div style="color:'+statusColor+';font-family:var(--mono);font-size:13px;font-weight:700;">'+statusText+' · ציון '+r.score+'</div>'+
+      '</div>'+
+      '<div style="font-size:11px;color:var(--muted);margin-top:4px;">RSI: '+r.rsi+' · מגמה: '+(r.pct>=0?'+':'')+r.pct.toFixed(1)+'%</div>'+
+      replaceBtn+
+      '<div id="replace-suggestion-'+r.ticker.replace(/[^a-zA-Z0-9]/g,'')+'"></div>'+
+    '</div>';
+  }).join('');
+
+  healthEl.innerHTML=
+    '<div class="card" style="background:var(--surface2);margin-bottom:16px;"><div class="card-body">'+
+      '<div class="analysis-title">🩺 סיכום בריאות התיק</div>'+
+      '<div class="analysis-text" style="margin-top:8px;">'+strong.length+' אחזקות במצב טכני טוב, '+weak.length+' אחזקות מועמדות לבחינה/החלפה.</div>'+
+    '</div></div>'+
+    rowsHtml;
+}
+
+function findReplacement(weakTicker,category){
+  var btnId='replace-suggestion-'+weakTicker.replace(/[^a-zA-Z0-9]/g,'');
+  var container=document.getElementById(btnId);
+  container.innerHTML='<div style="font-size:12px;color:var(--accent);margin-top:8px;">⏳ סורק חלופות...</div>';
+
+  var isIsraeli=weakTicker.indexOf('.TA')>=0;
+  var pool=isIsraeli?TA_TICKERS:TICKERS;
+  var candidates=pool.filter(function(t){return t!==weakTicker;}).slice(0,40);
+
+  var i=0,results=[];
+  function nextBatch(){
+    if(i>=candidates.length){
+      results.sort(function(a,b){return b.score-a.score;});
+      var best=results.filter(function(r){return r.signal==='BUY';}).slice(0,3);
+      if(best.length===0)best=results.slice(0,3);
+      container.innerHTML='<div style="margin-top:10px;"><div style="font-size:12px;color:var(--accent);margin-bottom:8px;">💡 חלופות מומלצות במקום '+weakTicker.replace('.TA','')+':</div>'+
+        best.map(function(r){
+          var clean=r.ticker.replace('.TA','');
+          return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:var(--surface2);border-radius:8px;margin-bottom:6px;">'+
+            '<span class="ticker-cell">'+clean+'</span>'+
+            '<span style="font-family:var(--mono);font-size:12px;color:var(--green)">ציון '+r.score+' · RSI '+r.rsi+'</span>'+
+          '</div>';
+        }).join('')+
+        '</div>';
+      return;
+    }
+    var batch=candidates.slice(i,i+5);i+=5;
+    Promise.all(batch.map(fetchQuote)).then(function(res){
+      res.forEach(function(r){if(r)results.push(r);});
+      setTimeout(nextBatch,250);
+    });
+  }
+  nextBatch();
+}
+
+// Load saved portfolios on page load
+if(typeof window!=='undefined'){
+  setTimeout(function(){
+    if(document.getElementById('pf-saved-list'))renderSavedList();
+  },100);
+}
+
+// ══════════════════════════════════════
+// TRADING DESK (Paper Trading Simulator)
+// ══════════════════════════════════════
+function getTradingAccount(){
+  return fetch('/api/trading-account')
+    .then(function(r){return r.json();})
+    .then(function(acc){
+      try{if(acc)localStorage.setItem('tv_trading_account_cache',JSON.stringify(acc));}catch(e){}
+      return acc;
+    })
+    .catch(function(){
+      try{return JSON.parse(localStorage.getItem('tv_trading_account_cache')||'null');}catch(e){return null;}
+    });
+}
+function setTradingAccount(acc){
+  try{localStorage.setItem('tv_trading_account_cache',JSON.stringify(acc));}catch(e){}
+  return fetch('/api/trading-account',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(acc)})
+    .then(function(r){return r.json();})
+    .catch(function(err){console.error('Failed to sync trading account to cloud:',err);});
+}
+
+function initTradingAccount(){
+  var balance=parseFloat(document.getElementById('td-initial-balance').value);
+  if(!balance||balance<=0){alert('הכנס סכום תקין להתחלת המסחר המדומה');return;}
+  var currency=document.getElementById('td-currency').value;
+  var acc={
+    currency:currency,
+    initialBalance:balance,
+    cash:balance,
+    positions:[],
+    history:[],
+    createdAt:new Date().toISOString()
+  };
+  setTradingAccount(acc).then(function(){renderTradingDesk();});
+}
+
+function resetTradingAccount(){
+  if(!confirm('האם אתה בטוח שאתה רוצה לאפס את חשבון המסחר המדומה? כל הפוזיציות וההיסטוריה יימחקו.'))return;
+  try{localStorage.removeItem('tv_trading_account_cache');}catch(e){}
+  fetch('/api/trading-account',{method:'DELETE'})
+    .then(function(){renderTradingDesk();})
+    .catch(function(){renderTradingDesk();});
+}
+
+// Auto-fill price when ticker entered
+function setupOrderTickerListener(){
+  var input=document.getElementById('td-order-ticker');
+  if(!input||input._listenerAttached)return;
+  input._listenerAttached=true;
+  input.addEventListener('blur',function(){
+    var t=input.value.trim().toUpperCase();
+    if(!t)return;
+    document.getElementById('td-order-price-display').value='⏳ טוען...';
+    fetchQuote(t).then(function(q){
+      if(q){
+        document.getElementById('td-order-price-display').value=q.price.toFixed(2);
+      }else{
+        document.getElementById('td-order-price-display').value='לא נמצא';
+      }
+    });
+  });
+}
+
+function placeOrder(direction){
+  var ticker=document.getElementById('td-order-ticker').value.trim().toUpperCase();
+  var qty=parseFloat(document.getElementById('td-order-qty').value);
+  var slInput=document.getElementById('td-order-sl').value.trim();
+  var tpInput=document.getElementById('td-order-tp').value.trim();
+  var msgEl=document.getElementById('td-order-msg');
+
+  if(!ticker){msgEl.innerHTML='<span style="color:var(--red)">⚠️ הכנס סימול מניה</span>';return;}
+  if(!qty||qty<=0){msgEl.innerHTML='<span style="color:var(--red)">⚠️ הכנס כמות תקינה</span>';return;}
+
+  msgEl.innerHTML='<span style="color:var(--accent)">⏳ שולף מחיר נוכחי...</span>';
+
+  getTradingAccount().then(function(acc){
+    if(!acc){msgEl.innerHTML='<span style="color:var(--red)">⚠️ אין חשבון מסחר פעיל</span>';return;}
+    return fetchQuote(ticker).then(function(q){
+      if(!q){msgEl.innerHTML='<span style="color:var(--red)">⚠️ לא ניתן למצוא מחיר עבור '+ticker+'. ודא שהסימול תקין (לדוגמה AAPL או TEVA.TA)</span>';return;}
+      var price=q.price;
+      var cost=price*qty;
+
+      if(direction==='BUY'){
+        if(cost>acc.cash){msgEl.innerHTML='<span style="color:var(--red)">⚠️ אין מספיק יתרת מזומן. נדרש '+cost.toFixed(2)+', יש לך '+acc.cash.toFixed(2)+'</span>';return;}
+        acc.cash-=cost;
+      }
+      // For SELL (short), we don't deduct cash - it's a simulated short position
+
+      var position={
+        id:Date.now(),
+        ticker:ticker,
+        direction:direction,
+        qty:qty,
+        entryPrice:price,
+        stopLoss:slInput?parseFloat(slInput):null,
+        takeProfit:tpInput?parseFloat(tpInput):null,
+        openedAt:new Date().toISOString(),
+        status:'open'
+      };
+      acc.positions.push(position);
+      acc.history.unshift({
+        id:position.id,date:new Date().toISOString(),ticker:ticker,direction:direction,
+        qty:qty,price:price,status:'filled',pnl:null
+      });
+
+      return setTradingAccount(acc).then(function(){
+        document.getElementById('td-order-ticker').value='';
+        document.getElementById('td-order-qty').value='';
+        document.getElementById('td-order-price-display').value='';
+        document.getElementById('td-order-sl').value='';
+        document.getElementById('td-order-tp').value='';
+        msgEl.innerHTML='<span style="color:var(--green)">✅ הזמנה בוצעה: '+(direction==='BUY'?'קנייה':'מכירה')+' '+qty+' '+ticker+' @ '+price.toFixed(2)+'</span>';
+        renderTradingDesk();
+      });
+    });
+  });
+}
+
+function closePosition(posId){
+  getTradingAccount().then(function(acc){
+    if(!acc)return;
+    var pos=acc.positions.find(function(p){return p.id===posId;});
+    if(!pos)return;
+
+    return fetchQuote(pos.ticker).then(function(q){
+      var currentPrice=q?q.price:pos.entryPrice;
+      var pnl;
+      if(pos.direction==='BUY'){
+        pnl=(currentPrice-pos.entryPrice)*pos.qty;
+        acc.cash+=currentPrice*pos.qty;
+      }else{
+        pnl=(pos.entryPrice-currentPrice)*pos.qty;
+        acc.cash+=pnl; // short position settlement
+      }
+
+      acc.positions=acc.positions.filter(function(p){return p.id!==posId;});
+      acc.history.unshift({
+        id:Date.now(),date:new Date().toISOString(),ticker:pos.ticker,direction:'CLOSE '+pos.direction,
+        qty:pos.qty,price:currentPrice,status:'closed',pnl:pnl
+      });
+      return setTradingAccount(acc).then(function(){renderTradingDesk();});
+    });
+  });
+}
+
+function renderTradingDesk(){
+  getTradingAccount().then(function(acc){
+
+  if(!acc){
+    document.getElementById('td-setup-bar').style.display='flex';
+    document.getElementById('td-stats-row').style.display='none';
+    document.getElementById('td-order-form').style.display='none';
+    document.getElementById('td-positions-title').style.display='none';
+    document.getElementById('td-positions-table').style.display='none';
+    document.getElementById('td-history-title').style.display='none';
+    document.getElementById('td-history-table').style.display='none';
+    document.getElementById('td-empty').style.display='block';
+    return;
+  }
+
+  document.getElementById('td-setup-bar').style.display='none';
+  document.getElementById('td-stats-row').style.display='grid';
+  document.getElementById('td-order-form').style.display='block';
+  document.getElementById('td-empty').style.display=acc.positions.length===0&&acc.history.length===0?'block':'none';
+
+  setupOrderTickerListener();
+
+  var symbol=acc.currency==='ILS'?'₪':'$';
+
+  // Fetch current prices for all open positions to compute live P&L
+  if(acc.positions.length>0){
+    document.getElementById('td-positions-title').style.display='block';
+    document.getElementById('td-positions-table').style.display='block';
+    document.getElementById('td-positions-tbody').innerHTML='<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--muted);">⏳ מעדכן מחירים בזמן אמת...</td></tr>';
+
+    Promise.all(acc.positions.map(function(p){
+      return fetchQuote(p.ticker).then(function(q){return{pos:p,currentPrice:q?q.price:null};});
+    })).then(function(results){
+      var positionsValue=0;
+      var totalPnl=0;
+
+      var rows=results.map(function(r){
+        var p=r.pos;
+        var current=r.currentPrice;
+        var pnl=null,pnlPct=null;
+        if(current!=null){
+          if(p.direction==='BUY'){
+            pnl=(current-p.entryPrice)*p.qty;
+            positionsValue+=current*p.qty;
+          }else{
+            pnl=(p.entryPrice-current)*p.qty;
+            positionsValue+=p.entryPrice*p.qty; // short collateral approximation
+          }
+          pnlPct=((current-p.entryPrice)/p.entryPrice*100)*(p.direction==='BUY'?1:-1);
+          totalPnl+=pnl;
+
+          // Check stop loss / take profit auto-close (simulated)
+          if(p.stopLoss&&((p.direction==='BUY'&&current<=p.stopLoss)||(p.direction==='SELL'&&current>=p.stopLoss))){
+            setTimeout(function(){autoClosePosition(p.id,current,'stopped');},50);
+          }else if(p.takeProfit&&((p.direction==='BUY'&&current>=p.takeProfit)||(p.direction==='SELL'&&current<=p.takeProfit))){
+            setTimeout(function(){autoClosePosition(p.id,current,'filled');},50);
+          }
+        }
+
+        var dirLabel=p.direction==='BUY'?'🟢 LONG':'🔴 SHORT';
+        var pnlClass=pnl!=null?(pnl>=0?'pct-pos':'pct-neg'):'';
+        var pnlStr=pnl!=null?(pnl>=0?'+':'')+symbol+Math.abs(pnl).toFixed(2)+' ('+(pnlPct>=0?'+':'')+pnlPct.toFixed(1)+'%)':'—';
+        var sourceBadge=p.sourceLabel?'<span style="font-size:9px;color:var(--accent);background:rgba(0,212,168,0.1);border:1px solid rgba(0,212,168,0.3);border-radius:6px;padding:1px 6px;margin-right:4px;">🧠 AI</span>':'';
+
+        return '<tr>'+
+          '<td class="ticker-cell">'+sourceBadge+p.ticker+'</td>'+
+          '<td>'+dirLabel+'</td>'+
+          '<td style="font-family:var(--mono)">'+p.qty+'</td>'+
+          '<td style="font-family:var(--mono)">'+symbol+p.entryPrice.toFixed(2)+'</td>'+
+          '<td style="font-family:var(--mono)">'+(current!=null?symbol+current.toFixed(2):'—')+'</td>'+
+          '<td style="font-family:var(--mono)">'+(current!=null?symbol+(current*p.qty).toFixed(2):'—')+'</td>'+
+          '<td class="'+pnlClass+'" style="font-family:var(--mono);font-weight:600;">'+pnlStr+'</td>'+
+          '<td style="font-family:var(--mono);color:var(--red);">'+(p.stopLoss?symbol+p.stopLoss:'—')+'</td>'+
+          '<td style="font-family:var(--mono);color:var(--green);">'+(p.takeProfit?symbol+p.takeProfit:'—')+'</td>'+
+          '<td><button class="close-pos-btn" onclick="closePosition('+p.id+')">סגור</button></td>'+
+          '</tr>';
+      }).join('');
+
+      document.getElementById('td-positions-tbody').innerHTML=rows;
+
+      var totalValue=acc.cash+positionsValue;
+      var totalReturnPct=((totalValue-acc.initialBalance)/acc.initialBalance*100);
+
+      document.getElementById('td-cash-balance').textContent=symbol+acc.cash.toFixed(2);
+      document.getElementById('td-positions-value').textContent=symbol+positionsValue.toFixed(2);
+      document.getElementById('td-total-value').textContent=symbol+totalValue.toFixed(2);
+      var pnlEl=document.getElementById('td-total-pnl');
+      pnlEl.textContent=(totalReturnPct>=0?'+':'')+totalReturnPct.toFixed(2)+'%';
+      pnlEl.style.color=totalReturnPct>=0?'var(--green)':'var(--red)';
+    });
+  }else{
+    document.getElementById('td-positions-title').style.display='none';
+    document.getElementById('td-positions-table').style.display='none';
+    document.getElementById('td-cash-balance').textContent=symbol+acc.cash.toFixed(2);
+    document.getElementById('td-positions-value').textContent=symbol+'0.00';
+    document.getElementById('td-total-value').textContent=symbol+acc.cash.toFixed(2);
+    var totalReturnPct0=((acc.cash-acc.initialBalance)/acc.initialBalance*100);
+    var pnlEl0=document.getElementById('td-total-pnl');
+    pnlEl0.textContent=(totalReturnPct0>=0?'+':'')+totalReturnPct0.toFixed(2)+'%';
+    pnlEl0.style.color=totalReturnPct0>=0?'var(--green)':'var(--red)';
+  }
+
+  // History table
+  if(acc.history.length>0){
+    document.getElementById('td-history-title').style.display='block';
+    document.getElementById('td-history-table').style.display='block';
+    document.getElementById('td-history-tbody').innerHTML=acc.history.slice(0,20).map(function(h){
+      var d=new Date(h.date);
+      var dateStr=d.getDate()+'/'+(d.getMonth()+1)+' '+d.getHours()+':'+String(d.getMinutes()).padStart(2,'0');
+      var statusClass=h.status==='open'?'open':h.status==='closed'?'closed':h.status==='stopped'?'stopped':'filled';
+      var statusLabel=h.status==='open'?'פתוח':h.status==='closed'?'נסגר':h.status==='stopped'?'סטופ':'בוצע';
+      var pnlStr=h.pnl!=null?((h.pnl>=0?'+':'')+symbol+Math.abs(h.pnl).toFixed(2)):'—';
+      var pnlClass=h.pnl!=null?(h.pnl>=0?'pct-pos':'pct-neg'):'';
+      return '<tr>'+
+        '<td style="font-size:11px;color:var(--muted);">'+dateStr+'</td>'+
+        '<td class="ticker-cell">'+h.ticker+'</td>'+
+        '<td>'+h.direction+'</td>'+
+        '<td style="font-family:var(--mono)">'+h.qty+'</td>'+
+        '<td style="font-family:var(--mono)">'+symbol+h.price.toFixed(2)+'</td>'+
+        '<td><span class="order-status-pill '+statusClass+'">'+statusLabel+'</span></td>'+
+        '<td class="'+pnlClass+'" style="font-family:var(--mono)">'+pnlStr+'</td>'+
+        '</tr>';
+    }).join('');
+  }else{
+    document.getElementById('td-history-title').style.display='none';
+    document.getElementById('td-history-table').style.display='none';
+  }
+
+  }); // end getTradingAccount().then()
+}
+
+var _autoClosing={};
+function autoClosePosition(posId,currentPrice,reason){
+  if(_autoClosing[posId])return; // prevent duplicate concurrent auto-close calls
+  _autoClosing[posId]=true;
+  getTradingAccount().then(function(acc){
+    if(!acc){_autoClosing[posId]=false;return;}
+    var pos=acc.positions.find(function(p){return p.id===posId;});
+    if(!pos){_autoClosing[posId]=false;return;} // already closed
+
+    var pnl;
+    if(pos.direction==='BUY'){
+      pnl=(currentPrice-pos.entryPrice)*pos.qty;
+      acc.cash+=currentPrice*pos.qty;
+    }else{
+      pnl=(pos.entryPrice-currentPrice)*pos.qty;
+      acc.cash+=pnl;
+    }
+
+    acc.positions=acc.positions.filter(function(p){return p.id!==posId;});
+    acc.history.unshift({
+      id:Date.now(),date:new Date().toISOString(),ticker:pos.ticker,
+      direction:(reason==='stopped'?'STOP ':'TARGET ')+pos.direction,
+      qty:pos.qty,price:currentPrice,status:reason,pnl:pnl
+    });
+    return setTradingAccount(acc).then(function(){
+      delete _autoClosing[posId];
+      renderTradingDesk();
+    });
+  });
+}
+</script>
+</body>
+</html>
