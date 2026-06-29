@@ -1,58 +1,47 @@
-// watchers/dailyCheck.js
+// routes/watcherApi.js
 //
-// מריץ אוטומטית 3 פעמים ביום (10:15, 14:00, 16:00 - שעון ישראל) מעקב אחרי
-// הודעות חדשות מהיוזרים "הדר" ו"דובי" בפורום ספונסר, ושולח התראת מייל על כל הודעה חדשה.
+// מספק 2 endpoints ל-API שמשמשים את דאשבורד המעקב (public/watcher.html):
+//   GET  /api/watcher/posts      - מחזיר את ההודעות האחרונות שנמצאו
+//   POST /api/watcher/check-now  - מריץ בדיקה ידנית מיידית בפורום ספונסר
 //
-// כדי להפעיל: require('./watchers/dailyCheck')(pgPool); בתוך server.js שלך,
-// אחרי שה-pgPool (חיבור ה-DB) כבר מוגדר.
-//
-// יש כאן גם פונקציה runCheckNow(pgPool) שמאפשרת הרצה ידנית (למשל מ-route ב-server.js).
+// שימוש ב-server.js:
+//   const createWatcherApi = require('./routes/watcherApi');
+//   if (pool) app.use('/api/watcher', createWatcherApi(pool));
 
-const cron = require('node-cron');
-const { checkSponserForum } = require('./sponserWatcher');
-const { sendAlertEmail } = require('./emailAlert');
+const express = require('express');
+const { runCheckNow } = require('../watchers/dailyCheck');
 
-async function runCheckNow(pgPool) {
-  console.log('🔍 מריץ בדיקה בפורום ספונסר...');
-  const newPosts = await checkSponserForum(pgPool);
+function createWatcherApi(pgPool) {
+  const router = express.Router();
 
-  for (const post of newPosts) {
-    await sendAlertEmail({
-      subject: `${post.username} פרסם הודעה חדשה בפורום ספונסר`,
-      message: `${post.title}\n\nתאריך: ${post.date} ${post.time}`,
-      link: post.url,
-    });
-  }
-
-  console.log(`✅ פורום ספונסר: ${newPosts.length} הודעות חדשות נמצאו ונשלחו`);
-  return newPosts;
-}
-
-function startDailyWatcher(pgPool) {
-  const times = [
-    { cronExpr: '15 10 * * *', label: '10:15' },
-    { cronExpr: '0 14 * * *', label: '14:00' },
-    { cronExpr: '0 16 * * *', label: '16:00' },
-  ];
-
-  times.forEach(({ cronExpr, label }) => {
-    cron.schedule(
-      cronExpr,
-      async () => {
-        try {
-          await runCheckNow(pgPool);
-        } catch (err) {
-          console.error(`❌ שגיאה בבדיקת פורום ספונסר (${label}):`, err.message);
-        }
-      },
-      { timezone: 'Asia/Jerusalem' }
-    );
+  // מחזיר את 50 ההודעות האחרונות שזוהו, מהחדש לישן
+  router.get('/posts', async (req, res) => {
+    try {
+      const result = await pgPool.query(
+        `SELECT msg_id, username, forum_id, title, url, seen_at
+         FROM seen_forum_posts
+         ORDER BY seen_at DESC
+         LIMIT 50`
+      );
+      res.json({ posts: result.rows });
+    } catch (err) {
+      console.error('שגיאה בשליפת הודעות:', err.message);
+      res.status(500).json({ error: 'שגיאה בשליפת ההודעות' });
+    }
   });
 
-  console.log(
-    '⏰ Watcher מתוזמן ל-10:15, 14:00, 16:00 (שעון ישראל) - עוקב אחרי: הדר, דובי'
-  );
+  // מריץ בדיקה ידנית מיידית ומחזיר את מה שנמצא (אם נמצא משהו חדש)
+  router.post('/check-now', async (req, res) => {
+    try {
+      const newPosts = await runCheckNow(pgPool);
+      res.json({ success: true, newPostsFound: newPosts.length, newPosts });
+    } catch (err) {
+      console.error('שגיאה בבדיקה ידנית:', err.message);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  return router;
 }
 
-module.exports = startDailyWatcher;
-module.exports.runCheckNow = runCheckNow;
+module.exports = createWatcherApi;
