@@ -22,7 +22,12 @@ const pool = DATABASE_URL ? new Pool({
   ssl: { rejectUnauthorized: false }
 }) : null;
 const startDailyWatcher = require('./watchers/dailyCheck');
-if (pool) startDailyWatcher(pool);
+   const createWatcherApi = require('./routes/watcherApi');
+
+   if (pool) {
+     startDailyWatcher(pool);
+     app.use('/api/watcher', createWatcherApi(pool));
+   }
 
 // ══ Database setup: single-row tables keyed by a fixed account id ══
 // Since this is a personal single-user app, we use a fixed accountId ('default')
