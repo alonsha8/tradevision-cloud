@@ -1,22 +1,14 @@
 // routes/watcherApi.js
-//
-// מספק 2 endpoints ל-API שמשמשים את דאשבורד המעקב (public/watcher.html):
-//   GET  /api/watcher/posts      - מחזיר את ההודעות האחרונות שנמצאו
-//   POST /api/watcher/check-now  - מריץ בדיקה ידנית מיידית בפורום ספונסר
-//
-// שימוש ב-server.js:
-//   const createWatcherApi = require('./routes/watcherApi');
-//   if (pool) app.use('/api/watcher', createWatcherApi(pool));
-
 const express = require('express');
 const { runCheckNow } = require('../watchers/dailyCheck');
+const { ensureTable } = require('../watchers/sponserWatcher');
 
 function createWatcherApi(pgPool) {
   const router = express.Router();
 
-  // מחזיר את 50 ההודעות האחרונות שזוהו, מהחדש לישן
   router.get('/posts', async (req, res) => {
     try {
+      await ensureTable(pgPool);
       const result = await pgPool.query(
         `SELECT msg_id, username, forum_id, title, url, seen_at
          FROM seen_forum_posts
@@ -30,7 +22,6 @@ function createWatcherApi(pgPool) {
     }
   });
 
-  // מריץ בדיקה ידנית מיידית ומחזיר את מה שנמצא (אם נמצא משהו חדש)
   router.post('/check-now', async (req, res) => {
     try {
       const newPosts = await runCheckNow(pgPool);
