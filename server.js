@@ -93,8 +93,8 @@ app.post('/api/analyze', (req, res) => {
 // ══ Yahoo Finance chart proxy ══
 function proxyYahooChart(ticker, res) {
   const reqOptions = {
-    hostname: 'query1.finance.yahoo.com',
-    path: '/v8/finance/chart/' + encodeURIComponent(ticker) + '?interval=1d&range=3mo&includePrePost=false',
+       hostname: 'query1.finance.yahoo.com',
+    path: '/v8/finance/chart/' + encodeURIComponent(ticker) + '?interval=' + encodeURIComponent(interval) + '&range=' + encodeURIComponent(range) + '&includePrePost=false',
     method: 'GET',
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -120,7 +120,9 @@ function proxyYahooChart(ticker, res) {
 app.get('/api/yahoo', (req, res) => {
   const ticker = req.query.ticker;
   if (!ticker) return res.status(400).send('Missing ticker');
-  proxyYahooChart(ticker, res);
+  const interval = req.query.interval || '1d';
+  const range = req.query.range || '3mo';
+  proxyYahooChart(ticker, interval, range, res);
 });
 
 // ══ Yahoo Finance quote proxy (P/E, market cap - best effort with crumb) ══
