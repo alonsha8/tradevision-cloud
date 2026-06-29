@@ -1,23 +1,31 @@
 // watchers/sponserWatcher.js
 // בודק את עמוד "לובי הפורומים" של ספונסר (https://www.sponser.co.il/ForumLobby.aspx)
-// ומחפש הודעות חדשות מהיוזר שהוגדר (TARGET_USERNAME), בכל הפורומים בבת אחת.
-//
-// שים לב: זהו web scraping של אתר חיצוני - מבנה ה-HTML יכול להשתנות בעתיד
-// ולשבור את הפרסור. אם זה קורה, יש לבדוק מחדש את מבנה העמוד.
+// ומחפש הודעות חדשות מהיוזרים שהוגדרו (TARGET_USERNAMES), בכל הפורומים בבת אחת.
 
 const axios = require('axios');
 const iconv = require('iconv-lite');
 const cheerio = require('cheerio');
 
 const LOBBY_URL = 'https://www.sponser.co.il/ForumLobby.aspx';
-const TARGET_USERNAMES = ['הדר', 'דובי']; // <-- הכינויים שביקשת לעקוב אחריהם
+const TARGET_USERNAMES = ['הדר', 'דובי'];
 
-/**
- * שולף את כל הודעות הפורום המוצגות בעמוד הלובי, עם הכינוי, הכותרת והקישור.
- */
+async function ensureTable(pgPool) {
+  await pgPool.query(`
+    CREATE TABLE IF NOT EXISTS seen_forum_posts (
+      id SERIAL PRIMARY KEY,
+      msg_id TEXT UNIQUE NOT NULL,
+      username TEXT NOT NULL,
+      forum_id TEXT,
+      title TEXT,
+      url TEXT,
+      seen_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+}
+
 async function fetchLatestForumPosts() {
   const res = await axios.get(LOBBY_URL, {
-    responseType: 'arraybuffer', // חשוב - האתר בקידוד windows-1255 (עברית ישנה)
+    responseType: 'arraybuffer',
     headers: { 'User-Agent': 'Mozilla/5.0 (TradeVisionWatcher/1.0)' },
   });
 
@@ -30,12 +38,10 @@ async function fetchLatestForumPosts() {
     const href = $(el).attr('href');
     const rawText = $(el).text().replace(/\s+/g, ' ').trim();
 
-    // הטקסט מסתיים בדרך כלל ב: "<כותרת> <כינוי> dd/mm/yy hh:mm"
     const match = rawText.match(/^(.*?)\s+(\S+)\s+(\d{2}\/\d{2}\/\d{2})\s+(\d{2}:\d{2})$/);
     if (!match) return;
 
     const [, title, username, date, time] = match;
-
     const msgIdMatch = href.match(/MsgId=(\d+)/);
     const forumIdMatch = href.match(/ForumId=(\d+)/);
 
@@ -53,11 +59,8 @@ async function fetchLatestForumPosts() {
   return posts;
 }
 
-/**
- * מריץ בדיקה: שולף הודעות, מסנן רק את אלו מהיוזר המבוקש שלא נראו בעבר,
- * שומר אותן ב-DB, ומחזיר רשימה של הודעות חדשות לשליחת התראה.
- */
 async function checkSponserForum(pgPool) {
+  await ensureTable(pgPool);
   const posts = await fetchLatestForumPosts();
   const matches = posts.filter((p) =>
     TARGET_USERNAMES.some((name) => p.username === name || p.username.includes(name))
@@ -84,4 +87,4 @@ async function checkSponserForum(pgPool) {
   return newPosts;
 }
 
-module.exports = { checkSponserForum, fetchLatestForumPosts, TARGET_USERNAMES };
+module.exports = { checkSponserForum, fetchLatestForumPosts, TARGET_USERNAMES, ensureTable };
