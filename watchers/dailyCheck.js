@@ -47,3 +47,12 @@ function startDailyWatcher(pgPool) {
       },
       { timezone: 'Asia/Jerusalem' }
     );
+  });
+
+  console.log(
+    '⏰ Watcher מתוזמן ל-10:15, 14:00, 16:00 (שעון ישראל) - עוקב אחרי: הדר, דובי'
+  );
+}
+
+module.exports = startDailyWatcher;
+module.exports.runCheckNow = runCheckNow;
