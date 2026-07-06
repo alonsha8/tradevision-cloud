@@ -177,6 +177,7 @@
   <div class="tab" onclick="switchTab('portfolio')">💼 בנאי תיק AI</div>
   <div class="tab" onclick="switchTab('trading')">💹 דסק מסחר</div>
   <div class="tab" onclick="switchTab('watcher')">🔔 מעקב פורום</div>
+  <div class="tab" onclick="switchTab('portfolio-analysis')">📊 ניתוח תיק</div>
 </div>
 
 <!-- TAB 1 -->
@@ -490,8 +491,8 @@ emailjs.init('LkDpHo19XM92ZLmZm');
 
 // Tabs
 function switchTab(t){
-  ['watcher','analyzer','scanner','ta125','portfolio','trading'].forEach(function(n){document.getElementById('tab-'+n).classList.toggle('active',n===t);});
- var order=['analyzer','scanner','ta125','portfolio','trading','watcher'];
+  ['watcher','analyzer','scanner','ta125','portfolio','trading','portfolio-analysis'].forEach(function(n){document.getElementById('tab-'+n).classList.toggle('active',n===t);});
+ var order=['analyzer','scanner','ta125','portfolio','trading','watcher','portfolio-analysis'];
   document.querySelectorAll('.tab').forEach(function(el,i){el.classList.toggle('active',order[i]===t);});
   if(t==='trading')renderTradingDesk();
 }
