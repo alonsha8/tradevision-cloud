@@ -1,30 +1,36 @@
 // watchers/dailyCheck.js
 //
 // מריץ אוטומטית 3 פעמים ביום (10:15, 14:00, 16:00 - שעון ישראל) מעקב אחרי
-// הודעות חדשות מהיוזרים "הדר" ו"דובי" בפורום ספונסר, ושולח התראת מייל על כל הודעה חדשה.
-//
-// כדי להפעיל: require('./watchers/dailyCheck')(pgPool); בתוך server.js שלך,
-// אחרי שה-pgPool (חיבור ה-DB) כבר מוגדר.
-//
-// יש כאן גם פונקציה runCheckNow(pgPool) שמאפשרת הרצה ידנית (למשל מ-route ב-server.js).
+// הודעות חדשות ורלוונטיות מהיוזרים "הדר" ו"דובי" בפורום ספונסר.
+// רק הודעות שסווגו ע"י Claude AI כרלוונטיות (קנייה/מכירה/ניתוח) יגיעו כהתראה.
 
 const cron = require('node-cron');
 const { checkSponserForum } = require('./sponserWatcher');
 const { sendAlertEmail } = require('./emailAlert');
+
+const TYPE_LABELS = {
+  buy: '🟢 קנייה',
+  sell: '🔴 מכירה',
+  analysis: '🔵 ניתוח טכני',
+  general: '📌 כללי',
+  other: '📌 כללי'
+};
 
 async function runCheckNow(pgPool) {
   console.log('🔍 מריץ בדיקה בפורום ספונסר...');
   const newPosts = await checkSponserForum(pgPool);
 
   for (const post of newPosts) {
+    const typeLabel = TYPE_LABELS[post.post_type] || '📌';
+    const tickerNote = post.ticker ? ` | מניה: ${post.ticker}` : '';
     await sendAlertEmail({
-      subject: `${post.username} פרסם הודעה חדשה בפורום ספונסר`,
-      message: `${post.title}\n\nתאריך: ${post.date} ${post.time}`,
+      subject: `${typeLabel} | ${post.username} כתב בפורום ספונסר${tickerNote}`,
+      message: post.ai_summary || post.title,
       link: post.url,
     });
   }
 
-  console.log(`✅ פורום ספונסר: ${newPosts.length} הודעות חדשות נמצאו ונשלחו`);
+  console.log(`✅ פורום ספונסר: ${newPosts.length} הודעות רלוונטיות חדשות נמצאו ונשלחו`);
   return newPosts;
 }
 
