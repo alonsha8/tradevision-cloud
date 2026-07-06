@@ -1662,5 +1662,296 @@ function autoClosePosition(posId,currentPrice,reason){
     <iframe src="/watcher.html" style="width:100%;height:85vh;border:none;border-radius:12px;"></iframe>
   </main>
 </div>
+  <!-- ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•
+     ׳׳”׳•׳¡׳™׳£ ׳©׳•׳¨׳” 178 (׳׳—׳¨׳™ ׳©׳•׳¨׳× ׳”-trading tab):
+
+     <div class="tab" onclick="switchTab('portfolio-analysis')">נ“ ׳ ׳™׳×׳•׳— ׳×׳™׳§</div>
+
+     ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•
+     ׳׳”׳•׳¡׳™׳£ ׳‘׳₪׳•׳ ׳§׳¦׳™׳™׳× switchTab (׳©׳•׳¨׳•׳× 492-494):
+     
+     ׳©׳•׳¨׳” 492: ׳”׳•׳¡׳£ 'portfolio-analysis' ׳׳׳¢׳¨׳
+     ['analyzer','scanner','ta125','portfolio','trading','watcher','portfolio-analysis']
+     
+     ׳©׳•׳¨׳” 493: ׳”׳•׳¡׳£ 'portfolio-analysis' ׳׳׳¢׳¨׳
+     var order=['analyzer','scanner','ta125','portfolio','trading','watcher','portfolio-analysis'];
+
+     ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•
+     ׳׳”׳•׳¡׳™׳£ ׳׳׳© ׳׳₪׳ ׳™ </body>:
+     ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג• -->
+
+<!-- TAB: ׳ ׳™׳×׳•׳— ׳×׳™׳§ -->
+<div id="tab-portfolio-analysis" class="tab-content">
+<main style="flex-direction:column;gap:20px;">
+
+  <!-- ׳›׳¨׳˜׳™׳¡ ׳”׳¢׳׳׳” -->
+  <div class="card">
+    <div class="card-header"><span class="dot"></span>׳”׳¢׳׳׳× ׳§׳•׳‘׳¥ ׳׳—׳–׳§׳•׳×</div>
+    <div class="card-body">
+      <div id="pa-dropzone" style="border:2px dashed var(--border);border-radius:12px;padding:30px;text-align:center;cursor:pointer;transition:border-color .2s ease;">
+        <input type="file" id="pa-file-input" accept=".xlsx,.xls,.csv" style="display:none">
+        <div style="font-size:28px;margin-bottom:8px;">נ“‚</div>
+        <div style="font-weight:600;margin-bottom:4px;">׳’׳¨׳•׳¨ ׳§׳•׳‘׳¥ Excel / CSV ׳׳›׳׳, ׳׳• ׳׳—׳¥ ׳׳‘׳—׳™׳¨׳”</div>
+        <div style="font-size:12px;color:var(--muted);">׳₪׳•׳¨׳׳˜: ׳¢׳׳•׳“׳•׳× <b>׳¡׳™׳׳•׳</b> (׳—׳•׳‘׳”) | <b>׳›׳׳•׳×</b> (׳—׳•׳‘׳”) | <b>׳¢׳׳•׳× ׳׳׳•׳¦׳¢׳×</b> (׳׳•׳₪׳¦׳™׳•׳ ׳׳™) | <b>׳©׳</b> (׳׳•׳₪׳¦׳™׳•׳ ׳׳™)</div>
+      </div>
+
+      <!-- ׳˜׳‘׳׳× ׳×׳¦׳•׳’׳” ׳׳§׳“׳™׳׳” -->
+      <div id="pa-preview" style="display:none;margin-top:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <span style="font-size:13px;color:var(--muted);" id="pa-preview-count"></span>
+          <button onclick="document.getElementById('pa-preview').style.display='none';document.getElementById('pa-file-input').value='';paHoldings=[];" style="background:rgba(255,77,106,0.1);border:1px solid rgba(255,77,106,0.3);color:var(--red);padding:5px 12px;border-radius:8px;cursor:pointer;font-size:12px;">ג• ׳ ׳§׳”</button>
+        </div>
+        <div style="overflow-x:auto;">
+          <table id="pa-preview-table" style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border);">
+                <th style="text-align:right;padding:8px;color:var(--muted);">׳¡׳™׳׳•׳</th>
+                <th style="text-align:right;padding:8px;color:var(--muted);">׳©׳</th>
+                <th style="text-align:right;padding:8px;color:var(--muted);">׳›׳׳•׳×</th>
+                <th style="text-align:right;padding:8px;color:var(--muted);">׳¢׳׳•׳× ׳׳׳•׳¦׳¢׳×</th>
+              </tr>
+            </thead>
+            <tbody id="pa-preview-body"></tbody>
+          </table>
+        </div>
+        <button class="btn-primary" id="pa-analyze-btn" onclick="runPortfolioAnalysis()" style="margin-top:14px;width:100%;">נ” ׳ ׳×׳— ׳×׳™׳§</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ׳׳•׳’׳• ׳˜׳¢׳™׳ ׳” -->
+  <div id="pa-loading" style="display:none;text-align:center;padding:40px;">
+    <div class="spinner"></div>
+    <div class="loading-text" id="pa-loading-text">׳׳•׳©׳ ׳ ׳×׳•׳ ׳™׳ ׳-Yahoo Finance...</div>
+    <div style="font-size:12px;color:var(--muted);margin-top:8px;" id="pa-progress"></div>
+  </div>
+
+  <!-- ׳×׳•׳¦׳׳•׳× -->
+  <div id="pa-results" style="display:none;">
+
+    <!-- ׳¦׳™׳•׳ ׳×׳™׳§ ׳›׳•׳׳ -->
+    <div class="card" id="pa-score-card">
+      <div class="card-body" style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+        <div style="text-align:center;min-width:80px;">
+          <div id="pa-score-ring" style="font-size:40px;font-weight:700;font-family:'Space Grotesk',sans-serif;"></div>
+          <div style="font-size:12px;color:var(--muted);">׳¦׳™׳•׳ ׳×׳™׳§</div>
+        </div>
+        <div style="flex:1;">
+          <div id="pa-portfolio-summary" style="font-size:14px;line-height:1.6;color:var(--text);"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ׳—׳•׳–׳§׳•׳× ׳•׳¡׳™׳›׳•׳ ׳™׳ -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;" id="pa-str-risk">
+      <div class="card">
+        <div class="card-header"><span class="dot" style="background:var(--green);"></span>׳—׳•׳–׳§׳•׳×</div>
+        <div class="card-body" id="pa-strengths" style="display:flex;flex-direction:column;gap:6px;"></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="dot" style="background:var(--red);"></span>׳¡׳™׳›׳•׳ ׳™׳</div>
+        <div class="card-body" id="pa-risks" style="display:flex;flex-direction:column;gap:6px;"></div>
+      </div>
+    </div>
+
+    <!-- ׳”׳׳׳¦׳•׳× -->
+    <div class="card">
+      <div class="card-header"><span class="dot"></span>׳”׳׳׳¦׳•׳×</div>
+      <div class="card-body" id="pa-recommendations" style="display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
+
+    <!-- ׳˜׳‘׳׳× ׳׳ ׳™׳•׳× -->
+    <div class="card">
+      <div class="card-header"><span class="dot"></span>׳ ׳™׳×׳•׳— ׳׳₪׳™ ׳׳ ׳™׳”</div>
+      <div class="card-body" style="padding:0;overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border);">
+              <th style="text-align:right;padding:12px 16px;color:var(--muted);">׳׳ ׳™׳”</th>
+              <th style="text-align:right;padding:12px;color:var(--muted);">׳׳—׳™׳¨</th>
+              <th style="text-align:right;padding:12px;color:var(--muted);">׳©׳•׳•׳™</th>
+              <th style="text-align:right;padding:12px;color:var(--muted);">P&L</th>
+              <th style="text-align:right;padding:12px;color:var(--muted);">RSI</th>
+              <th style="text-align:right;padding:12px;color:var(--muted);">׳׳’׳׳”</th>
+              <th style="text-align:right;padding:12px;color:var(--muted);">׳¦׳™׳•׳</th>
+              <th style="text-align:right;padding:12px;color:var(--muted);">׳¡׳™׳’׳ ׳</th>
+              <th style="text-align:right;padding:12px;color:var(--muted);">׳”׳¢׳¨׳” AI</th>
+            </tr>
+          </thead>
+          <tbody id="pa-stocks-table"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+</main>
+</div>
+
+<!-- SheetJS ׳׳₪׳¨׳¡׳•׳¨ Excel -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<script>
+var paHoldings=[];
+
+// ג”€ג”€ ׳”׳’׳“׳¨׳× Drop Zone ג”€ג”€
+(function(){
+  var dz=document.getElementById('pa-dropzone');
+  var fi=document.getElementById('pa-file-input');
+  dz.addEventListener('click',function(){fi.click();});
+  dz.addEventListener('dragover',function(e){e.preventDefault();dz.style.borderColor='var(--accent)';});
+  dz.addEventListener('dragleave',function(){dz.style.borderColor='var(--border)';});
+  dz.addEventListener('drop',function(e){
+    e.preventDefault();dz.style.borderColor='var(--border)';
+    if(e.dataTransfer.files[0])parsePortfolioFile(e.dataTransfer.files[0]);
+  });
+  fi.addEventListener('change',function(e){if(e.target.files[0])parsePortfolioFile(e.target.files[0]);});
+})();
+
+// ג”€ג”€ ׳₪׳¨׳¡׳•׳¨ ׳§׳•׳‘׳¥ Excel / CSV ג”€ג”€
+function parsePortfolioFile(file){
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var data=new Uint8Array(e.target.result);
+    var wb=XLSX.read(data,{type:'array'});
+    var ws=wb.Sheets[wb.SheetNames[0]];
+    var rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+    if(!rows.length){alert('׳”׳§׳•׳‘׳¥ ׳¨׳™׳§ ׳׳• ׳‘׳₪׳•׳¨׳׳˜ ׳©׳’׳•׳™');return;}
+
+    // ׳–׳™׳”׳•׳™ ׳¢׳׳•׳“׳•׳× (׳¢׳‘׳¨׳™׳× ׳•׳׳ ׳’׳׳™׳×)
+    var keys=Object.keys(rows[0]);
+    function findCol(options){return keys.find(k=>options.some(o=>k.toLowerCase().replace(/\s/g,'').includes(o.toLowerCase().replace(/\s/g,''))));}
+
+    var tickerCol=findCol(['׳¡׳™׳׳•׳','ticker','symbol','׳׳ ׳™׳”']);
+    var sharesCol=findCol(['׳›׳׳•׳×','shares','quantity','units','׳׳ ׳™׳•׳×']);
+    var avgCostCol=findCol(['׳¢׳׳•׳×','cost','price','׳׳—׳™׳¨','avg']);
+    var nameCol=findCol(['׳©׳','name','company']);
+
+    if(!tickerCol){alert('׳׳ ׳ ׳׳¦׳׳” ׳¢׳׳•׳“׳× "׳¡׳™׳׳•׳" / "Ticker" ׳‘׳§׳•׳‘׳¥');return;}
+    if(!sharesCol){alert('׳׳ ׳ ׳׳¦׳׳” ׳¢׳׳•׳“׳× "׳›׳׳•׳×" / "Shares" ׳‘׳§׳•׳‘׳¥');return;}
+
+    paHoldings=rows
+      .map(r=>({
+        ticker:String(r[tickerCol]||'').trim().toUpperCase(),
+        shares:parseFloat(r[sharesCol])||0,
+        avgCost:avgCostCol?parseFloat(r[avgCostCol])||null:null,
+        name:nameCol?String(r[nameCol]||'').trim():''
+      }))
+      .filter(h=>h.ticker&&h.shares>0)
+      .slice(0,25);
+
+    if(!paHoldings.length){alert('׳׳ ׳ ׳׳¦׳׳• ׳׳—׳–׳§׳•׳× ׳×׳§׳™׳ ׳•׳× ׳‘׳§׳•׳‘׳¥');return;}
+    showPortfolioPreview();
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function showPortfolioPreview(){
+  var tbody=document.getElementById('pa-preview-body');
+  tbody.innerHTML=paHoldings.map(h=>`
+    <tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:8px 8px;font-family:var(--mono);color:var(--accent);">${h.ticker}</td>
+      <td style="padding:8px;">${h.name||'ג€”'}</td>
+      <td style="padding:8px;">${h.shares.toLocaleString()}</td>
+      <td style="padding:8px;">${h.avgCost!=null?h.avgCost.toFixed(2):'ג€”'}</td>
+    </tr>`).join('');
+  document.getElementById('pa-preview-count').textContent=paHoldings.length+' ׳׳—׳–׳§׳•׳× ׳–׳•׳”׳•';
+  document.getElementById('pa-preview').style.display='block';
+  document.getElementById('pa-results').style.display='none';
+}
+
+// ג”€ג”€ ׳”׳¨׳¦׳× ׳ ׳™׳×׳•׳— ג”€ג”€
+async function runPortfolioAnalysis(){
+  if(!paHoldings.length){alert('׳ ׳ ׳׳”׳¢׳׳•׳× ׳§׳•׳‘׳¥ ׳׳—׳–׳§׳•׳× ׳§׳•׳“׳');return;}
+  document.getElementById('pa-analyze-btn').disabled=true;
+  document.getElementById('pa-loading').style.display='block';
+  document.getElementById('pa-results').style.display='none';
+  document.getElementById('pa-loading-text').textContent='׳׳•׳©׳ ׳ ׳×׳•׳ ׳™׳ ׳-Yahoo Finance...';
+  document.getElementById('pa-progress').textContent='׳–׳” ׳¢׳©׳•׳™ ׳׳§׳—׳× ׳›-'+Math.ceil(paHoldings.length*0.4)+' ׳©׳ ׳™׳•׳×';
+
+  try{
+    var res=await fetch('/api/portfolio/analyze',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({holdings:paHoldings})
+    });
+    var data=await res.json();
+    if(data.error)throw new Error(data.error);
+    document.getElementById('pa-loading-text').textContent='׳׳¢׳‘׳“ ׳ ׳™׳×׳•׳— AI...';
+    renderPortfolioResults(data);
+  }catch(err){
+    document.getElementById('pa-loading').style.display='none';
+    alert('׳©׳’׳™׳׳”: '+err.message);
+  }finally{
+    document.getElementById('pa-analyze-btn').disabled=false;
+    document.getElementById('pa-loading').style.display='none';
+  }
+}
+
+// ג”€ג”€ ׳”׳¦׳’׳× ׳×׳•׳¦׳׳•׳× ג”€ג”€
+function scoreColor(s){return s>=70?'var(--green)':s>=50?'var(--accent2)':'var(--red)';}
+function signalBadge(sig){
+  var colors={BUY:'var(--green)',HOLD:'var(--accent2)',SELL:'var(--red)'};
+  var labels={BUY:'׳§׳ ׳™׳™׳”',HOLD:'׳”׳׳×׳ ׳”',SELL:'׳׳›׳™׳¨׳”'};
+  return `<span style="background:${colors[sig]||'var(--muted)'}22;color:${colors[sig]||'var(--muted)'};padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;">${labels[sig]||sig}</span>`;
+}
+function trendIcon(t){return t==='׳¢׳•׳׳”'?'ג†‘':t==='׳™׳•׳¨׳“'?'ג†“':'ג†’';}
+
+function renderPortfolioResults(data){
+  var stocks=data.stocks||[];
+  var ai=data.aiAnalysis;
+
+  // ׳¦׳™׳•׳ ׳×׳™׳§
+  var score=ai?ai.portfolio_score:Math.round(stocks.filter(s=>!s.error).reduce((sum,s)=>sum+s.techScore,0)/(stocks.filter(s=>!s.error).length||1));
+  document.getElementById('pa-score-ring').textContent=score;
+  document.getElementById('pa-score-ring').style.color=scoreColor(score);
+  document.getElementById('pa-portfolio-summary').textContent=ai?ai.portfolio_summary:'׳ ׳™׳×׳•׳— ׳˜׳›׳ ׳™ ׳”׳•׳©׳׳.';
+
+  // ׳—׳•׳–׳§׳•׳×
+  var str=document.getElementById('pa-strengths');
+  str.innerHTML=(ai&&ai.top_strengths||[]).map(s=>`<div style="font-size:13px;padding:6px 10px;background:rgba(34,197,94,0.08);border-radius:8px;">ג… ${s}</div>`).join('');
+
+  // ׳¡׳™׳›׳•׳ ׳™׳
+  var risk=document.getElementById('pa-risks');
+  risk.innerHTML=(ai&&ai.main_risks||[]).map(s=>`<div style="font-size:13px;padding:6px 10px;background:rgba(239,68,68,0.08);border-radius:8px;">ג ן¸ ${s}</div>`).join('');
+
+  // ׳”׳׳׳¦׳•׳×
+  var rec=document.getElementById('pa-recommendations');
+  rec.innerHTML=(ai&&ai.recommendations||[]).map((s,i)=>`<div style="font-size:13px;padding:8px 12px;background:var(--surface-2,#1a2235);border-radius:8px;display:flex;gap:10px;"><span style="color:var(--accent);font-weight:700;">${i+1}.</span><span>${s}</span></div>`).join('');
+
+  // ׳˜׳‘׳׳× ׳׳ ׳™׳•׳×
+  var aiStocks={};
+  (ai&&ai.stocks||[]).forEach(s=>{aiStocks[s.ticker]=s;});
+
+  var tbody=document.getElementById('pa-stocks-table');
+  tbody.innerHTML=stocks.map(s=>{
+    if(s.error)return `<tr style="border-bottom:1px solid var(--border);opacity:0.5;"><td style="padding:12px 16px;font-family:var(--mono);">${s.ticker}</td><td colspan="8" style="padding:12px;color:var(--red);">ג ן¸ ${s.error}</td></tr>`;
+    var aiS=aiStocks[s.ticker]||{};
+    var pnlColor=s.pnl==null?'':s.pnl>=0?'var(--green)':'var(--red)';
+    var pnlText=s.pnl!=null?(s.pnl>=0?'+':'')+s.pnl+'%':'ג€”';
+    return `<tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:12px 16px;">
+        <div style="font-family:var(--mono);color:var(--accent);font-weight:600;">${s.ticker}</div>
+        <div style="font-size:11px;color:var(--muted);">${s.name!==s.ticker?s.name:''}</div>
+      </td>
+      <td style="padding:12px;">${s.price}</td>
+      <td style="padding:12px;">${s.value?.toLocaleString(undefined,{maximumFractionDigits:0})}</td>
+      <td style="padding:12px;color:${pnlColor};font-weight:600;">${pnlText}</td>
+      <td style="padding:12px;">${s.rsi}</td>
+      <td style="padding:12px;">${trendIcon(s.trend)} ${s.trend}</td>
+      <td style="padding:12px;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <div style="width:36px;height:36px;border-radius:50%;border:3px solid ${scoreColor(aiS.score||s.techScore)};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:${scoreColor(aiS.score||s.techScore)};">${aiS.score||s.techScore}</div>
+        </div>
+      </td>
+      <td style="padding:12px;">${aiS.signal?signalBadge(aiS.signal):'ג€”'}</td>
+      <td style="padding:12px;font-size:12px;color:var(--muted);max-width:200px;">${aiS.comment||'ג€”'}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('pa-results').style.display='block';
+}
+</script>
+
 </body>
 </html>
