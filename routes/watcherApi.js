@@ -1,3 +1,4 @@
+// routes/watcherApi.js
 const express = require('express');
 const { runCheckNow } = require('../watchers/dailyCheck');
 const { ensureTable } = require('../watchers/sponserWatcher');
@@ -5,12 +6,14 @@ const { ensureTable } = require('../watchers/sponserWatcher');
 function createWatcherApi(pgPool) {
   const router = express.Router();
 
+  // מחזיר את 50 ההודעות הרלוונטיות האחרונות
   router.get('/posts', async (req, res) => {
     try {
       await ensureTable(pgPool);
       const result = await pgPool.query(
-        `SELECT msg_id, username, forum_id, title, url, seen_at
+        `SELECT msg_id, username, forum_id, title, url, ai_summary, post_type, seen_at
          FROM seen_forum_posts
+         WHERE post_type IS NULL OR post_type NOT IN ('other')
          ORDER BY seen_at DESC
          LIMIT 50`
       );
@@ -21,6 +24,7 @@ function createWatcherApi(pgPool) {
     }
   });
 
+  // מריץ בדיקה ידנית מיידית
   router.post('/check-now', async (req, res) => {
     try {
       const newPosts = await runCheckNow(pgPool);
