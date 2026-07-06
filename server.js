@@ -27,6 +27,8 @@ const startDailyWatcher = require('./watchers/dailyCheck');
    if (pool) {
      startDailyWatcher(pool);
      app.use('/api/watcher', createWatcherApi(pool));
+     const createPortfolioApi = require('./routes/portfolioApi');
+app.use('/api/portfolio', createPortfolioApi(API_KEY));
    }
 
 // ══ Database setup: single-row tables keyed by a fixed account id ══
