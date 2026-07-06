@@ -1,4 +1,3 @@
-// routes/watcherApi.js
 const express = require('express');
 const { runCheckNow } = require('../watchers/dailyCheck');
 const { ensureTable } = require('../watchers/sponserWatcher');
