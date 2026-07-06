@@ -16,149 +16,54 @@
     --text-dim:#94A3B8;
     --teal:#2DD4BF;
     --amber:#F2A93B;
+    --green:#22C55E;
+    --red:#EF4444;
+    --blue:#60A5FA;
     --danger:#F25555;
   }
   *{box-sizing:border-box;}
-  body{
-    margin:0;
-    background:var(--bg);
-    color:var(--text);
-    font-family:'Inter',sans-serif;
-    min-height:100vh;
-  }
-  .ticker-line{
-    height:3px;
-    width:100%;
-    background:linear-gradient(90deg, transparent, var(--teal), var(--amber), transparent);
-    background-size:200% 100%;
-    animation:ticker 6s linear infinite;
-  }
-  @keyframes ticker{
-    0%{background-position:200% 0;}
-    100%{background-position:-200% 0;}
-  }
-  .wrap{max-width:760px;margin:0 auto;padding:32px 20px 80px;}
-  header{
-    display:flex;
-    justify-content:space-between;
-    align-items:flex-start;
-    flex-wrap:wrap;
-    gap:16px;
-    margin-bottom:28px;
-  }
-  h1{
-    font-family:'Space Grotesk',sans-serif;
-    font-size:28px;
-    font-weight:700;
-    margin:0 0 4px;
-    letter-spacing:-0.01em;
-  }
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;}
+  .ticker-line{height:3px;width:100%;background:linear-gradient(90deg,transparent,var(--teal),var(--amber),transparent);background-size:200% 100%;animation:ticker 6s linear infinite;}
+  @keyframes ticker{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
+  .wrap{max-width:780px;margin:0 auto;padding:32px 20px 80px;}
+  header{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;margin-bottom:28px;}
+  h1{font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:700;margin:0 0 4px;letter-spacing:-0.01em;}
   .subtitle{color:var(--text-dim);font-size:14px;margin:0;}
-  .status{
-    display:flex;
-    align-items:center;
-    gap:8px;
-    font-size:13px;
-    color:var(--text-dim);
-    font-family:'JetBrains Mono',monospace;
-  }
-  .pulse-dot{
-    width:8px;height:8px;border-radius:50%;
-    background:var(--teal);
-    box-shadow:0 0 0 0 rgba(45,212,191,0.6);
-    animation:pulse 2s infinite;
-  }
-  @keyframes pulse{
-    0%{box-shadow:0 0 0 0 rgba(45,212,191,0.5);}
-    70%{box-shadow:0 0 0 8px rgba(45,212,191,0);}
-    100%{box-shadow:0 0 0 0 rgba(45,212,191,0);}
-  }
-  .controls{
-    display:flex;
-    align-items:center;
-    gap:12px;
-    margin-bottom:24px;
-    flex-wrap:wrap;
-  }
-  button.check-btn{
-    background:var(--teal);
-    color:#06302B;
-    border:none;
-    font-family:'Space Grotesk',sans-serif;
-    font-weight:600;
-    font-size:14px;
-    padding:11px 20px;
-    border-radius:10px;
-    cursor:pointer;
-    transition:transform .15s ease, box-shadow .15s ease;
-  }
+  .status{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;}
+  .pulse-dot{width:8px;height:8px;border-radius:50%;background:var(--teal);box-shadow:0 0 0 0 rgba(45,212,191,0.6);animation:pulse 2s infinite;}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(45,212,191,0.5);}70%{box-shadow:0 0 0 8px rgba(45,212,191,0);}100%{box-shadow:0 0 0 0 rgba(45,212,191,0);}}
+  .schedule-note{font-size:12px;color:var(--text-dim);background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:28px;}
+  .schedule-note b{color:var(--text);}
+  .controls{display:flex;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap;}
+  button.check-btn{background:var(--teal);color:#06302B;border:none;font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:14px;padding:11px 20px;border-radius:10px;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease;}
   button.check-btn:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(45,212,191,0.25);}
   button.check-btn:disabled{opacity:0.5;cursor:not-allowed;transform:none;box-shadow:none;}
   .last-checked{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-dim);}
-  .schedule-note{
-    font-size:12px;color:var(--text-dim);
-    background:var(--surface);
-    border:1px solid var(--border);
-    border-radius:10px;
-    padding:10px 14px;
-    margin-bottom:28px;
-  }
-  .schedule-note b{color:var(--text);}
   .feed{display:flex;flex-direction:column;gap:12px;}
-  .card{
-    background:var(--surface);
-    border:1px solid var(--border);
-    border-radius:14px;
-    padding:18px 20px;
-    transition:background .15s ease, border-color .15s ease;
-  }
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;transition:background .15s ease,border-color .15s ease;}
   .card:hover{background:var(--surface-hover);border-color:#2A3A5A;}
-  .card-top{
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    margin-bottom:10px;
-  }
-  .username-badge{
-    font-family:'Space Grotesk',sans-serif;
-    font-weight:600;
-    font-size:13px;
-    padding:4px 12px;
-    border-radius:20px;
-  }
+  .card.type-buy{border-right:3px solid var(--green);}
+  .card.type-sell{border-right:3px solid var(--red);}
+  .card.type-analysis{border-right:3px solid var(--blue);}
+  .card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;}
+  .badges{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .username-badge{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:12px;padding:3px 10px;border-radius:20px;}
   .badge-הדר{background:rgba(45,212,191,0.15);color:var(--teal);}
   .badge-דובי{background:rgba(242,169,59,0.15);color:var(--amber);}
+  .type-badge{font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;font-family:'Space Grotesk',sans-serif;}
+  .type-badge.buy{background:rgba(34,197,94,0.15);color:var(--green);}
+  .type-badge.sell{background:rgba(239,68,68,0.15);color:var(--red);}
+  .type-badge.analysis{background:rgba(96,165,250,0.15);color:var(--blue);}
+  .type-badge.general,.type-badge.other{background:rgba(148,163,184,0.15);color:var(--text-dim);}
   .timestamp{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-dim);}
-  .card-title{font-size:15px;line-height:1.5;margin:0 0 12px;color:var(--text);}
-  .card-link{
-    font-size:13px;
-    color:var(--teal);
-    text-decoration:none;
-    font-weight:500;
-  }
+  .card-summary{font-size:14px;line-height:1.6;margin:0 0 6px;color:var(--text);}
+  .card-title{font-size:12px;color:var(--text-dim);margin:0 0 12px;font-style:italic;}
+  .card-link{font-size:13px;color:var(--teal);text-decoration:none;font-weight:500;}
   .card-link:hover{text-decoration:underline;}
-  .empty-state{
-    text-align:center;
-    padding:60px 20px;
-    color:var(--text-dim);
-  }
+  .empty-state{text-align:center;padding:60px 20px;color:var(--text-dim);}
   .empty-state .icon{font-size:32px;margin-bottom:12px;}
   .loading-state{text-align:center;padding:60px 20px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;font-size:13px;}
-  .toast{
-    position:fixed;
-    bottom:24px;
-    left:50%;
-    transform:translateX(-50%) translateY(20px);
-    background:var(--surface);
-    border:1px solid var(--border);
-    color:var(--text);
-    padding:12px 20px;
-    border-radius:10px;
-    font-size:13px;
-    opacity:0;
-    transition:opacity .25s ease, transform .25s ease;
-    pointer-events:none;
-  }
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface);border:1px solid var(--border);color:var(--text);padding:12px 20px;border-radius:10px;font-size:13px;opacity:0;transition:opacity .25s ease,transform .25s ease;pointer-events:none;z-index:999;}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 </style>
 </head>
@@ -168,16 +73,16 @@
   <header>
     <div>
       <h1>מעקב פורום ספונסר</h1>
-      <p class="subtitle">עוקב אחרי הודעות חדשות מ-הדר ו-דובי</p>
+      <p class="subtitle">מציג רק הודעות קנייה / מכירה / ניתוח טכני מהדר ודובי</p>
     </div>
     <div class="status">
       <span class="pulse-dot"></span>
-      <span>מערכת פעילה</span>
+      <span>AI סינון פעיל</span>
     </div>
   </header>
 
   <div class="schedule-note">
-    בדיקה אוטומטית מתבצעת <b>3 פעמים ביום</b> — 10:15, 14:00, 16:00 (שעון ישראל)
+    בדיקה אוטומטית <b>3 פעמים ביום</b> — 10:15, 14:00, 16:00. כל הודעה נקראת ע"י Claude ומסווגת — רק הרלוונטיות מגיעות אליך.
   </div>
 
   <div class="controls">
@@ -193,80 +98,86 @@
 <div class="toast" id="toast"></div>
 
 <script>
-const feedEl = document.getElementById('feed');
-const checkBtn = document.getElementById('checkNowBtn');
-const lastCheckedEl = document.getElementById('lastChecked');
-const toastEl = document.getElementById('toast');
+const feedEl=document.getElementById('feed');
+const checkBtn=document.getElementById('checkNowBtn');
+const lastCheckedEl=document.getElementById('lastChecked');
+const toastEl=document.getElementById('toast');
 
-function showToast(msg) {
-  toastEl.textContent = msg;
+const TYPE_LABELS={buy:'🟢 קנייה',sell:'🔴 מכירה',analysis:'🔵 ניתוח טכני',general:'📌 כללי',other:'📌 כללי'};
+
+function showToast(msg){
+  toastEl.textContent=msg;
   toastEl.classList.add('show');
-  setTimeout(() => toastEl.classList.remove('show'), 3200);
+  setTimeout(()=>toastEl.classList.remove('show'),3200);
 }
 
-function formatTime(iso) {
-  const d = new Date(iso);
-  return d.toLocaleString('he-IL', { dateStyle: 'short', timeStyle: 'short' });
+function formatTime(iso){
+  const d=new Date(iso);
+  return d.toLocaleString('he-IL',{dateStyle:'short',timeStyle:'short'});
 }
 
-function renderPosts(posts) {
-  if (!posts.length) {
-    feedEl.innerHTML = `
-      <div class="empty-state">
-        <div class="icon">📭</div>
-        <div>אין עדיין הודעות שזוהו. כשהדר או דובי יכתבו בפורום, ההודעה תופיע כאן.</div>
-      </div>`;
+function renderPosts(posts){
+  if(!posts.length){
+    feedEl.innerHTML=`<div class="empty-state"><div class="icon">📭</div><div>אין עדיין הודעות רלוונטיות. כשהדר או דובי יכתבו על קנייה / מכירה / ניתוח, ההודעה תופיע כאן.</div></div>`;
     return;
   }
 
-  feedEl.innerHTML = posts.map(p => `
-    <div class="card">
+  feedEl.innerHTML=posts.map(p=>{
+    const type=p.post_type||'general';
+    const typeLabel=TYPE_LABELS[type]||'📌';
+    const cardClass=`card type-${type}`;
+    const typeBadgeClass=`type-badge ${type}`;
+    const userBadgeClass=`username-badge badge-${p.username}`;
+    const summary=p.ai_summary||p.title||'';
+    const showTitle=p.title&&p.title!==summary;
+    return `<div class="${cardClass}">
       <div class="card-top">
-        <span class="username-badge badge-${p.username}">${p.username}</span>
+        <div class="badges">
+          <span class="${userBadgeClass}">${p.username}</span>
+          <span class="${typeBadgeClass}">${typeLabel}</span>
+        </div>
         <span class="timestamp">${formatTime(p.seen_at)}</span>
       </div>
-      <p class="card-title">${p.title}</p>
+      <p class="card-summary">${summary}</p>
+      ${showTitle?`<p class="card-title">כותרת מקורית: ${p.title}</p>`:''}
       <a class="card-link" href="${p.url}" target="_blank" rel="noopener">פתח בפורום ↗</a>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
-async function loadPosts() {
-  try {
-    const res = await fetch('/api/watcher/posts');
-    const data = await res.json();
-    renderPosts(data.posts || []);
-    lastCheckedEl.textContent = 'התעדכן: ' + new Date().toLocaleTimeString('he-IL');
-  } catch (err) {
-    feedEl.innerHTML = `<div class="empty-state">⚠️ שגיאה בטעינת ההודעות</div>`;
+async function loadPosts(){
+  try{
+    const res=await fetch('/api/watcher/posts');
+    const data=await res.json();
+    renderPosts(data.posts||[]);
+    lastCheckedEl.textContent='התעדכן: '+new Date().toLocaleTimeString('he-IL');
+  }catch(err){
+    feedEl.innerHTML=`<div class="empty-state">⚠️ שגיאה בטעינת ההודעות</div>`;
   }
 }
 
-checkBtn.addEventListener('click', async () => {
-  checkBtn.disabled = true;
-  checkBtn.textContent = '⏳ בודק…';
-  try {
-    const res = await fetch('/api/watcher/check-now', { method: 'POST' });
-    const data = await res.json();
-    if (data.success) {
-      showToast(data.newPostsFound > 0
-        ? `✅ נמצאו ${data.newPostsFound} הודעות חדשות!`
-        : 'בדיקה הושלמה - אין הודעות חדשות');
+checkBtn.addEventListener('click',async()=>{
+  checkBtn.disabled=true;
+  checkBtn.textContent='⏳ בודק…';
+  try{
+    const res=await fetch('/api/watcher/check-now',{method:'POST'});
+    const data=await res.json();
+    if(data.success){
+      showToast(data.newPostsFound>0?`✅ נמצאו ${data.newPostsFound} הודעות רלוונטיות חדשות!`:'בדיקה הושלמה — אין הודעות רלוונטיות חדשות');
       await loadPosts();
-    } else {
-      showToast('שגיאה בבדיקה: ' + (data.error || ''));
+    }else{
+      showToast('שגיאה בבדיקה: '+(data.error||''));
     }
-  } catch (err) {
+  }catch(err){
     showToast('שגיאה בחיבור לשרת');
-  } finally {
-    checkBtn.disabled = false;
-    checkBtn.textContent = '🔍 בדוק עכשיו';
+  }finally{
+    checkBtn.disabled=false;
+    checkBtn.textContent='🔍 בדוק עכשיו';
   }
 });
 
 loadPosts();
-// רענון אוטומטי כל 60 שניות
-setInterval(loadPosts, 60000);
+setInterval(loadPosts,60000);
 </script>
 </body>
 </html>
