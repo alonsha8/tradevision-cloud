@@ -91,9 +91,9 @@ app.post('/api/analyze', (req, res) => {
 });
 
 // ══ Yahoo Finance chart proxy ══
-function proxyYahooChart(ticker, res) {
+function proxyYahooChart(ticker, interval, range, res) {
   const reqOptions = {
-       hostname: 'query1.finance.yahoo.com',
+    hostname: 'query1.finance.yahoo.com',
     path: '/v8/finance/chart/' + encodeURIComponent(ticker) + '?interval=' + encodeURIComponent(interval) + '&range=' + encodeURIComponent(range) + '&includePrePost=false',
     method: 'GET',
     headers: {
