@@ -1667,59 +1667,64 @@ function autoClosePosition(posId,currentPrice,reason){
 <div id="tab-portfolio-analysis" class="tab-content">
 <main style="flex-direction:column;gap:20px;">
 
-  <!-- כרטיס העלאה -->
-  <div class="card">
+  <div class="card" id="pa-upload-card">
     <div class="card-header"><span class="dot"></span>העלאת קובץ אחזקות</div>
     <div class="card-body">
       <div id="pa-dropzone" style="border:2px dashed var(--border);border-radius:12px;padding:30px;text-align:center;cursor:pointer;transition:border-color .2s ease;">
         <input type="file" id="pa-file-input" accept=".xlsx,.xls,.csv" style="display:none">
         <div style="font-size:28px;margin-bottom:8px;">📂</div>
-        <div style="font-weight:600;margin-bottom:4px;">גרור קובץ Excel / CSV לכאן, או לחץ לבחירה</div>
-        <div style="font-size:12px;color:var(--muted);">פורמט: עמודות <b>סימול</b> (חובה) | <b>כמות</b> (חובה) | <b>עלות ממוצעת</b> (אופציונלי) | <b>שם</b> (אופציונלי)</div>
-      </div>
-
-      <div id="pa-preview" style="display:none;margin-top:16px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-          <span style="font-size:13px;color:var(--muted);" id="pa-preview-count"></span>
-          <button onclick="document.getElementById('pa-preview').style.display='none';document.getElementById('pa-file-input').value='';paHoldings=[];" style="background:rgba(255,77,106,0.1);border:1px solid rgba(255,77,106,0.3);color:var(--red);padding:5px 12px;border-radius:8px;cursor:pointer;font-size:12px;">✕ נקה</button>
-        </div>
-        <div style="overflow-x:auto;">
-          <table id="pa-preview-table" style="width:100%;border-collapse:collapse;font-size:13px;">
-            <thead>
-              <tr style="border-bottom:1px solid var(--border);">
-                <th style="text-align:right;padding:8px;color:var(--muted);">סימול</th>
-                <th style="text-align:right;padding:8px;color:var(--muted);">שם</th>
-                <th style="text-align:right;padding:8px;color:var(--muted);">כמות</th>
-                <th style="text-align:right;padding:8px;color:var(--muted);">עלות ממוצעת</th>
-              </tr>
-            </thead>
-            <tbody id="pa-preview-body"></tbody>
-          </table>
-        </div>
-        <button class="btn-primary" id="pa-analyze-btn" onclick="runPortfolioAnalysis()" style="margin-top:14px;width:100%;">🔍 נתח תיק</button>
+        <div style="font-weight:600;margin-bottom:4px;">גרור קובץ Excel מהברוקר לכאן, או לחץ לבחירה</div>
+        <div style="font-size:12px;color:var(--muted);">קורא אוטומטית עמודות: <b>שם ניר</b> | <b>כמות בתיק</b> | <b>שער עלות</b></div>
       </div>
     </div>
   </div>
 
-  <!-- טעינה -->
+  <div class="card" id="pa-confirm-card" style="display:none;">
+    <div class="card-header"><span class="dot"></span>אישור זיהוי ניירות ערך</div>
+    <div class="card-body">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:14px;">המערכת חיפשה טיקרים אוטומטית. בדוק שהכל נכון ותקן אם צריך לפני הניתוח.</div>
+      <div id="pa-confirm-loading" style="text-align:center;padding:20px;">
+        <div class="spinner"></div>
+        <div class="loading-text">מחפש טיקרים ב-Yahoo Finance...</div>
+        <div id="pa-confirm-progress" style="font-size:12px;color:var(--muted);margin-top:6px;"></div>
+      </div>
+      <div id="pa-confirm-table-wrap" style="display:none;overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border);">
+              <th style="text-align:right;padding:10px;color:var(--muted);">שם נייר</th>
+              <th style="text-align:right;padding:10px;color:var(--muted);">טיקר שזוהה</th>
+              <th style="text-align:right;padding:10px;color:var(--muted);">בורסה</th>
+              <th style="text-align:right;padding:10px;color:var(--muted);">כמות</th>
+              <th style="text-align:right;padding:10px;color:var(--muted);">שער עלות</th>
+              <th style="text-align:right;padding:10px;color:var(--muted);">סטטוס</th>
+            </tr>
+          </thead>
+          <tbody id="pa-confirm-body"></tbody>
+        </table>
+      </div>
+      <div id="pa-confirm-actions" style="display:none;margin-top:16px;gap:10px;flex-wrap:wrap;">
+        <button class="btn-primary" id="pa-analyze-btn" onclick="runPortfolioAnalysis()">🔍 נתח תיק</button>
+        <button onclick="resetPortfolioTab()" style="background:rgba(148,163,184,0.1);border:1px solid var(--border);color:var(--muted);padding:10px 18px;border-radius:10px;cursor:pointer;font-size:13px;">✕ התחל מחדש</button>
+      </div>
+    </div>
+  </div>
+
   <div id="pa-loading" style="display:none;text-align:center;padding:40px;">
     <div class="spinner"></div>
     <div class="loading-text" id="pa-loading-text">מושך נתונים מ-Yahoo Finance...</div>
     <div style="font-size:12px;color:var(--muted);margin-top:8px;" id="pa-progress"></div>
   </div>
 
-  <!-- תוצאות -->
   <div id="pa-results" style="display:none;">
-
-    <div class="card" id="pa-score-card">
+    <div class="card">
       <div class="card-body" style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
         <div style="text-align:center;min-width:80px;">
           <div id="pa-score-ring" style="font-size:40px;font-weight:700;font-family:'Space Grotesk',sans-serif;"></div>
           <div style="font-size:12px;color:var(--muted);">ציון תיק</div>
         </div>
-        <div style="flex:1;">
-          <div id="pa-portfolio-summary" style="font-size:14px;line-height:1.6;color:var(--text);"></div>
-        </div>
+        <div style="flex:1;"><div id="pa-portfolio-summary" style="font-size:14px;line-height:1.6;"></div></div>
+        <button onclick="resetPortfolioTab()" style="background:rgba(148,163,184,0.1);border:1px solid var(--border);color:var(--muted);padding:8px 14px;border-radius:8px;cursor:pointer;font-size:12px;">🔄 ניתוח חדש</button>
       </div>
     </div>
 
@@ -1753,23 +1758,22 @@ function autoClosePosition(posId,currentPrice,reason){
               <th style="text-align:right;padding:12px;color:var(--muted);">מגמה</th>
               <th style="text-align:right;padding:12px;color:var(--muted);">ציון</th>
               <th style="text-align:right;padding:12px;color:var(--muted);">סיגנל</th>
-              <th style="text-align:right;padding:12px;color:var(--muted);">הערה AI</th>
+              <th style="text-align:right;padding:12px;color:var(--muted);">הערת AI</th>
             </tr>
           </thead>
           <tbody id="pa-stocks-table"></tbody>
         </table>
       </div>
     </div>
-
   </div>
 
 </main>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
 <script>
 var paHoldings=[];
+var paResolved=[];
 
 (function(){
   var dz=document.getElementById('pa-dropzone');
@@ -1784,56 +1788,139 @@ var paHoldings=[];
   fi.addEventListener('change',function(e){if(e.target.files[0])parsePortfolioFile(e.target.files[0]);});
 })();
 
+function resetPortfolioTab(){
+  paHoldings=[];paResolved=[];
+  document.getElementById('pa-upload-card').style.display='block';
+  document.getElementById('pa-confirm-card').style.display='none';
+  document.getElementById('pa-loading').style.display='none';
+  document.getElementById('pa-results').style.display='none';
+  document.getElementById('pa-file-input').value='';
+  document.getElementById('pa-confirm-loading').style.display='block';
+  document.getElementById('pa-confirm-table-wrap').style.display='none';
+  document.getElementById('pa-confirm-actions').style.display='none';
+}
+
+function normalize(s){return String(s||'').replace(/[\s"'״\u05f4]/g,'').toLowerCase();}
+
 function parsePortfolioFile(file){
   var reader=new FileReader();
   reader.onload=function(e){
     var data=new Uint8Array(e.target.result);
     var wb=XLSX.read(data,{type:'array'});
     var ws=wb.Sheets[wb.SheetNames[0]];
-    var rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+    var rows=XLSX.utils.sheet_to_json(ws,{defval:'',raw:false});
     if(!rows.length){alert('הקובץ ריק או בפורמט שגוי');return;}
+
     var keys=Object.keys(rows[0]);
-    function findCol(options){return keys.find(k=>options.some(o=>k.toLowerCase().replace(/\s/g,'').includes(o.toLowerCase().replace(/\s/g,''))));}
-    var tickerCol=findCol(['סימול','ticker','symbol','מניה']);
-    var sharesCol=findCol(['כמות','shares','quantity','units','מניות']);
-    var avgCostCol=findCol(['עלות','cost','price','מחיר','avg']);
-    var nameCol=findCol(['שם','name','company']);
-    if(!tickerCol){alert('לא נמצאה עמודת סימול / Ticker בקובץ');return;}
-    if(!sharesCol){alert('לא נמצאה עמודת כמות / Shares בקובץ');return;}
-    paHoldings=rows.map(r=>({
-      ticker:String(r[tickerCol]||'').trim().toUpperCase(),
-      shares:parseFloat(r[sharesCol])||0,
-      avgCost:avgCostCol?parseFloat(r[avgCostCol])||null:null,
-      name:nameCol?String(r[nameCol]||'').trim():''
-    })).filter(h=>h.ticker&&h.shares>0).slice(0,25);
-    if(!paHoldings.length){alert('לא נמצאו אחזקות תקינות בקובץ');return;}
-    showPortfolioPreview();
+    function findCol(opts){
+      return keys.find(function(k){
+        var nk=normalize(k);
+        return opts.some(function(o){return nk.includes(normalize(o));});
+      });
+    }
+
+    var nameCol  =findCol(['שםניר','שםנייר','שם','name','security','asset','נייר','ניר','תיאור','description']);
+    var sharesCol=findCol(['כמותבתיק','כמות','shares','quantity','units','מניות','יחידות']);
+    var costCol  =findCol(['שערעלות','עלותממוצעת','עלות','cost','avgcost','מחירממוצע','מחיר','avg','שווירכישה']);
+
+    if(!nameCol){
+      alert('לא נמצאה עמודת שם נייר.\nעמודות שנמצאו: '+keys.join(', '));return;
+    }
+    if(!sharesCol){
+      alert('לא נמצאה עמודת כמות.\nעמודות שנמצאו: '+keys.join(', '));return;
+    }
+
+    paHoldings=rows.map(function(r){
+      return {
+        name:String(r[nameCol]||'').trim(),
+        shares:parseFloat(String(r[sharesCol]).replace(/,/g,''))||0,
+        avgCost:costCol?parseFloat(String(r[costCol]).replace(/,/g,''))||null:null
+      };
+    }).filter(function(h){return h.name&&h.shares>0;}).slice(0,25);
+
+    if(!paHoldings.length){
+      alert('לא נמצאו שורות תקינות. ודא שהעמודות מכילות נתונים.');return;
+    }
+
+    document.getElementById('pa-upload-card').style.display='none';
+    document.getElementById('pa-confirm-card').style.display='block';
+    resolveAllTickers();
   };
   reader.readAsArrayBuffer(file);
 }
 
-function showPortfolioPreview(){
-  var tbody=document.getElementById('pa-preview-body');
-  tbody.innerHTML=paHoldings.map(h=>`<tr style="border-bottom:1px solid var(--border);"><td style="padding:8px;font-family:var(--mono);color:var(--accent);">${h.ticker}</td><td style="padding:8px;">${h.name||'—'}</td><td style="padding:8px;">${h.shares.toLocaleString()}</td><td style="padding:8px;">${h.avgCost!=null?h.avgCost.toFixed(2):'—'}</td></tr>`).join('');
-  document.getElementById('pa-preview-count').textContent=paHoldings.length+' אחזקות זוהו';
-  document.getElementById('pa-preview').style.display='block';
-  document.getElementById('pa-results').style.display='none';
+function isHebrew(t){return /[\u0590-\u05FF]/.test(t);}
+
+async function resolveAllTickers(){
+  document.getElementById('pa-confirm-loading').style.display='block';
+  document.getElementById('pa-confirm-table-wrap').style.display='none';
+  document.getElementById('pa-confirm-actions').style.display='none';
+  paResolved=[];
+  for(var i=0;i<paHoldings.length;i++){
+    document.getElementById('pa-confirm-progress').textContent=(i+1)+' / '+paHoldings.length+' — מחפש: '+paHoldings[i].name;
+    var result=await resolveTicker(paHoldings[i].name);
+    paResolved.push(Object.assign({},paHoldings[i],result));
+    await new Promise(function(r){setTimeout(r,250);});
+  }
+  renderConfirmTable();
+}
+
+async function resolveTicker(name){
+  try{
+    var res=await fetch('/api/portfolio/search-ticker?name='+encodeURIComponent(name));
+    return await res.json();
+  }catch(e){return{ticker:null,exchange:'?',confidence:'low'};}
+}
+
+function renderConfirmTable(){
+  document.getElementById('pa-confirm-loading').style.display='none';
+  document.getElementById('pa-confirm-table-wrap').style.display='block';
+  document.getElementById('pa-confirm-actions').style.display='flex';
+  var tbody=document.getElementById('pa-confirm-body');
+  tbody.innerHTML=paResolved.map(function(h,i){
+    var conf=h.ticker?
+      (h.confidence==='high'?'<span style="color:var(--green);">✅ זוהה</span>':
+       '<span style="color:var(--accent2,#F2A93B);">⚠️ בדוק</span>'):
+      '<span style="color:var(--red);">❌ הכנס ידנית</span>';
+    return '<tr style="border-bottom:1px solid var(--border);">'+
+      '<td style="padding:10px 12px;max-width:180px;">'+h.name+'</td>'+
+      '<td style="padding:10px;">'+
+        '<input id="pa-t-'+i+'" value="'+(h.ticker||'')+'" placeholder="AAPL / TEVA.TA" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:6px;font-family:var(--mono,monospace);font-size:13px;width:120px;">'+
+      '</td>'+
+      '<td style="padding:10px;font-size:12px;color:var(--muted);">'+(h.exchange||'?')+'</td>'+
+      '<td style="padding:10px;">'+h.shares.toLocaleString()+'</td>'+
+      '<td style="padding:10px;">'+(h.avgCost!=null?h.avgCost.toFixed(2):'—')+'</td>'+
+      '<td style="padding:10px;">'+conf+'</td>'+
+    '</tr>';
+  }).join('');
 }
 
 async function runPortfolioAnalysis(){
-  if(!paHoldings.length){alert('נא להעלות קובץ אחזקות קודם');return;}
+  var holdings=paResolved.map(function(h,i){
+    var inp=document.getElementById('pa-t-'+i);
+    var ticker=inp?inp.value.trim().toUpperCase():'';
+    return {ticker:ticker,shares:h.shares,avgCost:h.avgCost,name:h.name};
+  }).filter(function(h){return h.ticker;});
+
+  if(!holdings.length){alert('אין טיקרים תקינים לניתוח.');return;}
   document.getElementById('pa-analyze-btn').disabled=true;
+  document.getElementById('pa-confirm-card').style.display='none';
   document.getElementById('pa-loading').style.display='block';
-  document.getElementById('pa-results').style.display='none';
   document.getElementById('pa-loading-text').textContent='מושך נתונים מ-Yahoo Finance...';
-  document.getElementById('pa-progress').textContent='זה עשוי לקחת כ-'+Math.ceil(paHoldings.length*0.4)+' שניות';
+  document.getElementById('pa-progress').textContent='מנתח '+holdings.length+' ניירות ערך — כ-'+Math.ceil(holdings.length*0.4)+' שניות';
+
   try{
-    var res=await fetch('/api/portfolio/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({holdings:paHoldings})});
+    var res=await fetch('/api/portfolio/analyze',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({holdings:holdings})
+    });
     var data=await res.json();
     if(data.error)throw new Error(data.error);
     renderPortfolioResults(data);
   }catch(err){
     document.getElementById('pa-loading').style.display='none';
+    document.getElementById('pa-confirm-card').style.display='block';
     alert('שגיאה: '+err.message);
   }finally{
     document.getElementById('pa-analyze-btn').disabled=false;
@@ -1843,43 +1930,49 @@ async function runPortfolioAnalysis(){
 
 function scoreColor(s){return s>=70?'var(--green)':s>=50?'var(--accent2,#F2A93B)':'var(--red)';}
 function signalBadge(sig){
-  var colors={BUY:'var(--green)',HOLD:'var(--accent2,#F2A93B)',SELL:'var(--red)'};
-  var labels={BUY:'קנייה',HOLD:'המתנה',SELL:'מכירה'};
-  return '<span style="background:'+( colors[sig]||'var(--muted)')+'22;color:'+(colors[sig]||'var(--muted)')+';padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;">'+(labels[sig]||sig)+'</span>';
+  var c={BUY:'var(--green)',HOLD:'var(--accent2,#F2A93B)',SELL:'var(--red)'};
+  var l={BUY:'קנייה',HOLD:'המתנה',SELL:'מכירה'};
+  return '<span style="background:'+(c[sig]||'#888')+'22;color:'+(c[sig]||'#888')+';padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;">'+(l[sig]||sig)+'</span>';
 }
 function trendIcon(t){return t==='עולה'?'↑':t==='יורד'?'↓':'→';}
 
 function renderPortfolioResults(data){
   var stocks=data.stocks||[];
   var ai=data.aiAnalysis;
-  var validStocks=stocks.filter(s=>!s.error);
-  var score=ai?ai.portfolio_score:Math.round(validStocks.reduce((sum,s)=>sum+s.techScore,0)/(validStocks.length||1));
+  var valid=stocks.filter(function(s){return !s.error;});
+  var score=ai?ai.portfolio_score:Math.round(valid.reduce(function(s,x){return s+x.techScore;},0)/(valid.length||1));
+
   document.getElementById('pa-score-ring').textContent=score;
   document.getElementById('pa-score-ring').style.color=scoreColor(score);
-  document.getElementById('pa-portfolio-summary').textContent=ai?ai.portfolio_summary:'ניתוח טכני הושלם.';
-  document.getElementById('pa-strengths').innerHTML=(ai&&ai.top_strengths||[]).map(s=>'<div style="font-size:13px;padding:6px 10px;background:rgba(34,197,94,0.08);border-radius:8px;">✅ '+s+'</div>').join('');
-  document.getElementById('pa-risks').innerHTML=(ai&&ai.main_risks||[]).map(s=>'<div style="font-size:13px;padding:6px 10px;background:rgba(239,68,68,0.08);border-radius:8px;">⚠️ '+s+'</div>').join('');
-  document.getElementById('pa-recommendations').innerHTML=(ai&&ai.recommendations||[]).map(function(s,i){return '<div style="font-size:13px;padding:8px 12px;background:rgba(255,255,255,0.03);border-radius:8px;display:flex;gap:10px;"><span style="color:var(--accent);font-weight:700;">'+(i+1)+'.</span><span>'+s+'</span></div>';}).join('');
+  document.getElementById('pa-portfolio-summary').textContent=ai?ai.portfolio_summary:'ניתוח הושלם.';
+  document.getElementById('pa-strengths').innerHTML=(ai&&ai.top_strengths||[]).map(function(s){return '<div style="font-size:13px;padding:6px 10px;background:rgba(34,197,94,0.08);border-radius:8px;">✅ '+s+'</div>';}).join('');
+  document.getElementById('pa-risks').innerHTML=(ai&&ai.main_risks||[]).map(function(s){return '<div style="font-size:13px;padding:6px 10px;background:rgba(239,68,68,0.08);border-radius:8px;">⚠️ '+s+'</div>';}).join('');
+  document.getElementById('pa-recommendations').innerHTML=(ai&&ai.recommendations||[]).map(function(s,i){
+    return '<div style="font-size:13px;padding:8px 12px;background:rgba(255,255,255,0.03);border-radius:8px;display:flex;gap:10px;"><span style="color:var(--accent);font-weight:700;">'+(i+1)+'.</span><span>'+s+'</span></div>';
+  }).join('');
+
   var aiStocks={};
   (ai&&ai.stocks||[]).forEach(function(s){aiStocks[s.ticker]=s;});
+
   document.getElementById('pa-stocks-table').innerHTML=stocks.map(function(s){
-    if(s.error)return '<tr style="border-bottom:1px solid var(--border);opacity:0.5;"><td style="padding:12px 16px;font-family:var(--mono);">'+s.ticker+'</td><td colspan="8" style="padding:12px;color:var(--red);">⚠️ '+s.error+'</td></tr>';
+    if(s.error)return '<tr style="border-bottom:1px solid var(--border);opacity:0.5;"><td style="padding:12px 16px;"><div>'+s.name+'</div><div style="font-size:11px;color:var(--muted);">'+s.ticker+'</div></td><td colspan="8" style="padding:12px;color:var(--red);">⚠️ '+s.error+'</td></tr>';
     var aiS=aiStocks[s.ticker]||{};
     var pnlColor=s.pnl==null?'':s.pnl>=0?'var(--green)':'var(--red)';
     var pnlText=s.pnl!=null?(s.pnl>=0?'+':'')+s.pnl+'%':'—';
     var sc=aiS.score||s.techScore;
     return '<tr style="border-bottom:1px solid var(--border);">'+
-      '<td style="padding:12px 16px;"><div style="font-family:var(--mono);color:var(--accent);font-weight:600;">'+s.ticker+'</div><div style="font-size:11px;color:var(--muted);">'+(s.name!==s.ticker?s.name:'')+'</div></td>'+
+      '<td style="padding:12px 16px;"><div style="font-weight:600;font-size:13px;">'+s.name+'</div><div style="font-family:var(--mono,monospace);color:var(--accent);font-size:11px;">'+s.ticker+'</div></td>'+
       '<td style="padding:12px;">'+s.price+'</td>'+
-      '<td style="padding:12px;">'+(s.value?.toLocaleString(undefined,{maximumFractionDigits:0})||'')+'</td>'+
+      '<td style="padding:12px;">'+(s.value!=null?s.value.toLocaleString(undefined,{maximumFractionDigits:0}):'')+'</td>'+
       '<td style="padding:12px;color:'+pnlColor+';font-weight:600;">'+pnlText+'</td>'+
       '<td style="padding:12px;">'+s.rsi+'</td>'+
       '<td style="padding:12px;">'+trendIcon(s.trend)+' '+s.trend+'</td>'+
       '<td style="padding:12px;"><div style="width:36px;height:36px;border-radius:50%;border:3px solid '+scoreColor(sc)+';display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:'+scoreColor(sc)+';">'+sc+'</div></td>'+
       '<td style="padding:12px;">'+(aiS.signal?signalBadge(aiS.signal):'—')+'</td>'+
-      '<td style="padding:12px;font-size:12px;color:var(--muted);max-width:200px;">'+(aiS.comment||'—')+'</td>'+
+      '<td style="padding:12px;font-size:12px;color:var(--muted);max-width:180px;">'+(aiS.comment||'—')+'</td>'+
     '</tr>';
   }).join('');
+
   document.getElementById('pa-results').style.display='block';
 }
 </script>
