@@ -1,250 +1,165 @@
-=// routes/portfolioApi.js
+// routes/portfolioApi.js
 const https = require('https');
 const express = require('express');
 
-// ══ HTTPS GET — תמיד מחזיר תוצאה (לא נותן לשרת לתקוע) ══
-function httpsGetSafe(hostname, path, timeoutMs) {
+function httpsGetSafe(hostname, path, ms) {
   return new Promise((resolve) => {
     let done = false;
-    function finish(val) { if (done) return; done = true; resolve(val); }
-
+    function fin(v) { if (!done) { done=true; resolve(v); } }
     try {
       const req = https.request({
-        hostname, path, method: 'GET',
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Accept': 'application/json',
-          'Accept-Encoding': 'identity',
-          'Referer': 'https://finance.yahoo.com/',
-          'Origin': 'https://finance.yahoo.com'
+        hostname, path, method:'GET',
+        headers:{
+          'User-Agent':'Mozilla/5.0',
+          'Accept':'application/json',
+          'Accept-Encoding':'identity',
+          'Referer':'https://finance.yahoo.com/',
+          'Origin':'https://finance.yahoo.com'
         }
-      }, apiRes => {
-        let data = '';
-        apiRes.on('data', c => data += c);
-        apiRes.on('end', () => {
-          try { finish(JSON.parse(data)); }
-          catch(e) { finish(null); }
-        });
-        apiRes.on('error', () => finish(null));
+      }, r => {
+        let d='';
+        r.on('data', c=>d+=c);
+        r.on('end', ()=>{ try{fin(JSON.parse(d));}catch(e){fin(null);} });
+        r.on('error', ()=>fin(null));
       });
-
-      req.setTimeout(timeoutMs || 6000, () => { finish(null); req.destroy(); });
-      req.on('error', () => finish(null));
+      req.setTimeout(ms||6000, ()=>{ fin(null); req.destroy(); });
+      req.on('error', ()=>fin(null));
       req.end();
-    } catch(e) { finish(null); }
+    } catch(e) { fin(null); }
   });
 }
 
-// ══ חישובי אינדיקטורים ══
-function avgArr(arr) { return arr.reduce((a,b)=>a+b,0)/arr.length; }
-
-function calcRSI(closes, period) {
-  if (closes.length < period+1) return 50;
-  let gains=0, losses=0;
-  for (let i=closes.length-period; i<closes.length; i++) {
-    const diff=closes[i]-closes[i-1];
-    if (diff>0) gains+=diff; else losses+=Math.abs(diff);
-  }
-  gains/=period; losses/=period;
-  if (losses===0) return 100;
-  return Math.round(100-(100/(1+gains/losses)));
+function avgArr(a){return a.reduce((x,y)=>x+y,0)/a.length;}
+function calcRSI(c,p){
+  if(c.length<p+1)return 50;
+  let g=0,l=0;
+  for(let i=c.length-p;i<c.length;i++){const d=c[i]-c[i-1];if(d>0)g+=d;else l+=Math.abs(d);}
+  g/=p;l/=p;if(l===0)return 100;
+  return Math.round(100-(100/(1+g/l)));
+}
+function calcATR(h,l,c,p){
+  if(h.length<2)return 0;
+  const t=[];
+  for(let i=1;i<h.length;i++)t.push(Math.max(h[i]-l[i],Math.abs(h[i]-c[i-1]),Math.abs(l[i]-c[i-1])));
+  return avgArr(t.slice(-p));
+}
+function parseY(data){
+  const ch=data?.chart?.result?.[0];if(!ch)return null;
+  const q=ch.indicators?.quote?.[0];if(!q)return null;
+  const cl=[],hi=[],lo=[];
+  (q.close||[]).forEach((c,i)=>{if(c!=null&&q.high[i]!=null&&q.low[i]!=null){cl.push(c);hi.push(q.high[i]);lo.push(q.low[i]);}});
+  if(cl.length<5)return null;
+  const price=ch.meta?.regularMarketPrice||cl[cl.length-1];
+  const rsi=calcRSI(cl,14);
+  const s20=cl.length>=20?avgArr(cl.slice(-20)):null;
+  const s50=cl.length>=50?avgArr(cl.slice(-50)):null;
+  const atr=calcATR(hi,lo,cl,14);
+  const sup=Math.min(...lo.slice(-20));
+  const res=Math.max(...hi.slice(-20));
+  const tr=(s20?(price>s20?1:-1)*0.5:0)+(s20&&s50?(s20>s50?1:-1)*0.5:0);
+  return {price,rsi,s20,s50,atr,sup,res,tr};
 }
 
-function calcATR(highs, lows, closes, period) {
-  if (highs.length<2) return 0;
-  const trs=[];
-  for (let i=1; i<highs.length; i++)
-    trs.push(Math.max(highs[i]-lows[i], Math.abs(highs[i]-closes[i-1]), Math.abs(lows[i]-closes[i-1])));
-  return avgArr(trs.slice(-period));
-}
-
-function parseYahooData(data) {
-  const chart=data?.chart?.result?.[0];
-  if (!chart) return null;
-  const q=chart.indicators?.quote?.[0];
-  if (!q) return null;
-  const closes=[], highs=[], lows=[];
-  (q.close||[]).forEach((c,i) => {
-    if (c!=null && q.high[i]!=null && q.low[i]!=null) {
-      closes.push(c); highs.push(q.high[i]); lows.push(q.low[i]);
-    }
-  });
-  if (closes.length<5) return null;
-  const price=chart.meta?.regularMarketPrice||closes[closes.length-1];
-  const rsi=calcRSI(closes,14);
-  const sma20=closes.length>=20?avgArr(closes.slice(-20)):null;
-  const sma50=closes.length>=50?avgArr(closes.slice(-50)):null;
-  const atr=calcATR(highs,lows,closes,14);
-  const support=Math.min(...lows.slice(-20));
-  const resistance=Math.max(...highs.slice(-20));
-  const trendScore=(sma20?(price>sma20?1:-1)*0.5:0)+(sma20&&sma50?(sma20>sma50?1:-1)*0.5:0);
-  return {price,rsi,sma20,sma50,atr,support,resistance,trendScore};
-}
-
-// ══ ניתוח מניה — תמיד מחזיר אובייקט (אף פעם לא throw) ══
-async function analyzeStock(ticker, shares, avgCost, name) {
-  try {
-    const t = encodeURIComponent(ticker);
-    const [daily, weekly] = await Promise.all([
-      httpsGetSafe('query1.finance.yahoo.com', `/v8/finance/chart/${t}?interval=1d&range=3mo&includePrePost=false`, 6000),
-      httpsGetSafe('query1.finance.yahoo.com', `/v8/finance/chart/${t}?interval=1wk&range=1y&includePrePost=false`, 6000)
+async function analyzeStock(ticker,shares,avgCost,name){
+  try{
+    const t=encodeURIComponent(ticker);
+    const[d,w]=await Promise.all([
+      httpsGetSafe('query1.finance.yahoo.com',`/v8/finance/chart/${t}?interval=1d&range=3mo&includePrePost=false`,6000),
+      httpsGetSafe('query1.finance.yahoo.com',`/v8/finance/chart/${t}?interval=1wk&range=1y&includePrePost=false`,6000)
     ]);
-
-    const d=parseYahooData(daily);
-    const w=parseYahooData(weekly);
-    if (!d) return {ticker, name:name||ticker, shares:parseFloat(shares)||0, avgCost, error:'לא נמצאו נתונים ב-Yahoo'};
-
-    const price=d.price;
-    const sharesNum=parseFloat(shares)||0;
-    const value=price*sharesNum;
-    const avgCostNum=avgCost?parseFloat(avgCost):null;
-    const pnl=avgCostNum&&avgCostNum>0?+((price-avgCostNum)/avgCostNum*100).toFixed(1):null;
-
-    let techScore=50;
-    if (d.rsi<30) techScore+=15; else if (d.rsi>70) techScore-=15;
-    else if (d.rsi>55) techScore+=7; else if (d.rsi<45) techScore-=7;
-    techScore+=d.trendScore*20;
-    if (w) techScore+=w.trendScore*10;
-    const dist=d.support>0?((price-d.support)/d.support*100):0;
-    if (dist<3) techScore+=10; else if (dist>25) techScore-=5;
-    if (pnl!=null) { if (pnl<-15) techScore-=5; else if (pnl>20) techScore+=3; }
-    techScore=Math.max(0,Math.min(100,Math.round(techScore)));
-
-    return {
-      ticker, name:name||ticker,
-      shares:sharesNum, avgCost:avgCostNum,
-      price:+price.toFixed(2), value:+value.toFixed(2), pnl,
-      rsi:d.rsi,
-      sma20:d.sma20?+d.sma20.toFixed(2):null,
-      sma50:d.sma50?+d.sma50.toFixed(2):null,
-      atr:+d.atr.toFixed(2),
-      support:+d.support.toFixed(2),
-      resistance:+d.resistance.toFixed(2),
-      trend:d.trendScore>0.2?'עולה':d.trendScore<-0.2?'יורד':'מעורב',
-      weeklyTrend:w?(w.trendScore>0.2?'עולה':w.trendScore<-0.2?'יורד':'מעורב'):null,
-      techScore
-    };
-  } catch(err) {
-    return {ticker, name:name||ticker, shares:parseFloat(shares)||0, avgCost, error:err.message};
-  }
+    const D=parseY(d),W=parseY(w);
+    if(!D)return{ticker,name:name||ticker,shares:parseFloat(shares)||0,avgCost,error:'לא נמצאו נתונים'};
+    const price=D.price,sh=parseFloat(shares)||0,val=price*sh;
+    const ac=avgCost?parseFloat(avgCost):null;
+    const pnl=ac&&ac>0?+((price-ac)/ac*100).toFixed(1):null;
+    let sc=50;
+    if(D.rsi<30)sc+=15;else if(D.rsi>70)sc-=15;else if(D.rsi>55)sc+=7;else if(D.rsi<45)sc-=7;
+    sc+=D.tr*20;if(W)sc+=W.tr*10;
+    const dist=D.sup>0?((price-D.sup)/D.sup*100):0;
+    if(dist<3)sc+=10;else if(dist>25)sc-=5;
+    if(pnl!=null){if(pnl<-15)sc-=5;else if(pnl>20)sc+=3;}
+    sc=Math.max(0,Math.min(100,Math.round(sc)));
+    return{ticker,name:name||ticker,shares:sh,avgCost:ac,
+      price:+price.toFixed(2),value:+val.toFixed(2),pnl,rsi:D.rsi,
+      sma20:D.s20?+D.s20.toFixed(2):null,sma50:D.s50?+D.s50.toFixed(2):null,
+      atr:+D.atr.toFixed(2),support:+D.sup.toFixed(2),resistance:+D.res.toFixed(2),
+      trend:D.tr>0.2?'עולה':D.tr<-0.2?'יורד':'מעורב',
+      weeklyTrend:W?(W.tr>0.2?'עולה':W.tr<-0.2?'יורד':'מעורב'):null,
+      techScore:sc};
+  }catch(e){return{ticker,name:name||ticker,shares:parseFloat(shares)||0,avgCost,error:e.message};}
 }
 
-// ══ Claude AI — תמיד מחזיר (גם אם timeout) ══
-function callClaude(stocks, API_KEY) {
-  const valid=stocks.filter(s=>!s.error);
-  if (!valid.length || !API_KEY) return Promise.resolve(null);
-
-  const totalValue=valid.reduce((s,x)=>s+(x.value||0),0);
-  const summary=valid.map(s=>`• ${s.name} (${s.ticker}): מחיר ${s.price}, RSI ${s.rsi}, מגמה ${s.trend}, ציון ${s.techScore}/100, שווי ${(s.value||0).toFixed(0)}${s.pnl!=null?`, P&L ${s.pnl}%`:''}`).join('\n');
-  const prompt=`אתה יועץ השקעות. נתח תיק:\n${summary}\nשווי: ${totalValue.toFixed(0)} | ${stocks.length} אחזקות\nענה ב-JSON בלבד:\n{"portfolio_score":75,"portfolio_summary":"3 משפטים","top_strengths":["חוזק1","חוזק2"],"main_risks":["סיכון1","סיכון2"],"recommendations":["המלצה1","המלצה2","המלצה3"],"stocks":[{"ticker":"AAPL","score":80,"signal":"BUY","comment":"משפט קצר"}]}`;
-
-  return new Promise((resolve) => {
-    let done = false;
-    function finish(val) { if (done) return; done = true; resolve(val); }
-
-    // timeout של 20 שניות ל-Claude
-    setTimeout(() => { console.log('Claude timeout — ממשיך בלי AI'); finish(null); }, 20000);
-
-    try {
-      const body=JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1500,messages:[{role:'user',content:prompt}]});
-      const req=https.request({
-        hostname:'api.anthropic.com', path:'/v1/messages', method:'POST',
+function callClaude(stocks,API_KEY){
+  const v=stocks.filter(s=>!s.error);
+  if(!v.length||!API_KEY)return Promise.resolve(null);
+  const tot=v.reduce((s,x)=>s+(x.value||0),0);
+  const sum=v.map(s=>`• ${s.name}(${s.ticker}): ₪${s.price} RSI:${s.rsi} ${s.trend} ציון:${s.techScore}${s.pnl!=null?' P&L:'+s.pnl+'%':''}`).join('\n');
+  const prompt=`יועץ השקעות — נתח תיק:\n${sum}\nשווי כולל:${tot.toFixed(0)}\nענה JSON בלבד:\n{"portfolio_score":75,"portfolio_summary":"סיכום 2 משפטים","top_strengths":["א","ב"],"main_risks":["א","ב"],"recommendations":["א","ב","ג"],"stocks":[{"ticker":"X","score":70,"signal":"BUY","comment":"הערה"}]}`;
+  return new Promise((resolve)=>{
+    let done=false;
+    function fin(v){if(!done){done=true;resolve(v);}}
+    setTimeout(()=>{console.log('Claude timeout');fin(null);},20000);
+    try{
+      const body=JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1000,messages:[{role:'user',content:prompt}]});
+      const req=https.request({hostname:'api.anthropic.com',path:'/v1/messages',method:'POST',
         headers:{'Content-Type':'application/json','x-api-key':API_KEY,'anthropic-version':'2023-06-01','Content-Length':Buffer.byteLength(body)}
-      }, apiRes => {
-        let data='';
-        apiRes.on('data', c=>data+=c);
-        apiRes.on('end', () => {
-          try {
-            const parsed=JSON.parse(data);
-            const text=(parsed.content||[]).map(b=>b.text||'').join('').trim();
-            finish(JSON.parse(text.replace(/```json|```/g,'').trim()));
-          } catch(e) { finish(null); }
-        });
-        apiRes.on('error', ()=>finish(null));
+      },r=>{
+        let d='';r.on('data',c=>d+=c);
+        r.on('end',()=>{try{const p=JSON.parse(d);const t=(p.content||[]).map(b=>b.text||'').join('').trim();fin(JSON.parse(t.replace(/```json|```/g,'').trim()));}catch(e){fin(null);}});
+        r.on('error',()=>fin(null));
       });
-      req.on('error', ()=>finish(null));
-      req.write(body);
-      req.end();
-    } catch(e) { finish(null); }
+      req.on('error',()=>fin(null));
+      req.write(body);req.end();
+    }catch(e){fin(null);}
   });
 }
 
-// ══ חיפוש טיקר ══
-function isHebrew(t) { return /[\u0590-\u05FF]/.test(t); }
-
-async function searchYahooTicker(name, isIsraeli) {
-  const data=await httpsGetSafe('query1.finance.yahoo.com',
-    `/v1/finance/search?q=${encodeURIComponent(name)}&quotesCount=10&newsCount=0`, 5000);
-  if (!data) return {ticker:null, exchange:'?', confidence:'low'};
-  const quotes=data.quotes||[];
-  if (isIsraeli) {
-    const ta=quotes.filter(q=>q.symbol?.endsWith('.TA')&&['EQUITY','ETF','MUTUALFUND'].includes(q.quoteType));
-    if (ta.length>0) return {ticker:ta[0].symbol, exchange:'TASE', confidence:'high'};
-  } else {
-    const us=quotes.filter(q=>!q.symbol?.includes('.')&&['EQUITY','ETF'].includes(q.quoteType));
-    if (us.length>0) return {ticker:us[0].symbol, exchange:us[0].exchange||'US', confidence:'high'};
-    const any=quotes.find(q=>['EQUITY','ETF'].includes(q.quoteType));
-    if (any) return {ticker:any.symbol, exchange:any.exchange||'?', confidence:'medium'};
-  }
-  return {ticker:null, exchange:'?', confidence:'low'};
+function isHebrew(t){return /[\u0590-\u05FF]/.test(t);}
+async function searchTicker(name,israeli){
+  const data=await httpsGetSafe('query1.finance.yahoo.com',`/v1/finance/search?q=${encodeURIComponent(name)}&quotesCount=10&newsCount=0`,5000);
+  if(!data)return{ticker:null,exchange:'?',confidence:'low'};
+  const q=data.quotes||[];
+  if(israeli){const ta=q.filter(x=>x.symbol?.endsWith('.TA')&&['EQUITY','ETF','MUTUALFUND'].includes(x.quoteType));if(ta.length)return{ticker:ta[0].symbol,exchange:'TASE',confidence:'high'};}
+  else{const us=q.filter(x=>!x.symbol?.includes('.')&&['EQUITY','ETF'].includes(x.quoteType));if(us.length)return{ticker:us[0].symbol,exchange:us[0].exchange||'US',confidence:'high'};const any=q.find(x=>['EQUITY','ETF'].includes(x.quoteType));if(any)return{ticker:any.symbol,exchange:any.exchange||'?',confidence:'medium'};}
+  return{ticker:null,exchange:'?',confidence:'low'};
 }
 
-// ══ Router ══
-function createPortfolioApi(API_KEY) {
+function createPortfolioApi(API_KEY){
   const router=express.Router();
 
-  // POST /api/portfolio/analyze
-  // תמיד שולח תשובה — גם אם משהו נכשל
-  router.post('/analyze', express.json(), (req, res) => {
-  const holdings=(req.body||{}).holdings;
-    if (!holdings||!Array.isArray(holdings)||!holdings.length)
-      return res.json({stocks:[], aiAnalysis:null, error:'נא לשלוח רשימת אחזקות'});
-    if (holdings.length>25)
-      return res.json({stocks:[], aiAnalysis:null, error:'מקסימום 25 אחזקות'});
+  // ⚠️ express.json() מוסף ישירות על ה-route כי הוא נרשם לפני middleware הגלובלי
+  router.post('/analyze', express.json({limit:'2mb'}), (req,res)=>{
+    const body=req.body||{};
+    const holdings=body.holdings;
+    if(!holdings||!Array.isArray(holdings)||!holdings.length)
+      return res.json({stocks:[],aiAnalysis:null,error:'נא לשלוח רשימת אחזקות'});
+    if(holdings.length>25)
+      return res.json({stocks:[],aiAnalysis:null,error:'מקסימום 25 אחזקות'});
 
     console.log(`📊 מנתח ${holdings.length} אחזקות...`);
+    let sent=false;
+    function send(data){if(!sent){sent=true;try{res.json(data);}catch(e){console.error('send err:',e.message);}}}
 
-    // HARD TIMEOUT — תמיד שולח תוך 25 שניות
-    let responded=false;
-    function sendResult(data) {
-      if (responded) return;
-      responded=true;
-      try { res.json(data); } catch(e) { console.error('Send error:', e.message); }
-    }
-    const hardTimeout=setTimeout(()=>{
-      console.log('Hard timeout fired — שולח תוצאות חלקיות');
-      sendResult({stocks:[], aiAnalysis:null, error:'Timeout — נסה עם פחות ניירות ערך'});
-    }, 25000);
+    // Hard timeout — תמיד שולח תשובה תוך 25 שניות
+    const t=setTimeout(()=>{console.log('hard timeout');send({stocks:[],aiAnalysis:null,error:'Timeout — נסה עם פחות ניירות ערך'});},25000);
 
-    // עיבוד מקבילי
-    Promise.all(holdings.map(h=>analyzeStock(h.ticker?.trim(), h.shares, h.avgCost, h.name)))
-      .then(stocks => {
-        console.log(`✅ Yahoo הושלם — ${stocks.filter(s=>!s.error).length}/${stocks.length} נמצאו`);
-        return callClaude(stocks, API_KEY).then(aiAnalysis => {
-          clearTimeout(hardTimeout);
-          sendResult({stocks, aiAnalysis});
-        });
+    Promise.all(holdings.map(h=>analyzeStock(h.ticker?.trim(),h.shares,h.avgCost,h.name)))
+      .then(stocks=>{
+        console.log(`✅ Yahoo: ${stocks.filter(s=>!s.error).length}/${stocks.length}`);
+        return callClaude(stocks,API_KEY).then(ai=>{clearTimeout(t);send({stocks,aiAnalysis:ai});});
       })
-      .catch(err => {
-        clearTimeout(hardTimeout);
-        console.error('Analyze error:', err.message);
-        sendResult({stocks:[], aiAnalysis:null, error:err.message});
-      });
+      .catch(e=>{clearTimeout(t);send({stocks:[],aiAnalysis:null,error:e.message});});
   });
 
-  // GET /api/portfolio/search-ticker?name=...
-  router.get('/search-ticker', async (req, res) => {
+  router.get('/search-ticker',(req,res)=>{
     const name=(req.query.name||'').trim();
-    if (!name) return res.json({ticker:null, exchange:'?', confidence:'low'});
-    try {
-      const result=await searchYahooTicker(name, isHebrew(name));
-      res.json(result);
-    } catch(err) {
-      res.json({ticker:null, exchange:'?', confidence:'low'});
-    }
+    if(!name)return res.json({ticker:null,exchange:'?',confidence:'low'});
+    searchTicker(name,isHebrew(name))
+      .then(r=>res.json(r))
+      .catch(()=>res.json({ticker:null,exchange:'?',confidence:'low'}));
   });
 
   return router;
 }
 
-module.exports = createPortfolioApi;
+module.exports=createPortfolioApi;
