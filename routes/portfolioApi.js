@@ -201,12 +201,13 @@ function createPortfolioApi(API_KEY) {
     if (holdings.length>25)
       return res.status(400).json({error:'מקסימום 25 אחזקות'});
     try {
-      console.log(`📊 מנתח ${holdings.length} אחזקות...`);
-      const stocks=[];
-      for (const h of holdings) {
-        stocks.push(await analyzeStock(h.ticker?.trim(), h.shares, h.avgCost, h.name));
-        await new Promise(r=>setTimeout(r,400));
-      }
+      console.log(`📊 מנתח ${holdings.length} אחזקות במקביל...`);
+
+      // עיבוד מקבילי — כל המניות בו-זמנית (הרבה יותר מהיר מסדרתי)
+      const stocks = await Promise.all(
+        holdings.map(h => analyzeStock(h.ticker?.trim(), h.shares, h.avgCost, h.name))
+      );
+
       let aiAnalysis=null;
       if (API_KEY) {
         try {
