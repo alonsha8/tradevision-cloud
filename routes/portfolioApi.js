@@ -2,9 +2,16 @@
 const https = require('https');
 const express = require('express');
 
-// ══ עזר: בקשת HTTPS עם timeout ══
+// ══ עזר: HTTPS GET עם timeout בטוח ══
 function httpsGet(hostname, path, timeoutMs) {
   return new Promise((resolve, reject) => {
+    let done = false;
+    function finish(fn, val) {
+      if (done) return;
+      done = true;
+      fn(val);
+    }
+
     const req = https.request({
       hostname, path, method: 'GET',
       headers: {
@@ -18,15 +25,18 @@ function httpsGet(hostname, path, timeoutMs) {
       let data = '';
       apiRes.on('data', c => data += c);
       apiRes.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch(e) { reject(new Error('Invalid JSON from Yahoo')); }
+        try { finish(resolve, JSON.parse(data)); }
+        catch(e) { finish(reject, new Error('Invalid JSON from Yahoo')); }
       });
+      apiRes.on('error', err => finish(reject, err));
     });
+
     req.setTimeout(timeoutMs || 8000, () => {
+      finish(reject, new Error('Yahoo timeout'));
       req.destroy();
-      reject(new Error('Yahoo Finance timeout'));
     });
-    req.on('error', reject);
+
+    req.on('error', err => finish(reject, err));
     req.end();
   });
 }
@@ -67,24 +77,23 @@ function parseYahooData(data) {
   });
   if (closes.length<5) return null;
   const price=chart.meta?.regularMarketPrice||closes[closes.length-1];
-  const rsi=calcRSI(closes, 14);
+  const rsi=calcRSI(closes,14);
   const sma20=closes.length>=20?avgArr(closes.slice(-20)):null;
   const sma50=closes.length>=50?avgArr(closes.slice(-50)):null;
-  const atr=calcATR(highs, lows, closes, 14);
+  const atr=calcATR(highs,lows,closes,14);
   const support=Math.min(...lows.slice(-20));
   const resistance=Math.max(...highs.slice(-20));
   const trendScore=(sma20?(price>sma20?1:-1)*0.5:0)+(sma20&&sma50?(sma20>sma50?1:-1)*0.5:0);
-  return {price, rsi, sma20, sma50, atr, support, resistance, trendScore};
+  return {price,rsi,sma20,sma50,atr,support,resistance,trendScore};
 }
 
-// ══ ניתוח מניה בודדת ══
+// ══ ניתוח מניה ══
 async function analyzeStock(ticker, shares, avgCost, name) {
   try {
     const [daily, weekly] = await Promise.all([
       httpsGet('query1.finance.yahoo.com', `/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=3mo&includePrePost=false`, 8000),
       httpsGet('query1.finance.yahoo.com', `/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1wk&range=1y&includePrePost=false`, 8000)
     ]);
-
     const d=parseYahooData(daily);
     const w=parseYahooData(weekly);
     if (!d) return {ticker, name:name||ticker, shares, avgCost, error:'לא נמצאו נתונים'};
@@ -124,15 +133,17 @@ async function analyzeStock(ticker, shares, avgCost, name) {
   }
 }
 
-// ══ ניתוח AI עם Claude ══
+// ══ ניתוח AI ══
 function callClaudeForPortfolio(stocks, API_KEY) {
   const valid=stocks.filter(s=>!s.error);
   if (!valid.length) return Promise.resolve(null);
-  const totalValue=valid.reduce((sum,s)=>sum+(s.value||0),0);
+  const totalValue=valid.reduce((s,x)=>s+(x.value||0),0);
   const summary=valid.map(s=>`• ${s.name} (${s.ticker}): מחיר ${s.price}, RSI ${s.rsi}, מגמה ${s.trend}, ציון ${s.techScore}/100, שווי ${(s.value||0).toFixed(0)}${s.pnl!=null?`, P&L ${s.pnl}%`:''}`).join('\n');
-  const prompt=`אתה יועץ השקעות. נתח תיק זה:\n\n${summary}\n\nשווי כולל: ${totalValue.toFixed(0)} | ${stocks.length} אחזקות\n\nענה ב-JSON בלבד:\n{"portfolio_score":0-100,"portfolio_summary":"3 משפטים","top_strengths":["א","ב"],"main_risks":["א","ב"],"recommendations":["א","ב","ג"],"stocks":[{"ticker":"סימול","score":0-100,"signal":"BUY"/"HOLD"/"SELL","comment":"משפט"}]}`;
+  const prompt=`אתה יועץ השקעות. נתח תיק:\n${summary}\nשווי: ${totalValue.toFixed(0)} | ${stocks.length} אחזקות\nענה ב-JSON בלבד:\n{"portfolio_score":0-100,"portfolio_summary":"3 משפטים","top_strengths":["א","ב"],"main_risks":["א","ב"],"recommendations":["א","ב","ג"],"stocks":[{"ticker":"סימול","score":0-100,"signal":"BUY"/"HOLD"/"SELL","comment":"משפט"}]}`;
 
   return new Promise((resolve, reject) => {
+    let done=false;
+    function finish(fn,val){if(done)return;done=true;fn(val);}
     const body=JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1500,messages:[{role:'user',content:prompt}]});
     const req=https.request({
       hostname:'api.anthropic.com', path:'/v1/messages', method:'POST',
@@ -144,19 +155,20 @@ function callClaudeForPortfolio(stocks, API_KEY) {
         try {
           const parsed=JSON.parse(data);
           const text=(parsed.content||[]).map(b=>b.text||'').join('').trim();
-          resolve(JSON.parse(text.replace(/```json|```/g,'').trim()));
-        } catch(e) { reject(e); }
+          finish(resolve, JSON.parse(text.replace(/```json|```/g,'').trim()));
+        } catch(e) { finish(reject,e); }
       });
+      apiRes.on('error', err=>finish(reject,err));
     });
-    req.setTimeout(30000, () => { req.destroy(); reject(new Error('Claude API timeout')); });
-    req.on('error', reject);
+    req.setTimeout(30000, () => { finish(reject,new Error('Claude timeout')); req.destroy(); });
+    req.on('error', err=>finish(reject,err));
     req.write(body);
     req.end();
   });
 }
 
-// ══ חיפוש טיקר לפי שם ══
-function isHebrew(text) { return /[\u0590-\u05FF]/.test(text); }
+// ══ חיפוש טיקר ══
+function isHebrew(t) { return /[\u0590-\u05FF]/.test(t); }
 
 async function searchYahooTicker(name, isIsraeli) {
   try {
@@ -173,50 +185,42 @@ async function searchYahooTicker(name, isIsraeli) {
       if (any) return {ticker:any.symbol, exchange:any.exchange||'?', confidence:'medium'};
     }
   } catch(err) {
-    console.error('Yahoo search error:', err.message);
+    console.error('Yahoo search error for '+name+':', err.message);
   }
   return {ticker:null, exchange:'?', confidence:'low'};
 }
 
-// ══ Express Router ══
+// ══ Router ══
 function createPortfolioApi(API_KEY) {
   const router=express.Router();
 
-  // POST /api/portfolio/analyze
   router.post('/analyze', async (req, res) => {
     const {holdings}=req.body;
-    if (!holdings||!Array.isArray(holdings)||holdings.length===0)
+    if (!holdings||!Array.isArray(holdings)||!holdings.length)
       return res.status(400).json({error:'נא לשלוח רשימת אחזקות'});
     if (holdings.length>25)
       return res.status(400).json({error:'מקסימום 25 אחזקות'});
-
     try {
       console.log(`📊 מנתח ${holdings.length} אחזקות...`);
       const stocks=[];
       for (const h of holdings) {
-        const result=await analyzeStock(h.ticker?.trim(), h.shares, h.avgCost, h.name);
-        stocks.push(result);
+        stocks.push(await analyzeStock(h.ticker?.trim(), h.shares, h.avgCost, h.name));
         await new Promise(r=>setTimeout(r,400));
       }
-
       let aiAnalysis=null;
       if (API_KEY) {
         try {
           aiAnalysis=await callClaudeForPortfolio(stocks, API_KEY);
-          console.log(`✅ ניתוח AI הושלם (ציון: ${aiAnalysis?.portfolio_score})`);
-        } catch(err) {
-          console.error('AI error:', err.message);
-        }
+          console.log(`✅ AI ציון: ${aiAnalysis?.portfolio_score}`);
+        } catch(err) { console.error('AI error:', err.message); }
       }
-
       res.json({stocks, aiAnalysis});
     } catch(err) {
-      console.error('Portfolio analyze error:', err.message);
+      console.error('Analyze error:', err.message);
       res.status(500).json({error:err.message});
     }
   });
 
-  // GET /api/portfolio/search-ticker?name=...
   router.get('/search-ticker', async (req, res) => {
     const name=req.query.name?.trim();
     if (!name) return res.status(400).json({error:'חסר שם'});
