@@ -1,43 +1,37 @@
-// routes/portfolioApi.js
+=// routes/portfolioApi.js
 const https = require('https');
 const express = require('express');
 
-// ══ עזר: HTTPS GET עם timeout בטוח ══
-function httpsGet(hostname, path, timeoutMs) {
-  return new Promise((resolve, reject) => {
+// ══ HTTPS GET — תמיד מחזיר תוצאה (לא נותן לשרת לתקוע) ══
+function httpsGetSafe(hostname, path, timeoutMs) {
+  return new Promise((resolve) => {
     let done = false;
-    function finish(fn, val) {
-      if (done) return;
-      done = true;
-      fn(val);
-    }
+    function finish(val) { if (done) return; done = true; resolve(val); }
 
-    const req = https.request({
-      hostname, path, method: 'GET',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'application/json',
-        'Accept-Encoding': 'identity',
-        'Referer': 'https://finance.yahoo.com/',
-        'Origin': 'https://finance.yahoo.com'
-      }
-    }, apiRes => {
-      let data = '';
-      apiRes.on('data', c => data += c);
-      apiRes.on('end', () => {
-        try { finish(resolve, JSON.parse(data)); }
-        catch(e) { finish(reject, new Error('Invalid JSON from Yahoo')); }
+    try {
+      const req = https.request({
+        hostname, path, method: 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'application/json',
+          'Accept-Encoding': 'identity',
+          'Referer': 'https://finance.yahoo.com/',
+          'Origin': 'https://finance.yahoo.com'
+        }
+      }, apiRes => {
+        let data = '';
+        apiRes.on('data', c => data += c);
+        apiRes.on('end', () => {
+          try { finish(JSON.parse(data)); }
+          catch(e) { finish(null); }
+        });
+        apiRes.on('error', () => finish(null));
       });
-      apiRes.on('error', err => finish(reject, err));
-    });
 
-    req.setTimeout(timeoutMs || 8000, () => {
-      finish(reject, new Error('Yahoo timeout'));
-      req.destroy();
-    });
-
-    req.on('error', err => finish(reject, err));
-    req.end();
+      req.setTimeout(timeoutMs || 6000, () => { finish(null); req.destroy(); });
+      req.on('error', () => finish(null));
+      req.end();
+    } catch(e) { finish(null); }
   });
 }
 
@@ -87,16 +81,18 @@ function parseYahooData(data) {
   return {price,rsi,sma20,sma50,atr,support,resistance,trendScore};
 }
 
-// ══ ניתוח מניה ══
+// ══ ניתוח מניה — תמיד מחזיר אובייקט (אף פעם לא throw) ══
 async function analyzeStock(ticker, shares, avgCost, name) {
   try {
+    const t = encodeURIComponent(ticker);
     const [daily, weekly] = await Promise.all([
-      httpsGet('query1.finance.yahoo.com', `/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=3mo&includePrePost=false`, 8000),
-      httpsGet('query1.finance.yahoo.com', `/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1wk&range=1y&includePrePost=false`, 8000)
+      httpsGetSafe('query1.finance.yahoo.com', `/v8/finance/chart/${t}?interval=1d&range=3mo&includePrePost=false`, 6000),
+      httpsGetSafe('query1.finance.yahoo.com', `/v8/finance/chart/${t}?interval=1wk&range=1y&includePrePost=false`, 6000)
     ]);
+
     const d=parseYahooData(daily);
     const w=parseYahooData(weekly);
-    if (!d) return {ticker, name:name||ticker, shares, avgCost, error:'לא נמצאו נתונים'};
+    if (!d) return {ticker, name:name||ticker, shares:parseFloat(shares)||0, avgCost, error:'לא נמצאו נתונים ב-Yahoo'};
 
     const price=d.price;
     const sharesNum=parseFloat(shares)||0;
@@ -109,7 +105,7 @@ async function analyzeStock(ticker, shares, avgCost, name) {
     else if (d.rsi>55) techScore+=7; else if (d.rsi<45) techScore-=7;
     techScore+=d.trendScore*20;
     if (w) techScore+=w.trendScore*10;
-    const dist=((price-d.support)/d.support*100);
+    const dist=d.support>0?((price-d.support)/d.support*100):0;
     if (dist<3) techScore+=10; else if (dist>25) techScore-=5;
     if (pnl!=null) { if (pnl<-15) techScore-=5; else if (pnl>20) techScore+=3; }
     techScore=Math.max(0,Math.min(100,Math.round(techScore)));
@@ -133,37 +129,43 @@ async function analyzeStock(ticker, shares, avgCost, name) {
   }
 }
 
-// ══ ניתוח AI ══
-function callClaudeForPortfolio(stocks, API_KEY) {
+// ══ Claude AI — תמיד מחזיר (גם אם timeout) ══
+function callClaude(stocks, API_KEY) {
   const valid=stocks.filter(s=>!s.error);
-  if (!valid.length) return Promise.resolve(null);
+  if (!valid.length || !API_KEY) return Promise.resolve(null);
+
   const totalValue=valid.reduce((s,x)=>s+(x.value||0),0);
   const summary=valid.map(s=>`• ${s.name} (${s.ticker}): מחיר ${s.price}, RSI ${s.rsi}, מגמה ${s.trend}, ציון ${s.techScore}/100, שווי ${(s.value||0).toFixed(0)}${s.pnl!=null?`, P&L ${s.pnl}%`:''}`).join('\n');
-  const prompt=`אתה יועץ השקעות. נתח תיק:\n${summary}\nשווי: ${totalValue.toFixed(0)} | ${stocks.length} אחזקות\nענה ב-JSON בלבד:\n{"portfolio_score":0-100,"portfolio_summary":"3 משפטים","top_strengths":["א","ב"],"main_risks":["א","ב"],"recommendations":["א","ב","ג"],"stocks":[{"ticker":"סימול","score":0-100,"signal":"BUY"/"HOLD"/"SELL","comment":"משפט"}]}`;
+  const prompt=`אתה יועץ השקעות. נתח תיק:\n${summary}\nשווי: ${totalValue.toFixed(0)} | ${stocks.length} אחזקות\nענה ב-JSON בלבד:\n{"portfolio_score":75,"portfolio_summary":"3 משפטים","top_strengths":["חוזק1","חוזק2"],"main_risks":["סיכון1","סיכון2"],"recommendations":["המלצה1","המלצה2","המלצה3"],"stocks":[{"ticker":"AAPL","score":80,"signal":"BUY","comment":"משפט קצר"}]}`;
 
-  return new Promise((resolve, reject) => {
-    let done=false;
-    function finish(fn,val){if(done)return;done=true;fn(val);}
-    const body=JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1500,messages:[{role:'user',content:prompt}]});
-    const req=https.request({
-      hostname:'api.anthropic.com', path:'/v1/messages', method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':API_KEY,'anthropic-version':'2023-06-01','Content-Length':Buffer.byteLength(body)}
-    }, apiRes => {
-      let data='';
-      apiRes.on('data', c=>data+=c);
-      apiRes.on('end', () => {
-        try {
-          const parsed=JSON.parse(data);
-          const text=(parsed.content||[]).map(b=>b.text||'').join('').trim();
-          finish(resolve, JSON.parse(text.replace(/```json|```/g,'').trim()));
-        } catch(e) { finish(reject,e); }
+  return new Promise((resolve) => {
+    let done = false;
+    function finish(val) { if (done) return; done = true; resolve(val); }
+
+    // timeout של 20 שניות ל-Claude
+    setTimeout(() => { console.log('Claude timeout — ממשיך בלי AI'); finish(null); }, 20000);
+
+    try {
+      const body=JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1500,messages:[{role:'user',content:prompt}]});
+      const req=https.request({
+        hostname:'api.anthropic.com', path:'/v1/messages', method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':API_KEY,'anthropic-version':'2023-06-01','Content-Length':Buffer.byteLength(body)}
+      }, apiRes => {
+        let data='';
+        apiRes.on('data', c=>data+=c);
+        apiRes.on('end', () => {
+          try {
+            const parsed=JSON.parse(data);
+            const text=(parsed.content||[]).map(b=>b.text||'').join('').trim();
+            finish(JSON.parse(text.replace(/```json|```/g,'').trim()));
+          } catch(e) { finish(null); }
+        });
+        apiRes.on('error', ()=>finish(null));
       });
-      apiRes.on('error', err=>finish(reject,err));
-    });
-    req.setTimeout(30000, () => { finish(reject,new Error('Claude timeout')); req.destroy(); });
-    req.on('error', err=>finish(reject,err));
-    req.write(body);
-    req.end();
+      req.on('error', ()=>finish(null));
+      req.write(body);
+      req.end();
+    } catch(e) { finish(null); }
   });
 }
 
@@ -171,21 +173,18 @@ function callClaudeForPortfolio(stocks, API_KEY) {
 function isHebrew(t) { return /[\u0590-\u05FF]/.test(t); }
 
 async function searchYahooTicker(name, isIsraeli) {
-  try {
-    const data=await httpsGet('query1.finance.yahoo.com',
-      `/v1/finance/search?q=${encodeURIComponent(name)}&quotesCount=10&newsCount=0`, 6000);
-    const quotes=data?.quotes||[];
-    if (isIsraeli) {
-      const ta=quotes.filter(q=>q.symbol?.endsWith('.TA')&&['EQUITY','ETF','MUTUALFUND'].includes(q.quoteType));
-      if (ta.length>0) return {ticker:ta[0].symbol, exchange:'TASE', confidence:'high'};
-    } else {
-      const us=quotes.filter(q=>!q.symbol?.includes('.')&&['EQUITY','ETF'].includes(q.quoteType));
-      if (us.length>0) return {ticker:us[0].symbol, exchange:us[0].exchange||'US', confidence:'high'};
-      const any=quotes.find(q=>['EQUITY','ETF'].includes(q.quoteType));
-      if (any) return {ticker:any.symbol, exchange:any.exchange||'?', confidence:'medium'};
-    }
-  } catch(err) {
-    console.error('Yahoo search error for '+name+':', err.message);
+  const data=await httpsGetSafe('query1.finance.yahoo.com',
+    `/v1/finance/search?q=${encodeURIComponent(name)}&quotesCount=10&newsCount=0`, 5000);
+  if (!data) return {ticker:null, exchange:'?', confidence:'low'};
+  const quotes=data.quotes||[];
+  if (isIsraeli) {
+    const ta=quotes.filter(q=>q.symbol?.endsWith('.TA')&&['EQUITY','ETF','MUTUALFUND'].includes(q.quoteType));
+    if (ta.length>0) return {ticker:ta[0].symbol, exchange:'TASE', confidence:'high'};
+  } else {
+    const us=quotes.filter(q=>!q.symbol?.includes('.')&&['EQUITY','ETF'].includes(q.quoteType));
+    if (us.length>0) return {ticker:us[0].symbol, exchange:us[0].exchange||'US', confidence:'high'};
+    const any=quotes.find(q=>['EQUITY','ETF'].includes(q.quoteType));
+    if (any) return {ticker:any.symbol, exchange:any.exchange||'?', confidence:'medium'};
   }
   return {ticker:null, exchange:'?', confidence:'low'};
 }
@@ -194,37 +193,49 @@ async function searchYahooTicker(name, isIsraeli) {
 function createPortfolioApi(API_KEY) {
   const router=express.Router();
 
-  router.post('/analyze', async (req, res) => {
-    const {holdings}=req.body;
+  // POST /api/portfolio/analyze
+  // תמיד שולח תשובה — גם אם משהו נכשל
+  router.post('/analyze', (req, res) => {
+    const holdings=req.body.holdings;
     if (!holdings||!Array.isArray(holdings)||!holdings.length)
-      return res.status(400).json({error:'נא לשלוח רשימת אחזקות'});
+      return res.json({stocks:[], aiAnalysis:null, error:'נא לשלוח רשימת אחזקות'});
     if (holdings.length>25)
-      return res.status(400).json({error:'מקסימום 25 אחזקות'});
-    try {
-      console.log(`📊 מנתח ${holdings.length} אחזקות במקביל...`);
+      return res.json({stocks:[], aiAnalysis:null, error:'מקסימום 25 אחזקות'});
 
-      // עיבוד מקבילי — כל המניות בו-זמנית (הרבה יותר מהיר מסדרתי)
-      const stocks = await Promise.all(
-        holdings.map(h => analyzeStock(h.ticker?.trim(), h.shares, h.avgCost, h.name))
-      );
+    console.log(`📊 מנתח ${holdings.length} אחזקות...`);
 
-      let aiAnalysis=null;
-      if (API_KEY) {
-        try {
-          aiAnalysis=await callClaudeForPortfolio(stocks, API_KEY);
-          console.log(`✅ AI ציון: ${aiAnalysis?.portfolio_score}`);
-        } catch(err) { console.error('AI error:', err.message); }
-      }
-      res.json({stocks, aiAnalysis});
-    } catch(err) {
-      console.error('Analyze error:', err.message);
-      res.status(500).json({error:err.message});
+    // HARD TIMEOUT — תמיד שולח תוך 25 שניות
+    let responded=false;
+    function sendResult(data) {
+      if (responded) return;
+      responded=true;
+      try { res.json(data); } catch(e) { console.error('Send error:', e.message); }
     }
+    const hardTimeout=setTimeout(()=>{
+      console.log('Hard timeout fired — שולח תוצאות חלקיות');
+      sendResult({stocks:[], aiAnalysis:null, error:'Timeout — נסה עם פחות ניירות ערך'});
+    }, 25000);
+
+    // עיבוד מקבילי
+    Promise.all(holdings.map(h=>analyzeStock(h.ticker?.trim(), h.shares, h.avgCost, h.name)))
+      .then(stocks => {
+        console.log(`✅ Yahoo הושלם — ${stocks.filter(s=>!s.error).length}/${stocks.length} נמצאו`);
+        return callClaude(stocks, API_KEY).then(aiAnalysis => {
+          clearTimeout(hardTimeout);
+          sendResult({stocks, aiAnalysis});
+        });
+      })
+      .catch(err => {
+        clearTimeout(hardTimeout);
+        console.error('Analyze error:', err.message);
+        sendResult({stocks:[], aiAnalysis:null, error:err.message});
+      });
   });
 
+  // GET /api/portfolio/search-ticker?name=...
   router.get('/search-ticker', async (req, res) => {
-    const name=req.query.name?.trim();
-    if (!name) return res.status(400).json({error:'חסר שם'});
+    const name=(req.query.name||'').trim();
+    if (!name) return res.json({ticker:null, exchange:'?', confidence:'low'});
     try {
       const result=await searchYahooTicker(name, isHebrew(name));
       res.json(result);
