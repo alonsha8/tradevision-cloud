@@ -195,8 +195,8 @@ function createPortfolioApi(API_KEY) {
 
   // POST /api/portfolio/analyze
   // תמיד שולח תשובה — גם אם משהו נכשל
-  router.post('/analyze', (req, res) => {
-    const holdings=req.body.holdings;
+  router.post('/analyze', express.json(), (req, res) => {
+  const holdings=(req.body||{}).holdings;
     if (!holdings||!Array.isArray(holdings)||!holdings.length)
       return res.json({stocks:[], aiAnalysis:null, error:'נא לשלוח רשימת אחזקות'});
     if (holdings.length>25)
