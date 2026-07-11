@@ -30,7 +30,8 @@ const startDailyWatcher = require('./watchers/dailyCheck');
      const createPortfolioApi = require('./routes/portfolioApi');
 app.use('/api/portfolio', createPortfolioApi(API_KEY));
    }
-
+const createSectorScannerApi = require('./routes/sectorScannerApi');
+app.use('/api/sector-scanner', createSectorScannerApi(pool));
 // ══ Database setup: single-row tables keyed by a fixed account id ══
 // Since this is a personal single-user app, we use a fixed accountId ('default')
 // rather than building a full multi-user auth system.
