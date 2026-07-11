@@ -178,6 +178,7 @@
   <div class="tab" onclick="switchTab('trading')">💹 דסק מסחר</div>
   <div class="tab" onclick="switchTab('watcher')">🔔 מעקב פורום</div>
   <div class="tab" onclick="switchTab('portfolio-analysis')">📊 ניתוח תיק</div>
+  <div class="tab" onclick="switchTab('sector-trends')">📡 Sector Trends</div>
 </div>
 
 <!-- TAB 1 -->
@@ -491,8 +492,8 @@ emailjs.init('LkDpHo19XM92ZLmZm');
 
 // Tabs
 function switchTab(t){
-  ['watcher','analyzer','scanner','ta125','portfolio','trading','portfolio-analysis'].forEach(function(n){document.getElementById('tab-'+n).classList.toggle('active',n===t);});
- var order=['analyzer','scanner','ta125','portfolio','trading','watcher','portfolio-analysis'];
+  ['watcher','analyzer','scanner','ta125','portfolio','trading','portfolio-analysis','sector-trends'].forEach(function(n){document.getElementById('tab-'+n).classList.toggle('active',n===t);});
+ var order=['analyzer','scanner','ta125','portfolio','trading','watcher','portfolio-analysis','sector-trends'];
   document.querySelectorAll('.tab').forEach(function(el,i){el.classList.toggle('active',order[i]===t);});
   if(t==='trading')renderTradingDesk();
 }
@@ -1770,8 +1771,235 @@ function autoClosePosition(posId,currentPrice,reason){
 </main>
 </div>
 
+<div id="tab-sector-trends" class="tab-content">
+<div class="scanner-wrap">
+  <div class="scanner-top">
+    <h2>📡 מגמות סקטוריאליות מוקדמות - ישראל 🇮🇱 + ארה"ב 🇺🇸</h2>
+    <div class="filter-row">
+      <span style="font-size:12px;color:var(--muted);">סנן:</span>
+      <div class="filter-chip active" id="st-fc-candidate" onclick="toggleSectorFilter('candidate')">🟢 מועמדים</div>
+      <div class="filter-chip active" id="st-fc-early" onclick="toggleSectorFilter('early_candidate')">🟡 ראשוני</div>
+      <div class="filter-chip active" id="st-fc-weak" onclick="toggleSectorFilter('weakening')">🔴 היחלשות</div>
+      <div class="filter-chip" id="st-fc-late" onclick="toggleSectorFilter('too_late')">⚠️ מאוחר מדי</div>
+      <div class="filter-chip" id="st-fc-watch" onclick="toggleSectorFilter('watch_only')">⚪ לצפייה</div>
+      <button class="scan-btn" id="st-scan-btn" onclick="runSectorScan()">⚡ סרוק סקטורים</button>
+    </div>
+  </div>
+
+  <div class="scan-stats" id="st-scan-stats" style="display:none;">
+    <div class="stat-box green"><div class="stat-val" id="st-stat-candidate">0</div><div class="stat-lbl">מועמדים רציניים</div></div>
+    <div class="stat-box yellow"><div class="stat-val" id="st-stat-early">0</div><div class="stat-lbl">איתות ראשוני</div></div>
+    <div class="stat-box red"><div class="stat-val" id="st-stat-weak">0</div><div class="stat-lbl">סימני היחלשות</div></div>
+    <div class="stat-box"><div class="stat-val" id="st-stat-total" style="color:var(--accent)">0</div><div class="stat-lbl">סרוקו סה"כ</div></div>
+  </div>
+
+  <div class="scan-loading" id="st-scan-loading">
+    <div class="spinner"></div>
+    <div class="loading-text">סורק סקטורים...</div>
+    <div class="scan-progress" id="st-scan-progress">מריץ ~15 קריאות ל-Yahoo Finance, עם השהיה בין קריאות...</div>
+  </div>
+
+  <div class="scan-empty" id="st-scan-empty">
+    <div style="font-size:44px;margin-bottom:14px;opacity:0.4;">📡</div>
+    <p style="font-size:13px;line-height:1.7;">לחץ "סרוק סקטורים" כדי לאתר מגמות מוקדמות<br>לפני שהן הופכות ל"היפ" - עם הסבר לכל איתות</p>
+  </div>
+
+  <div class="results-table-wrap" id="st-scan-results" style="display:none;">
+    <table>
+      <thead><tr>
+        <th>סקטור</th>
+        <th>תעודות סל / קישור</th>
+        <th>פסיקה</th>
+        <th>ציון (0-100)</th>
+        <th>מגמה</th>
+        <th>נפח (US בלבד)</th>
+        <th>הערכת שווי / 52ש"נ</th>
+        <th>הסבר מלא</th>
+      </tr></thead>
+      <tbody id="st-scan-tbody"></tbody>
+    </table>
+  </div>
+  <div style="margin-top:16px;" class="disclaimer">⚠️ ארה"ב: נתונים מ-Yahoo Finance (RS/נפח/52 שבועות). ישראל: נתונים מ-indx.co.il (שינוי יומי + מכפילים) - האיתות הישראלי משתפר אוטומטית ככל שהמערכת צוברת עוד ימי סריקה (נדרשים 5+ ימים למגמה מבוססת). זהו כלי לזיהוי מגמות טכניות מוקדמות - אינו ייעוץ השקעות ואינו תחליף לבדיקה עצמאית לפני כל פעולה.</div>
+</div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
+var sectorScanResults = [];
+var sectorActiveFilters = { candidate: true, early_candidate: true, weakening: true, too_late: false, watch_only: false };
+
+function toggleSectorFilter(key) {
+  sectorActiveFilters[key] = !sectorActiveFilters[key];
+  var idMap = {
+    candidate: 'st-fc-candidate',
+    early_candidate: 'st-fc-early',
+    weakening: 'st-fc-weak',
+    too_late: 'st-fc-late',
+    watch_only: 'st-fc-watch',
+  };
+  document.getElementById(idMap[key]).classList.toggle('active', sectorActiveFilters[key]);
+  renderSectorTable();
+}
+
+function runSectorScan(force) {
+  document.getElementById('st-scan-btn').disabled = true;
+  document.getElementById('st-scan-empty').style.display = 'none';
+  document.getElementById('st-scan-results').style.display = 'none';
+  document.getElementById('st-scan-stats').style.display = 'none';
+  document.getElementById('st-scan-loading').style.display = 'block';
+
+  var url = '/api/sector-scanner/scan-all' + (force ? '?force=1' : '');
+  fetch(url)
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      document.getElementById('st-scan-loading').style.display = 'none';
+      document.getElementById('st-scan-btn').disabled = false;
+
+      if (data.error && !data.results) {
+        document.getElementById('st-scan-empty').style.display = 'block';
+        document.getElementById('st-scan-empty').innerHTML =
+          '<div class="error-box">שגיאה בסריקה: ' + data.error + '</div>';
+        return;
+      }
+
+      sectorScanResults = data.results || [];
+
+      var candidateCount = sectorScanResults.filter(function (r) { return r.scoring && r.scoring.verdict === 'candidate'; }).length;
+      var earlyCount = sectorScanResults.filter(function (r) { return r.scoring && r.scoring.verdict === 'early_candidate'; }).length;
+      var weakCount = sectorScanResults.filter(function (r) { return r.scoring && r.scoring.verdict === 'weakening'; }).length;
+
+      document.getElementById('st-stat-candidate').textContent = candidateCount;
+      document.getElementById('st-stat-early').textContent = earlyCount;
+      document.getElementById('st-stat-weak').textContent = weakCount;
+      document.getElementById('st-stat-total').textContent = sectorScanResults.length;
+      document.getElementById('st-scan-stats').style.display = 'grid';
+
+      var cacheNote = data.cached ? ' | נטען מ-cache' : '';
+      if (data.us && data.il) {
+        cacheNote = ' | ארה"ב: ' + (data.us.cached ? 'cache' : 'רענון חי') + (data.us.stale ? ' (ישן)' : '') +
+          ' | ישראל: ' + (data.il.cached ? 'cache' : 'רענון חי') + (data.il.stale ? ' (ישן)' : '');
+      }
+      document.getElementById('st-scan-progress').textContent = cacheNote;
+
+      renderSectorTable();
+    })
+    .catch(function (err) {
+      document.getElementById('st-scan-loading').style.display = 'none';
+      document.getElementById('st-scan-btn').disabled = false;
+      document.getElementById('st-scan-empty').style.display = 'block';
+      document.getElementById('st-scan-empty').innerHTML =
+        '<div class="error-box">שגיאת רשת: ' + err.message + '</div>';
+    });
+}
+
+function renderVerdictBadge(verdict, verdictLabel) {
+  var colors = {
+    candidate: 'var(--green)',
+    early_candidate: 'var(--accent2)',
+    too_late: 'var(--red)',
+    weakening: 'var(--red)',
+    watch_only: 'var(--muted)',
+  };
+  var icons = {
+    candidate: '🟢',
+    early_candidate: '🟡',
+    too_late: '⚠️',
+    weakening: '🔴',
+    watch_only: '⚪',
+  };
+  var color = colors[verdict] || 'var(--muted)';
+  var icon = icons[verdict] || '⚪';
+  return '<span style="color:' + color + ';font-size:12px;font-weight:600;">' + icon + ' ' + verdictLabel + '</span>';
+}
+
+function renderRSBadge(rsTrend) {
+  if (!rsTrend || rsTrend.direction === 'insufficient_data') {
+    return '<span style="color:var(--muted);font-size:11px;">— אין מספיק נתונים</span>';
+  }
+  var color = rsTrend.direction === 'strengthening' ? 'var(--green)' : rsTrend.direction === 'weakening' ? 'var(--red)' : 'var(--muted)';
+  var arrow = rsTrend.direction === 'strengthening' ? '▲' : rsTrend.direction === 'weakening' ? '▼' : '―';
+  return '<span style="color:' + color + ';font-family:var(--mono);font-size:11px;">' + arrow + ' ' + rsTrend.slopePerWeek + '%/שבוע (' + rsTrend.weeksConsistent + 'שב\')</span>';
+}
+
+function renderVolumeBadge(relativeVolume) {
+  if (!relativeVolume || !relativeVolume.sufficientData) {
+    return '<span style="color:var(--muted);font-size:11px;">—</span>';
+  }
+  var color = relativeVolume.relativeVolumePct > 25 ? 'var(--green)' : 'var(--text)';
+  return '<span style="color:' + color + ';font-family:var(--mono);font-size:11px;">' + (relativeVolume.relativeVolumePct > 0 ? '+' : '') + relativeVolume.relativeVolumePct + '%</span>';
+}
+
+function render52wBadge(lowBehavior, runUp) {
+  var parts = [];
+  if (lowBehavior && lowBehavior.hasEnoughHistory) {
+    if (lowBehavior.isDryingUp) {
+      parts.push('<span style="color:var(--green);font-family:var(--mono);font-size:11px;">שפל התייבש (' + lowBehavior.daysSinceLastNewLow + 'י)</span>');
+    }
+  }
+  if (runUp && runUp.sufficientData) {
+    var color = runUp.runUpPct >= 40 ? 'var(--red)' : runUp.runUpPct >= 20 ? 'var(--accent2)' : 'var(--muted)';
+    parts.push('<span style="color:' + color + ';font-family:var(--mono);font-size:11px;">+' + runUp.runUpPct + '% משפל</span>');
+  }
+  return parts.length ? parts.join('<br>') : '<span style="color:var(--muted);font-size:11px;">—</span>';
+}
+
+function renderSectorTable() {
+  var tbody = document.getElementById('st-scan-tbody');
+  var filtered = sectorScanResults.filter(function (r) {
+    if (!r.scoring) return false;
+    return sectorActiveFilters[r.scoring.verdict];
+  });
+
+  if (filtered.length === 0) {
+    document.getElementById('st-scan-results').style.display = 'none';
+    document.getElementById('st-scan-empty').style.display = 'block';
+    document.getElementById('st-scan-empty').innerHTML =
+      '<div style="font-size:44px;margin-bottom:14px;opacity:0.4;">📡</div><p style="font-size:13px;">אין תוצאות התואמות את הסינון הנוכחי</p>';
+    return;
+  }
+
+  document.getElementById('st-scan-empty').style.display = 'none';
+  document.getElementById('st-scan-results').style.display = 'block';
+
+  tbody.innerHTML = filtered.map(function (r) {
+    var flag = r.market === 'IL' ? '🇮🇱' : '🇺🇸';
+    var instrumentsStr;
+    if (r.instruments && r.instruments.length) {
+      instrumentsStr = r.instruments.map(function (i) { return i.name || i.ticker; }).join(' | ');
+    } else if (r.indexUrl) {
+      instrumentsStr = '<a href="' + r.indexUrl + '" target="_blank" style="color:var(--accent);">מדד באתר אינדקס ↗</a>';
+    } else {
+      instrumentsStr = '—';
+    }
+    return '<tr>' +
+      '<td style="font-weight:600;">' + flag + ' ' + r.sectorLabel + '</td>' +
+      '<td style="font-family:var(--mono);font-size:12px;color:var(--muted);">' + instrumentsStr + '</td>' +
+      '<td>' + renderVerdictBadge(r.scoring.verdict, r.verdictLabel) + '</td>' +
+      '<td style="font-family:var(--mono);">' + r.scoring.score + '</td>' +
+      '<td>' + (r.market === 'IL' ? renderILTrendBadge(r.signals) : renderRSBadge(r.signals.rsTrend)) + '</td>' +
+      '<td>' + (r.market === 'IL' ? '—' : renderVolumeBadge(r.signals.relativeVolume)) + '</td>' +
+      '<td>' + (r.market === 'IL' ? renderILValuationBadge(r.signals) : render52wBadge(r.signals.lowBehavior, r.signals.runUp)) + '</td>' +
+      '<td style="font-size:12px;line-height:1.5;max-width:320px;">' + r.explanation + '</td>' +
+      '</tr>';
+  }).join('');
+}
+
+function renderILTrendBadge(signals) {
+  if (signals.trend && signals.trend.sufficientData) {
+    var color = signals.trend.avgDailyChangePct > 0 ? 'var(--green)' : signals.trend.avgDailyChangePct < 0 ? 'var(--red)' : 'var(--muted)';
+    return '<span style="color:' + color + ';font-family:var(--mono);font-size:11px;">' + signals.trend.avgDailyChangePct + '%/יום (' + signals.trend.daysTracked + ' ימים)</span>';
+  }
+  var color2 = signals.dailyChangePct > 0 ? 'var(--green)' : 'var(--red)';
+  return '<span style="color:' + color2 + ';font-family:var(--mono);font-size:11px;">היום: ' + signals.dailyChangePct + '% (עדיין נצבר)</span>';
+}
+
+function renderILValuationBadge(signals) {
+  if (signals.peRankPercentile === null) return '<span style="color:var(--muted);font-size:11px;">—</span>';
+  var color = signals.peRankPercentile >= 80 ? 'var(--red)' : signals.peRankPercentile <= 20 ? 'var(--green)' : 'var(--muted)';
+  return '<span style="color:' + color + ';font-family:var(--mono);font-size:11px;">P/E ' + signals.peRatio + ' (יקר מ-' + signals.peRankPercentile + '%)</span>';
+}
+
+
 var paHoldings=[];
 var paResolved=[];
 
