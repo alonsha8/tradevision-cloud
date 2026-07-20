@@ -171,7 +171,8 @@
   <div class="header-badge">BETA v6.1</div>
 </header>
 <div class="tabs">
-  <div class="tab active" onclick="switchTab('analyzer')">📊 ניתוח גרף</div>
+  <div class="tab active" onclick="switchTab('home')">🏠 בית</div>
+  <div class="tab" onclick="switchTab('analyzer')">📊 ניתוח גרף</div>
   <div class="tab" onclick="switchTab('scanner')">🔍 סורק נאסד"ק</div>
   <div class="tab" onclick="switchTab('ta125')">🇮🇱 סורק ת"א 125</div>
   <div class="tab" onclick="switchTab('portfolio')">💼 בנאי תיק AI</div>
@@ -182,8 +183,62 @@
   <div class="tab" onclick="switchTab('fundamental')">🏦 ניתוח פונדמנטלי</div>
 </div>
 
+<!-- TAB 0 -->
+<div id="tab-home" class="tab-content active">
+<main style="flex-direction:column;gap:20px;">
+
+  <div class="card">
+    <div class="card-header"><span class="dot"></span>💼 מצב תיק</div>
+    <div class="card-body" id="home-portfolio-snapshot">
+      <div style="text-align:center;padding:10px;color:var(--muted);">⏳ טוען...</div>
+    </div>
+  </div>
+
+  <div class="card" id="home-holdings-wrap" style="display:none;">
+    <div class="card-header"><span class="dot"></span>📊 אחזקות — ציון טכני חי</div>
+    <div class="card-body" style="padding:0;overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border);">
+            <th style="text-align:right;padding:10px 14px;color:var(--muted);">מניה</th>
+            <th style="text-align:right;padding:10px;color:var(--muted);">מחיר</th>
+            <th style="text-align:right;padding:10px;color:var(--muted);">P&amp;L</th>
+            <th style="text-align:right;padding:10px;color:var(--muted);">ציון</th>
+            <th style="text-align:right;padding:10px;color:var(--muted);">סיגנל</th>
+          </tr>
+        </thead>
+        <tbody id="home-holdings-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span class="dot"></span>⚡ קיצורי דרך</div>
+    <div class="card-body" style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="home-quicklink" onclick="switchTab('analyzer')">📊 ניתוח גרף</button>
+      <button class="home-quicklink" onclick="switchTab('scanner')">🔍 סורק נאסד"ק</button>
+      <button class="home-quicklink" onclick="switchTab('ta125')">🇮🇱 סורק ת"א 125</button>
+      <button class="home-quicklink" onclick="switchTab('portfolio')">💼 בנאי תיק AI</button>
+      <button class="home-quicklink" onclick="switchTab('trading')">💹 דסק מסחר</button>
+      <button class="home-quicklink" onclick="switchTab('watcher')">🔔 מעקב פורום</button>
+      <button class="home-quicklink" onclick="switchTab('portfolio-analysis')">📊 ניתוח תיק</button>
+      <button class="home-quicklink" onclick="switchTab('sector-trends')">📡 Sector Trends</button>
+      <button class="home-quicklink" onclick="switchTab('fundamental')">🏦 ניתוח פונדמנטלי</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span class="dot"></span>🔔 עדכונים ממעקב הפורום</div>
+    <div class="card-body" id="home-watcher-feed">
+      <div style="text-align:center;padding:10px;color:var(--muted);">⏳ טוען...</div>
+    </div>
+  </div>
+
+</main>
+</div>
+
 <!-- TAB 1 -->
-<div id="tab-analyzer" class="tab-content active">
+<div id="tab-analyzer" class="tab-content">
 <main>
   <div style="display:flex;flex-direction:column;gap:20px;">
     <div class="card">
@@ -493,10 +548,11 @@ emailjs.init('LkDpHo19XM92ZLmZm');
 
 // Tabs
 function switchTab(t){
-  ['watcher','analyzer','scanner','ta125','portfolio','trading','portfolio-analysis','sector-trends','fundamental'].forEach(function(n){document.getElementById('tab-'+n).classList.toggle('active',n===t);});
- var order=['analyzer','scanner','ta125','portfolio','trading','watcher','portfolio-analysis','sector-trends','fundamental'];
+  ['watcher','analyzer','scanner','ta125','portfolio','trading','portfolio-analysis','sector-trends','fundamental','home'].forEach(function(n){document.getElementById('tab-'+n).classList.toggle('active',n===t);});
+ var order=['home','analyzer','scanner','ta125','portfolio','trading','watcher','portfolio-analysis','sector-trends','fundamental'];
   document.querySelectorAll('.tab').forEach(function(el,i){el.classList.toggle('active',order[i]===t);});
   if(t==='trading')renderTradingDesk();
+  if(t==='home')loadHomeDashboard();
 }
 
 // ── Analyzer ──
@@ -1959,6 +2015,10 @@ function autoClosePosition(posId,currentPrice,reason){
   .fa-acc-body{display:none;padding:0 18px 18px;font-size:13px;line-height:1.6;}
   .fa-acc.open .fa-acc-body{display:block;}
 
+  /* Home dashboard quick links */
+  .home-quicklink{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px 16px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;font-family:var(--sans);transition:border-color .15s,color .15s;}
+  .home-quicklink:hover{border-color:var(--accent);color:var(--accent);}
+
   .st-filter-box:hover{transform:translateY(-1px);}
   .st-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:12px;}
   .st-card-title{display:flex;align-items:center;gap:8px;font-size:17px;font-weight:700;}
@@ -2512,6 +2572,97 @@ function renderFundamentalResults(d,live){
   document.querySelectorAll('#fa-results .fa-acc').forEach(function(el){el.classList.remove('open');});
   document.querySelector('#fa-results .fa-acc').classList.add('open'); // summary open by default, rest collapsed
 }
+
+// ══ HOME DASHBOARD ══
+function loadHomeDashboard(){
+  loadHomePortfolioSnapshot();
+  loadHomeWatcherFeed();
+}
+
+function loadHomePortfolioSnapshot(){
+  var snapEl=document.getElementById('home-portfolio-snapshot');
+  var wrapEl=document.getElementById('home-holdings-wrap');
+  var tbody=document.getElementById('home-holdings-tbody');
+  snapEl.innerHTML='<div style="text-align:center;padding:10px;color:var(--muted);">⏳ טוען...</div>';
+
+  getTradingAccount().then(function(acc){
+    if(!acc){
+      snapEl.innerHTML='<div style="color:var(--muted);font-size:13px;">אין עדיין חשבון מסחר פעיל. עבור לטאב "דסק מסחר" כדי להתחיל.</div>';
+      wrapEl.style.display='none';
+      return;
+    }
+    var symbol=acc.currency==='ILS'?'₪':'$';
+
+    if(!acc.positions||acc.positions.length===0){
+      wrapEl.style.display='none';
+      var totalReturnPct0=((acc.cash-acc.initialBalance)/acc.initialBalance*100);
+      snapEl.innerHTML=homeSnapshotHtml(symbol,acc.cash,acc.cash,totalReturnPct0,acc.cash);
+      return;
+    }
+
+    wrapEl.style.display='block';
+    tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--muted);">⏳ מעדכן מחירים בזמן אמת...</td></tr>';
+
+    Promise.all(acc.positions.map(function(p){
+      return fetchQuote(p.ticker).then(function(q){return{pos:p,q:q};}).catch(function(){return{pos:p,q:null};});
+    })).then(function(results){
+      var positionsValue=0;
+
+      var rows=results.map(function(r){
+        var p=r.pos,q=r.q;
+        var current=q?q.price:null;
+        var pnl=null,pnlPct=null;
+        if(current!=null){
+          if(p.direction==='BUY'){pnl=(current-p.entryPrice)*p.qty;positionsValue+=current*p.qty;}
+          else{pnl=(p.entryPrice-current)*p.qty;positionsValue+=p.entryPrice*p.qty;}
+          pnlPct=((current-p.entryPrice)/p.entryPrice*100)*(p.direction==='BUY'?1:-1);
+        }
+        var pnlColor=pnl==null?'':(pnl>=0?'var(--green)':'var(--red)');
+        var pnlStr=pnl!=null?(pnl>=0?'+':'')+symbol+Math.abs(pnl).toFixed(2)+' ('+(pnlPct>=0?'+':'')+pnlPct.toFixed(1)+'%)':'—';
+        var scoreVal=q?q.score:null;
+        var scoreBadge=scoreVal!=null?'<div style="width:32px;height:32px;border-radius:50%;border:2px solid '+scoreColor(scoreVal)+';display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;color:'+scoreColor(scoreVal)+';">'+scoreVal+'</div>':'—';
+        var sig=q&&q.signal?(q.signal==='WAIT'?'HOLD':q.signal):null;
+        return '<tr style="border-bottom:1px solid var(--border);">'+
+          '<td style="padding:10px 14px;font-weight:600;font-family:var(--mono);color:var(--accent);">'+p.ticker+'</td>'+
+          '<td style="padding:10px;">'+(current!=null?symbol+current.toFixed(2):'—')+'</td>'+
+          '<td style="padding:10px;color:'+pnlColor+';font-weight:600;">'+pnlStr+'</td>'+
+          '<td style="padding:10px;">'+scoreBadge+'</td>'+
+          '<td style="padding:10px;">'+(sig?signalBadge(sig):'—')+'</td>'+
+        '</tr>';
+      }).join('');
+      tbody.innerHTML=rows;
+
+      var totalValue=acc.cash+positionsValue;
+      var totalReturnPct=((totalValue-acc.initialBalance)/acc.initialBalance*100);
+      snapEl.innerHTML=homeSnapshotHtml(symbol,totalValue,acc.cash,totalReturnPct,positionsValue);
+    });
+  });
+}
+
+function homeSnapshotHtml(symbol,totalValue,cash,returnPct,positionsValue){
+  return '<div style="display:flex;gap:28px;flex-wrap:wrap;">'+
+    '<div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">שווי כולל</div><div style="font-size:20px;font-weight:700;">'+symbol+totalValue.toFixed(2)+'</div></div>'+
+    '<div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">תשואה כוללת</div><div style="font-size:20px;font-weight:700;color:'+(returnPct>=0?'var(--green)':'var(--red)')+';">'+(returnPct>=0?'+':'')+returnPct.toFixed(2)+'%</div></div>'+
+    '<div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">מזומן פנוי</div><div style="font-size:20px;font-weight:700;">'+symbol+cash.toFixed(2)+'</div></div>'+
+  '</div>';
+}
+
+function loadHomeWatcherFeed(){
+  var el=document.getElementById('home-watcher-feed');
+  el.innerHTML='<div style="text-align:center;padding:10px;color:var(--muted);">⏳ טוען...</div>';
+  fetch('/api/watcher/matches').then(function(r){if(!r.ok)throw new Error('no-endpoint');return r.json();}).then(function(data){
+    var items=Array.isArray(data)?data:((data&&data.matches)||[]);
+    if(!items.length){el.innerHTML='<div style="color:var(--muted);font-size:13px;">אין עדכונים חדשים ממעקב הפורום כרגע.</div>';return;}
+    el.innerHTML=items.slice(0,8).map(function(m){
+      return '<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;line-height:1.5;"><b>'+(m.author||m.user||'משתמש')+':</b> '+(m.summary||m.text||m.content||'')+'</div>';
+    }).join('');
+  }).catch(function(){
+    el.innerHTML='<div style="color:var(--muted);font-size:13px;line-height:1.6;">⚠️ עדיין לא מחובר ל-API האמיתי של מעקב הפורום (endpoint משוער בלבד). בינתיים אפשר לבדוק ישירות בטאב "מעקב פורום" למעלה.</div>';
+  });
+}
+
+// Load the home dashboard on first page load, since it's now the default landing tab
+document.addEventListener('DOMContentLoaded',function(){loadHomeDashboard();});
 </script>
 
 </body>
