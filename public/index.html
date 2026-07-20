@@ -1847,8 +1847,9 @@ function autoClosePosition(posId,currentPrice,reason){
     <div style="font-size:12px;color:var(--muted);margin-top:8px;">עשוי לקחת 20-40 שניות</div>
   </div>
 
-  <div id="fa-results" style="display:none;flex-direction:column;gap:16px;">
+  <div id="fa-results" style="display:none;flex-direction:column;gap:10px;">
 
+    <!-- Hero: the only thing shown open by default -->
     <div class="card">
       <div class="card-body" style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
         <div style="text-align:center;min-width:90px;">
@@ -1856,31 +1857,47 @@ function autoClosePosition(posId,currentPrice,reason){
           <div id="fa-verdict" style="font-size:12px;font-weight:600;margin-top:2px;"></div>
         </div>
         <div style="flex:1;min-width:220px;">
-          <div style="font-size:16px;font-weight:700;margin-bottom:4px;" id="fa-company-name"></div>
-          <div style="font-size:13px;line-height:1.6;color:var(--text);" id="fa-summary"></div>
+          <div style="font-size:16px;font-weight:700;margin-bottom:8px;" id="fa-company-name"></div>
+          <div style="font-size:14px;line-height:2;">
+            <div>💰 מחיר המניה לפי הערכות שווי ודוחות כספיים הוא: <b id="fa-intrinsic" style="font-size:16px;"></b></div>
+            <div>📍 מחיר מניה נוכחי הוא: <b id="fa-current-price" style="font-size:16px;"></b> <span style="color:var(--muted);font-size:12px;">(פוטנציאל: <b id="fa-upside"></b>)</span></div>
+          </div>
         </div>
         <button onclick="resetFundamentalTab()" style="background:rgba(148,163,184,0.1);border:1px solid var(--border);color:var(--muted);padding:8px 14px;border-radius:8px;cursor:pointer;font-size:12px;white-space:nowrap;">🔄 ניתוח חדש</button>
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-header"><span class="dot"></span>💰 הערכת שווי DCF</div>
-      <div class="card-body">
-        <div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:16px;">
-          <div>
-            <div style="font-size:11px;color:var(--muted);font-family:var(--mono);">שווי פנימי מוערך</div>
-            <div style="font-size:22px;font-weight:700;" id="fa-intrinsic"></div>
+    <!-- Recommendation + triggers: always visible, clearly labeled per user request -->
+    <div class="card" style="border-color:rgba(0,212,168,0.25);">
+      <div class="card-body" style="display:flex;flex-direction:column;gap:12px;">
+        <div>
+          <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:3px;">🎯 המלצה לטווח רחוק</div>
+          <div style="font-size:15px;font-weight:700;" id="fa-longterm-label"></div>
+          <div style="font-size:13px;color:var(--text);margin-top:2px;" id="fa-longterm-reason"></div>
+        </div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:220px;background:rgba(239,68,68,0.06);border-radius:10px;padding:10px 14px;">
+            <div style="font-size:12px;font-weight:700;color:var(--red);margin-bottom:3px;">🔻 טריגר לשחרור (מכירה)</div>
+            <div style="font-size:13px;line-height:1.5;" id="fa-trigger-sell"></div>
           </div>
-          <div>
-            <div style="font-size:11px;color:var(--muted);font-family:var(--mono);">מחיר נוכחי</div>
-            <div style="font-size:22px;font-weight:700;" id="fa-current-price"></div>
-          </div>
-          <div>
-            <div style="font-size:11px;color:var(--muted);font-family:var(--mono);">פוטנציאל</div>
-            <div style="font-size:22px;font-weight:700;" id="fa-upside"></div>
+          <div style="flex:1;min-width:220px;background:rgba(34,197,94,0.06);border-radius:10px;padding:10px 14px;">
+            <div style="font-size:12px;font-weight:700;color:var(--green);margin-bottom:3px;">🔺 טריגר לחיזוק (הוספה)</div>
+            <div style="font-size:13px;line-height:1.5;" id="fa-trigger-add"></div>
           </div>
         </div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:12px;">
+      </div>
+    </div>
+
+    <!-- Collapsible sections - closed by default to avoid overload -->
+    <div class="fa-acc">
+      <div class="fa-acc-header" onclick="toggleFaSection(this)">📋 סיכום מנהלים <span class="fa-chevron">▾</span></div>
+      <div class="fa-acc-body" id="fa-summary"></div>
+    </div>
+
+    <div class="fa-acc">
+      <div class="fa-acc-header" onclick="toggleFaSection(this)">💰 הנחות ה-DCF <span class="fa-chevron">▾</span></div>
+      <div class="fa-acc-body">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:13px;">
           <span style="background:rgba(255,255,255,0.04);padding:6px 12px;border-radius:8px;">צמיחה משוערת: <b id="fa-growth"></b></span>
           <span style="background:rgba(255,255,255,0.04);padding:6px 12px;border-radius:8px;">WACC: <b id="fa-wacc"></b></span>
           <span style="background:rgba(255,255,255,0.04);padding:6px 12px;border-radius:8px;">מרווח ביטחון: <b id="fa-mos"></b></span>
@@ -1888,16 +1905,16 @@ function autoClosePosition(posId,currentPrice,reason){
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-header"><span class="dot"></span>📊 נתונים פיננסיים</div>
-      <div class="card-body">
-        <div id="fa-financials-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;"></div>
+    <div class="fa-acc">
+      <div class="fa-acc-header" onclick="toggleFaSection(this)">📊 נתונים פיננסיים <span class="fa-chevron">▾</span></div>
+      <div class="fa-acc-body">
+        <div id="fa-financials-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px 20px;"></div>
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-header"><span class="dot"></span>🏰 ניתוח חפיר כלכלי</div>
-      <div class="card-body">
+    <div class="fa-acc">
+      <div class="fa-acc-header" onclick="toggleFaSection(this)">🏰 חפיר כלכלי <span class="fa-chevron">▾</span></div>
+      <div class="fa-acc-body">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
           <span id="fa-moat-badge" style="font-size:12px;font-weight:700;padding:4px 12px;border-radius:20px;"></span>
           <span style="font-size:13px;color:var(--muted);" id="fa-moat-type"></span>
@@ -1906,20 +1923,19 @@ function autoClosePosition(posId,currentPrice,reason){
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-      <div class="card">
-        <div class="card-header"><span class="dot" style="background:var(--red);"></span>⚠️ סיכונים</div>
-        <div class="card-body" id="fa-risks" style="display:flex;flex-direction:column;gap:6px;"></div>
-      </div>
-      <div class="card">
-        <div class="card-header"><span class="dot" style="background:var(--green);"></span>🚀 זרזים</div>
-        <div class="card-body" id="fa-catalysts" style="display:flex;flex-direction:column;gap:6px;"></div>
+    <div class="fa-acc">
+      <div class="fa-acc-header" onclick="toggleFaSection(this)">⚠️ סיכונים ו-🚀 זרזים <span class="fa-chevron">▾</span></div>
+      <div class="fa-acc-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div id="fa-risks" style="display:flex;flex-direction:column;gap:6px;"></div>
+          <div id="fa-catalysts" style="display:flex;flex-direction:column;gap:6px;"></div>
+        </div>
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-header"><span class="dot"></span>📈 פירוט הציון</div>
-      <div class="card-body" id="fa-score-breakdown" style="display:flex;flex-direction:column;gap:12px;"></div>
+    <div class="fa-acc">
+      <div class="fa-acc-header" onclick="toggleFaSection(this)">📈 פירוט הציון <span class="fa-chevron">▾</span></div>
+      <div class="fa-acc-body" id="fa-score-breakdown" style="display:flex;flex-direction:column;gap:12px;"></div>
     </div>
 
     <div class="disclaimer">⚠️ הניתוח מבוסס על ידע ה-AI (נתונים מדוחות כספיים שהוא מכיר) בשילוב מחיר חי מ-Yahoo Finance. זהו כלי עזר ואינו תחליף לניתוח עצמאי של הדוחות הרשמיים ואינו ייעוץ השקעות.</div>
@@ -1933,6 +1949,16 @@ function autoClosePosition(posId,currentPrice,reason){
      existing --bg/--surface/--accent/etc. CSS variables, no new palette. */
   .st-filter-box{cursor:pointer;transition:opacity .15s,transform .1s;opacity:0.35;}
   .st-filter-box.active{opacity:1;}
+
+  /* Fundamental analysis tab - minimal accordion, closed by default */
+  .fa-acc{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+  .fa-acc-header{padding:14px 18px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--text);user-select:none;}
+  .fa-acc-header:hover{background:var(--surface2);}
+  .fa-chevron{font-size:11px;color:var(--muted);transition:transform .2s;}
+  .fa-acc.open .fa-chevron{transform:rotate(180deg);}
+  .fa-acc-body{display:none;padding:0 18px 18px;font-size:13px;line-height:1.6;}
+  .fa-acc.open .fa-acc-body{display:block;}
+
   .st-filter-box:hover{transform:translateY(-1px);}
   .st-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:12px;}
   .st-card-title{display:flex;align-items:center;gap:8px;font-size:17px;font-weight:700;}
@@ -2319,6 +2345,10 @@ function renderPortfolioResults(data){
 }
 
 // ══ FUNDAMENTAL ANALYSIS + DCF (uses Claude via /api/analyze proxy + /api/yahoo-quote for live price) ══
+function toggleFaSection(headerEl){
+  headerEl.parentElement.classList.toggle('open');
+}
+
 function resetFundamentalTab(){
   document.getElementById('fa-results').style.display='none';
   document.getElementById('fa-empty').style.display='block';
@@ -2384,7 +2414,9 @@ async function runFundamentalAnalysis(){
       '"financials":{"revenue":"","revenue_growth":"","operating_margin":"","net_margin":"","free_cash_flow":"","debt_to_equity":"","roe":"","pe_ratio":"","pb_ratio":"","dividend_yield":"","eps":""},'+
       '"moat":{"has_moat":true,"moat_type":"","strength":"חזק|בינוני|חלש|אין","explanation":"2-3 משפטים"},'+
       '"risks":["","",""],"catalysts":["","",""],'+
-      '"score_breakdown":{"valuation":0,"financial_quality":0,"moat":0,"growth":0}}';
+      '"score_breakdown":{"valuation":0,"financial_quality":0,"moat":0,"growth":0},'+
+      '"long_term_call":{"label":"מומלץ להחזקה/רכישה לטווח ארוך|לא מומלץ כרגע|המתנה","reasoning":"1-2 משפטים מדוע"},'+
+      '"triggers":{"sell":"תיאור קונקרטי - באילו תנאים/מחיר/אירוע כדאי למכור או להקטין אחזקה","add":"תיאור קונקרטי - באילו תנאים/מחיר/אירוע כדאי לחזק או להוסיף אחזקה"}}';
 
     var aRes=await fetch('/api/analyze',{
       method:'POST',
@@ -2416,6 +2448,16 @@ function renderFundamentalResults(d,live){
   document.getElementById('fa-company-name').textContent=(d.company_name||live.companyName||'')+' ('+document.getElementById('fa-ticker').value.trim().toUpperCase()+')';
   document.getElementById('fa-summary').textContent=d.summary||'';
 
+  var lt=d.long_term_call||{};
+  var ltLabelEl=document.getElementById('fa-longterm-label');
+  ltLabelEl.textContent=lt.label||'—';
+  ltLabelEl.style.color=/לא מומלץ/.test(lt.label||'')?'var(--red)':/המתנה/.test(lt.label||'')?'var(--accent2)':'var(--green)';
+  document.getElementById('fa-longterm-reason').textContent=(lt.reasoning)||'';
+
+  var trig=d.triggers||{};
+  document.getElementById('fa-trigger-sell').textContent=trig.sell||'—';
+  document.getElementById('fa-trigger-add').textContent=trig.add||'—';
+
   var dcf=d.dcf||{};
   var curr=live.currency==='ILA'||live.currency==='ILS'?'₪':'$';
   document.getElementById('fa-intrinsic').textContent=dcf.intrinsic_value?curr+dcf.intrinsic_value.toLocaleString(undefined,{maximumFractionDigits:2}):'—';
@@ -2431,7 +2473,7 @@ function renderFundamentalResults(d,live){
   var fin=d.financials||{};
   var finLabels={revenue:'הכנסות',revenue_growth:'צמיחת הכנסות',operating_margin:'שולי תפעול',net_margin:'שולי רווח נקי',free_cash_flow:'תזרים חופשי',debt_to_equity:'חוב/הון',roe:'ROE',pe_ratio:'P/E',pb_ratio:'P/B',dividend_yield:'תשואת דיבידנד',eps:'רווח למניה'};
   document.getElementById('fa-financials-grid').innerHTML=Object.keys(finLabels).map(function(k){
-    return '<div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:10px 12px;"><div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-bottom:4px;">'+finLabels[k]+'</div><div style="font-size:14px;font-weight:600;">'+(fin[k]||'—')+'</div></div>';
+    return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);"><span style="color:var(--muted);">'+finLabels[k]+'</span><span style="font-weight:600;">'+(fin[k]||'—')+'</span></div>';
   }).join('');
 
   var moat=d.moat||{};
@@ -2455,6 +2497,8 @@ function renderFundamentalResults(d,live){
   }).join('');
 
   document.getElementById('fa-results').style.display='flex';
+  document.querySelectorAll('#fa-results .fa-acc').forEach(function(el){el.classList.remove('open');});
+  document.querySelector('#fa-results .fa-acc').classList.add('open'); // summary open by default, rest collapsed
 }
 </script>
 
