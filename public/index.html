@@ -179,6 +179,7 @@
   <div class="tab" onclick="switchTab('watcher')">🔔 מעקב פורום</div>
   <div class="tab" onclick="switchTab('portfolio-analysis')">📊 ניתוח תיק</div>
   <div class="tab" onclick="switchTab('sector-trends')">📡 Sector Trends</div>
+  <div class="tab" onclick="switchTab('fundamental')">🏦 ניתוח פונדמנטלי</div>
 </div>
 
 <!-- TAB 1 -->
@@ -492,8 +493,8 @@ emailjs.init('LkDpHo19XM92ZLmZm');
 
 // Tabs
 function switchTab(t){
-  ['watcher','analyzer','scanner','ta125','portfolio','trading','portfolio-analysis','sector-trends'].forEach(function(n){document.getElementById('tab-'+n).classList.toggle('active',n===t);});
- var order=['analyzer','scanner','ta125','portfolio','trading','watcher','portfolio-analysis','sector-trends'];
+  ['watcher','analyzer','scanner','ta125','portfolio','trading','portfolio-analysis','sector-trends','fundamental'].forEach(function(n){document.getElementById('tab-'+n).classList.toggle('active',n===t);});
+ var order=['analyzer','scanner','ta125','portfolio','trading','watcher','portfolio-analysis','sector-trends','fundamental'];
   document.querySelectorAll('.tab').forEach(function(el,i){el.classList.toggle('active',order[i]===t);});
   if(t==='trading')renderTradingDesk();
 }
@@ -1818,6 +1819,115 @@ function autoClosePosition(posId,currentPrice,reason){
 </div>
 </div>
 
+<!-- ══════════════ FUNDAMENTAL ANALYSIS + DCF TAB ══════════════ -->
+<div id="tab-fundamental" class="tab-content">
+<main style="flex-direction:column;gap:20px;">
+
+  <div class="card">
+    <div class="card-header"><span class="dot"></span>ניתוח פונדמנטלי + DCF</div>
+    <div class="card-body">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+        <div class="field" style="flex:1;min-width:180px;">
+          <label>סימול מניה (למשל AAPL, MSFT, TEVA.TA)</label>
+          <input type="text" id="fa-ticker" placeholder="AAPL" style="width:100%;text-transform:uppercase;" onkeydown="if(event.key==='Enter')runFundamentalAnalysis();">
+        </div>
+        <button class="btn-primary" id="fa-run-btn" style="width:auto;margin-top:0;padding:12px 22px;white-space:nowrap;" onclick="runFundamentalAnalysis()">🧠 הרץ ניתוח פונדמנטלי מלא</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="fa-empty" style="text-align:center;padding:40px;color:var(--muted);">
+    <div style="font-size:44px;margin-bottom:14px;opacity:0.4;">🏦</div>
+    <p style="font-size:13px;line-height:1.7;">הכנס סימול מניה כדי לקבל הערכת שווי DCF מלאה, ניתוח חפיר כלכלי,<br>נתונים פיננסיים וציון השקעה 0-100</p>
+  </div>
+
+  <div id="fa-loading" style="display:none;text-align:center;padding:40px;">
+    <div class="spinner"></div>
+    <div class="loading-text" id="fa-loading-text">מושך מחיר חי מ-Yahoo Finance...</div>
+    <div style="font-size:12px;color:var(--muted);margin-top:8px;">עשוי לקחת 20-40 שניות</div>
+  </div>
+
+  <div id="fa-results" style="display:none;flex-direction:column;gap:16px;">
+
+    <div class="card">
+      <div class="card-body" style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+        <div style="text-align:center;min-width:90px;">
+          <div id="fa-score-ring" style="font-size:42px;font-weight:700;font-family:var(--mono);"></div>
+          <div id="fa-verdict" style="font-size:12px;font-weight:600;margin-top:2px;"></div>
+        </div>
+        <div style="flex:1;min-width:220px;">
+          <div style="font-size:16px;font-weight:700;margin-bottom:4px;" id="fa-company-name"></div>
+          <div style="font-size:13px;line-height:1.6;color:var(--text);" id="fa-summary"></div>
+        </div>
+        <button onclick="resetFundamentalTab()" style="background:rgba(148,163,184,0.1);border:1px solid var(--border);color:var(--muted);padding:8px 14px;border-radius:8px;cursor:pointer;font-size:12px;white-space:nowrap;">🔄 ניתוח חדש</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><span class="dot"></span>💰 הערכת שווי DCF</div>
+      <div class="card-body">
+        <div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:16px;">
+          <div>
+            <div style="font-size:11px;color:var(--muted);font-family:var(--mono);">שווי פנימי מוערך</div>
+            <div style="font-size:22px;font-weight:700;" id="fa-intrinsic"></div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--muted);font-family:var(--mono);">מחיר נוכחי</div>
+            <div style="font-size:22px;font-weight:700;" id="fa-current-price"></div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--muted);font-family:var(--mono);">פוטנציאל</div>
+            <div style="font-size:22px;font-weight:700;" id="fa-upside"></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:12px;">
+          <span style="background:rgba(255,255,255,0.04);padding:6px 12px;border-radius:8px;">צמיחה משוערת: <b id="fa-growth"></b></span>
+          <span style="background:rgba(255,255,255,0.04);padding:6px 12px;border-radius:8px;">WACC: <b id="fa-wacc"></b></span>
+          <span style="background:rgba(255,255,255,0.04);padding:6px 12px;border-radius:8px;">מרווח ביטחון: <b id="fa-mos"></b></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><span class="dot"></span>📊 נתונים פיננסיים</div>
+      <div class="card-body">
+        <div id="fa-financials-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><span class="dot"></span>🏰 ניתוח חפיר כלכלי</div>
+      <div class="card-body">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+          <span id="fa-moat-badge" style="font-size:12px;font-weight:700;padding:4px 12px;border-radius:20px;"></span>
+          <span style="font-size:13px;color:var(--muted);" id="fa-moat-type"></span>
+        </div>
+        <div style="font-size:13px;line-height:1.6;" id="fa-moat-explanation"></div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="card">
+        <div class="card-header"><span class="dot" style="background:var(--red);"></span>⚠️ סיכונים</div>
+        <div class="card-body" id="fa-risks" style="display:flex;flex-direction:column;gap:6px;"></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="dot" style="background:var(--green);"></span>🚀 זרזים</div>
+        <div class="card-body" id="fa-catalysts" style="display:flex;flex-direction:column;gap:6px;"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><span class="dot"></span>📈 פירוט הציון</div>
+      <div class="card-body" id="fa-score-breakdown" style="display:flex;flex-direction:column;gap:12px;"></div>
+    </div>
+
+    <div class="disclaimer">⚠️ הניתוח מבוסס על ידע ה-AI (נתונים מדוחות כספיים שהוא מכיר) בשילוב מחיר חי מ-Yahoo Finance. זהו כלי עזר ואינו תחליף לניתוח עצמאי של הדוחות הרשמיים ואינו ייעוץ השקעות.</div>
+  </div>
+
+</main>
+</div>
+
 <style>
   /* Scoped additions for the sector-trends card layout - reuses the site's
      existing --bg/--surface/--accent/etc. CSS variables, no new palette. */
@@ -2206,6 +2316,145 @@ function renderPortfolioResults(data){
   }).join('');
 
   document.getElementById('pa-results').style.display='block';
+}
+
+// ══ FUNDAMENTAL ANALYSIS + DCF (uses Claude via /api/analyze proxy + /api/yahoo-quote for live price) ══
+function resetFundamentalTab(){
+  document.getElementById('fa-results').style.display='none';
+  document.getElementById('fa-empty').style.display='block';
+  document.getElementById('fa-ticker').value='';
+  document.getElementById('fa-ticker').focus();
+}
+
+function faMoatColor(strength){
+  if(strength==='חזק')return 'var(--green)';
+  if(strength==='בינוני')return 'var(--accent2)';
+  if(strength==='חלש')return 'var(--red)';
+  return 'var(--muted)';
+}
+
+function faVerdictColor(v){
+  if(v==='אטרקטיבי')return 'var(--green)';
+  if(v==='יקר')return 'var(--red)';
+  return 'var(--accent2)';
+}
+
+async function runFundamentalAnalysis(){
+  var ticker=document.getElementById('fa-ticker').value.trim().toUpperCase();
+  if(!ticker){alert('הכנס סימול מניה.');return;}
+
+  document.getElementById('fa-run-btn').disabled=true;
+  document.getElementById('fa-empty').style.display='none';
+  document.getElementById('fa-results').style.display='none';
+  document.getElementById('fa-loading').style.display='block';
+  document.getElementById('fa-loading-text').textContent='מושך מחיר חי מ-Yahoo Finance...';
+
+  try{
+    // Step 1: live price + whatever Yahoo can give us for fundamentals (best effort)
+    var qRes=await fetch('/api/yahoo-quote?ticker='+encodeURIComponent(ticker));
+    var qData=await qRes.json();
+    var qr=(qData.quoteResponse&&qData.quoteResponse.result&&qData.quoteResponse.result[0])||null;
+    if(!qr){throw new Error('לא נמצא מחיר עבור '+ticker+' - בדוק שהסימול נכון (למניות ישראליות הוסף .TA)');}
+
+    var liveData={
+      currentPrice:qr.regularMarketPrice||null,
+      currency:qr.currency||'USD',
+      companyName:qr.longName||qr.shortName||ticker,
+      marketCap:qr.marketCap||null,
+      trailingPE:qr.trailingPE||null,
+      forwardPE:qr.forwardPE||null,
+      priceToBook:qr.priceToBook||null,
+      eps:qr.epsTrailingTwelveMonths||null,
+      dividendYield:qr.trailingAnnualDividendYield?(qr.trailingAnnualDividendYield*100):null,
+      fiftyTwoWeekHigh:qr.fiftyTwoWeekHigh||null,
+      fiftyTwoWeekLow:qr.fiftyTwoWeekLow||null
+    };
+
+    document.getElementById('fa-loading-text').textContent='Claude מבצע ניתוח DCF וחפיר כלכלי...';
+
+    // Step 2: ask Claude for the full fundamental + DCF analysis, grounded in the live data above
+    var prompt='אתה אנליסט פונדמנטלי בכיר המתמחה בהערכת שווי DCF וניתוח חפיר כלכלי (Economic Moat).\n'+
+      'נתח את המניה '+ticker+' ('+liveData.companyName+').\n'+
+      'נתונים חיים שנמשכו כרגע מ-Yahoo Finance (השתמש בהם כעוגן, אל תמציא מחיר אחר):\n'+
+      JSON.stringify(liveData)+'\n\n'+
+      'בצע הערכת DCF מבוססת על הידע שלך על דוחות החברה (הכנסות, רווחיות, תזרים מזומנים, חוב) עד למועד הידע שלך, בשילוב המחיר החי שסופק. '+
+      'ציין בבירור אם נתון מסוים הוא הערכה ולא נתון מדווח מדויק.\n'+
+      'החזר JSON בלבד, במבנה הבא ובעברית (מספרים כמספרים, לא כמחרוזות):\n'+
+      '{"company_name":"","score":0,"verdict":"אטרקטיבי|ניטרלי|יקר","summary":"4-5 משפטים","dcf":{"intrinsic_value":0,"current_price":'+(liveData.currentPrice||0)+',"upside_pct":0,"assumed_growth_rate":"X%","wacc":"X%","margin_of_safety":"X%"},'+
+      '"financials":{"revenue":"","revenue_growth":"","operating_margin":"","net_margin":"","free_cash_flow":"","debt_to_equity":"","roe":"","pe_ratio":"","pb_ratio":"","dividend_yield":"","eps":""},'+
+      '"moat":{"has_moat":true,"moat_type":"","strength":"חזק|בינוני|חלש|אין","explanation":"2-3 משפטים"},'+
+      '"risks":["","",""],"catalysts":["","",""],'+
+      '"score_breakdown":{"valuation":0,"financial_quality":0,"moat":0,"growth":0}}';
+
+    var aRes=await fetch('/api/analyze',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:3000,messages:[{role:'user',content:[{type:'text',text:prompt}]}]})
+    });
+    var aData=await aRes.json();
+    if(aData.error)throw new Error(aData.error.message||JSON.stringify(aData.error));
+    var raw=(aData.content||[]).map(function(b){return b.text||'';}).join('').trim();
+    var result=JSON.parse(raw.replace(/```json|```/g,'').trim());
+
+    renderFundamentalResults(result,liveData);
+  }catch(err){
+    document.getElementById('fa-loading').style.display='none';
+    document.getElementById('fa-empty').style.display='block';
+    alert('שגיאה: '+err.message);
+  }finally{
+    document.getElementById('fa-run-btn').disabled=false;
+    document.getElementById('fa-loading').style.display='none';
+  }
+}
+
+function renderFundamentalResults(d,live){
+  var score=d.score||0;
+  document.getElementById('fa-score-ring').textContent=score;
+  document.getElementById('fa-score-ring').style.color=scoreColor(score);
+  document.getElementById('fa-verdict').textContent=d.verdict||'—';
+  document.getElementById('fa-verdict').style.color=faVerdictColor(d.verdict);
+  document.getElementById('fa-company-name').textContent=(d.company_name||live.companyName||'')+' ('+document.getElementById('fa-ticker').value.trim().toUpperCase()+')';
+  document.getElementById('fa-summary').textContent=d.summary||'';
+
+  var dcf=d.dcf||{};
+  var curr=live.currency==='ILA'||live.currency==='ILS'?'₪':'$';
+  document.getElementById('fa-intrinsic').textContent=dcf.intrinsic_value?curr+dcf.intrinsic_value.toLocaleString(undefined,{maximumFractionDigits:2}):'—';
+  document.getElementById('fa-current-price').textContent=live.currentPrice?curr+live.currentPrice.toLocaleString(undefined,{maximumFractionDigits:2}):'—';
+  var upside=dcf.upside_pct;
+  var upEl=document.getElementById('fa-upside');
+  upEl.textContent=(upside!=null?(upside>=0?'+':'')+upside+'%':'—');
+  upEl.style.color=upside>=0?'var(--green)':'var(--red)';
+  document.getElementById('fa-growth').textContent=dcf.assumed_growth_rate||'—';
+  document.getElementById('fa-wacc').textContent=dcf.wacc||'—';
+  document.getElementById('fa-mos').textContent=dcf.margin_of_safety||'—';
+
+  var fin=d.financials||{};
+  var finLabels={revenue:'הכנסות',revenue_growth:'צמיחת הכנסות',operating_margin:'שולי תפעול',net_margin:'שולי רווח נקי',free_cash_flow:'תזרים חופשי',debt_to_equity:'חוב/הון',roe:'ROE',pe_ratio:'P/E',pb_ratio:'P/B',dividend_yield:'תשואת דיבידנד',eps:'רווח למניה'};
+  document.getElementById('fa-financials-grid').innerHTML=Object.keys(finLabels).map(function(k){
+    return '<div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:10px 12px;"><div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-bottom:4px;">'+finLabels[k]+'</div><div style="font-size:14px;font-weight:600;">'+(fin[k]||'—')+'</div></div>';
+  }).join('');
+
+  var moat=d.moat||{};
+  var badge=document.getElementById('fa-moat-badge');
+  badge.textContent=moat.has_moat?('✅ יש חפיר · '+(moat.strength||'')):'❌ אין חפיר משמעותי';
+  badge.style.background=faMoatColor(moat.strength)+'22';
+  badge.style.color=faMoatColor(moat.strength);
+  document.getElementById('fa-moat-type').textContent=moat.moat_type||'';
+  document.getElementById('fa-moat-explanation').textContent=moat.explanation||'';
+
+  document.getElementById('fa-risks').innerHTML=(d.risks||[]).map(function(r){return '<div style="font-size:13px;padding:6px 10px;background:rgba(239,68,68,0.08);border-radius:8px;">⚠️ '+r+'</div>';}).join('');
+  document.getElementById('fa-catalysts').innerHTML=(d.catalysts||[]).map(function(c){return '<div style="font-size:13px;padding:6px 10px;background:rgba(34,197,94,0.08);border-radius:8px;">🚀 '+c+'</div>';}).join('');
+
+  var sb=d.score_breakdown||{};
+  var sbLabels={valuation:'הערכת שווי',financial_quality:'איכות פיננסית',moat:'חפיר',growth:'צמיחה'};
+  document.getElementById('fa-score-breakdown').innerHTML=Object.keys(sbLabels).map(function(k){
+    var v=sb[k]||0;
+    var pct=Math.min(100,(v/25)*100);
+    return '<div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span>'+sbLabels[k]+'</span><span style="font-weight:700;">'+v+' / 25</span></div>'+
+      '<div style="height:8px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden;"><div style="height:100%;width:'+pct+'%;background:'+scoreColor(v*4)+';"></div></div></div>';
+  }).join('');
+
+  document.getElementById('fa-results').style.display='flex';
 }
 </script>
 
