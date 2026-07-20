@@ -2380,25 +2380,37 @@ async function runFundamentalAnalysis(){
   document.getElementById('fa-loading-text').textContent='מושך מחיר חי מ-Yahoo Finance...';
 
   try{
-    // Step 1: live price + whatever Yahoo can give us for fundamentals (best effort)
-    var qRes=await fetch('/api/yahoo-quote?ticker='+encodeURIComponent(ticker));
-    var qData=await qRes.json();
-    var qr=(qData.quoteResponse&&qData.quoteResponse.result&&qData.quoteResponse.result[0])||null;
-    if(!qr){throw new Error('לא נמצא מחיר עבור '+ticker+' - בדוק שהסימול נכון (למניות ישראליות הוסף .TA)');}
+    // Step 1: live price from the reliable chart endpoint (same source the scanner/portfolio tabs use)
+    var chartRes=await fetch('/api/yahoo?ticker='+encodeURIComponent(ticker)+'&interval=1d&range=5d');
+    var chartData=await chartRes.json();
+    var chart=chartData&&chartData.chart&&chartData.chart.result&&chartData.chart.result[0];
+    var meta=chart&&chart.meta;
+    if(!meta||!meta.regularMarketPrice){throw new Error('לא נמצא מחיר עבור '+ticker+' - בדוק שהסימול נכון (למניות ישראליות הוסף .TA)');}
 
     var liveData={
-      currentPrice:qr.regularMarketPrice||null,
-      currency:qr.currency||'USD',
-      companyName:qr.longName||qr.shortName||ticker,
-      marketCap:qr.marketCap||null,
-      trailingPE:qr.trailingPE||null,
-      forwardPE:qr.forwardPE||null,
-      priceToBook:qr.priceToBook||null,
-      eps:qr.epsTrailingTwelveMonths||null,
-      dividendYield:qr.trailingAnnualDividendYield?(qr.trailingAnnualDividendYield*100):null,
-      fiftyTwoWeekHigh:qr.fiftyTwoWeekHigh||null,
-      fiftyTwoWeekLow:qr.fiftyTwoWeekLow||null
+      currentPrice:meta.regularMarketPrice,
+      currency:meta.currency||'USD',
+      companyName:ticker,
+      marketCap:null,trailingPE:null,forwardPE:null,priceToBook:null,eps:null,dividendYield:null,
+      fiftyTwoWeekHigh:meta.fiftyTwoWeekHigh||null,
+      fiftyTwoWeekLow:meta.fiftyTwoWeekLow||null
     };
+
+    // Step 1b: try to enrich with P/E, market cap, dividend yield etc - best effort, fails gracefully
+    try{
+      var qRes=await fetch('/api/yahoo-quote?ticker='+encodeURIComponent(ticker));
+      var qData=await qRes.json();
+      var qr=qData.quoteResponse&&qData.quoteResponse.result&&qData.quoteResponse.result[0];
+      if(qr){
+        liveData.companyName=qr.longName||qr.shortName||ticker;
+        liveData.marketCap=qr.marketCap||null;
+        liveData.trailingPE=qr.trailingPE||null;
+        liveData.forwardPE=qr.forwardPE||null;
+        liveData.priceToBook=qr.priceToBook||null;
+        liveData.eps=qr.epsTrailingTwelveMonths||null;
+        liveData.dividendYield=qr.trailingAnnualDividendYield?(qr.trailingAnnualDividendYield*100):null;
+      }
+    }catch(e){/* ignore - fundamentals-lite is optional, price already secured above */}
 
     document.getElementById('fa-loading-text').textContent='Claude מבצע ניתוח DCF וחפיר כלכלי...';
 
