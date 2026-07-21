@@ -222,6 +222,13 @@
 <main style="flex-direction:column;gap:20px;">
 
   <div class="card">
+    <div class="card-header"><span class="dot"></span>🌡️ סנטימנט שוק</div>
+    <div class="card-body" id="home-market-sentiment">
+      <div style="text-align:center;padding:10px;color:var(--muted);">⏳ טוען...</div>
+    </div>
+  </div>
+
+  <div class="card">
     <div class="card-header"><span class="dot"></span>💼 מצב תיק</div>
     <div class="card-body" id="home-portfolio-snapshot">
       <div style="text-align:center;padding:10px;color:var(--muted);">⏳ טוען...</div>
@@ -2709,8 +2716,50 @@ function renderFundamentalResults(d,live){
 
 // ══ HOME DASHBOARD ══
 function loadHomeDashboard(){
+  loadMarketSentiment();
   loadHomePortfolioSnapshot();
   loadHomeWatcherFeed();
+}
+
+// Simple market-mood reading built entirely from data already available via /api/yahoo:
+// VIX level (volatility/fear gauge) + S&P 500 daily move and distance from its 52-week high.
+// No new API/dependency - reuses the same chart proxy every other tab already relies on.
+function loadMarketSentiment(){
+  var el=document.getElementById('home-market-sentiment');
+  el.innerHTML='<div style="text-align:center;padding:10px;color:var(--muted);">⏳ טוען...</div>';
+
+  Promise.all([fetchQuote(encodeURIComponent('^VIX')),fetchQuote(encodeURIComponent('^GSPC'))]).then(function(results){
+    var vix=results[0],spx=results[1];
+    if(!vix){
+      el.innerHTML='<div style="color:var(--muted);font-size:13px;">⚠️ לא ניתן היה למשוך נתוני VIX כרגע.</div>';
+      return;
+    }
+
+    // VIX-based 0-100 "calm ↔ fear" score: ~10 (very calm) → 100, ~35+ (extreme fear) → 0.
+    var vixScore=Math.round(Math.min(100,Math.max(0,100-(vix.price-10)*4)));
+    var moodLabel,moodColor;
+    if(vix.price<15){moodLabel='רגיעה / שאננות בשוק';moodColor='var(--green)';}
+    else if(vix.price<20){moodLabel='ניטרלי';moodColor='var(--accent2)';}
+    else if(vix.price<30){moodLabel='עצבנות עולה בשוק';moodColor='var(--accent2)';}
+    else{moodLabel='פחד קיצוני בשוק';moodColor='var(--red)';}
+
+    var html='<div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;">'+
+      '<div style="text-align:center;min-width:80px;">'+
+        '<div style="font-size:32px;font-weight:700;font-family:var(--mono);color:'+scoreColor(vixScore)+';">'+vixScore+'</div>'+
+        '<div style="font-size:11px;color:var(--muted);">רוגע ↔ פחד</div>'+
+      '</div>'+
+      '<div style="flex:1;min-width:220px;">'+
+        '<div style="font-size:14px;font-weight:700;color:'+moodColor+';margin-bottom:6px;">'+moodLabel+'</div>'+
+        '<div style="display:flex;gap:20px;flex-wrap:wrap;font-size:13px;">'+
+          '<span>VIX: <b>'+vix.price.toFixed(2)+'</b> ('+pctBadge(vix.pct,vix.pctSuspicious)+')</span>'+
+          (spx?('<span>S&amp;P 500: '+pctBadge(spx.pct,spx.pctSuspicious)+' <span style="color:var(--muted);">('+(spx.pctFrom52High!=null?spx.pctFrom52High.toFixed(1)+'% מהשיא השנתי':'')+')</span></span>'):'')+
+        '</div>'+
+      '</div>'+
+    '</div>';
+    el.innerHTML=html;
+  }).catch(function(){
+    el.innerHTML='<div style="color:var(--muted);font-size:13px;">⚠️ לא ניתן היה לטעון סנטימנט שוק כרגע.</div>';
+  });
 }
 
 function loadHomePortfolioSnapshot(){
