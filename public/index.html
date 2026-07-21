@@ -200,6 +200,7 @@
       <div class="nav-item" data-tab="scanner" onclick="switchTab('scanner')">🔍 סורק נאסד"ק</div>
       <div class="nav-item" data-tab="ta125" onclick="switchTab('ta125')">🇮🇱 סורק ת"א 125</div>
       <div class="nav-item" data-tab="sector-trends" onclick="switchTab('sector-trends')">📡 Sector Trends</div>
+      <div class="nav-item" data-tab="compare" onclick="switchTab('compare')">⚖️ השוואת מניות</div>
 
       <div class="nav-group-label">ניתוח פונדמנטלי</div>
       <div class="nav-item" data-tab="fundamental" onclick="switchTab('fundamental')">🏦 ניתוח פונדמנטלי</div>
@@ -598,11 +599,12 @@ var TAB_META={
   watcher:{icon:'🔔',label:'מעקב פורום'},
   'portfolio-analysis':{icon:'📊',label:'ניתוח תיק'},
   'sector-trends':{icon:'📡',label:'Sector Trends'},
-  fundamental:{icon:'🏦',label:'ניתוח פונדמנטלי'}
+  fundamental:{icon:'🏦',label:'ניתוח פונדמנטלי'},
+  compare:{icon:'⚖️',label:'השוואת מניות'}
 };
 
 function switchTab(t){
-  ['home','watcher','analyzer','scanner','ta125','portfolio','trading','portfolio-analysis','sector-trends','fundamental'].forEach(function(n){document.getElementById('tab-'+n).classList.toggle('active',n===t);});
+  ['home','watcher','analyzer','scanner','ta125','portfolio','trading','portfolio-analysis','sector-trends','fundamental','compare'].forEach(function(n){document.getElementById('tab-'+n).classList.toggle('active',n===t);});
   var meta=TAB_META[t];
   if(meta){
     document.getElementById('nav-current-icon').textContent=meta.icon;
@@ -2081,6 +2083,45 @@ function autoClosePosition(posId,currentPrice,reason){
 </main>
 </div>
 
+<!-- ══════════════ STOCK COMPARISON TAB ══════════════ -->
+<div id="tab-compare" class="tab-content">
+<main style="flex-direction:column;gap:20px;">
+
+  <div class="card">
+    <div class="card-header"><span class="dot"></span>⚖️ השוואת מניות</div>
+    <div class="card-body">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+        <div class="field" style="flex:1;min-width:120px;"><label>מניה 1</label><input type="text" id="cmp-ticker-1" placeholder="AAPL" style="width:100%;text-transform:uppercase;"></div>
+        <div class="field" style="flex:1;min-width:120px;"><label>מניה 2</label><input type="text" id="cmp-ticker-2" placeholder="MSFT" style="width:100%;text-transform:uppercase;"></div>
+        <div class="field" style="flex:1;min-width:120px;"><label>מניה 3 (אופציונלי)</label><input type="text" id="cmp-ticker-3" placeholder="GOOGL" style="width:100%;text-transform:uppercase;"></div>
+        <button class="btn-primary" id="cmp-run-btn" style="width:auto;margin-top:0;padding:12px 22px;white-space:nowrap;" onclick="runComparison()">⚖️ השווה</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="cmp-empty" style="text-align:center;padding:40px;color:var(--muted);">
+    <div style="font-size:44px;margin-bottom:14px;opacity:0.4;">⚖️</div>
+    <p style="font-size:13px;line-height:1.7;">הכנס 2-3 סימולים כדי להשוות ביצועים, מכפילים, חפיר וציון השקעה זה מול זה</p>
+  </div>
+
+  <div id="cmp-loading" style="display:none;text-align:center;padding:40px;">
+    <div class="spinner"></div>
+    <div class="loading-text" id="cmp-loading-text">מושך נתונים חיים ומריץ ניתוח...</div>
+    <div style="font-size:12px;color:var(--muted);margin-top:8px;">עשוי לקחת 20-40 שניות</div>
+  </div>
+
+  <div id="cmp-results" style="display:none;">
+    <div class="card">
+      <div class="card-body" style="padding:0;overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;" id="cmp-table"></table>
+      </div>
+    </div>
+    <div style="margin-top:14px;" class="disclaimer">⚠️ הציון הפונדמנטלי, החפיר והפסק דין מבוססים על ידע ה-AI ולא על נתונים חיים מדוחות כספיים. מחיר, שינוי יומי, RSI וציון טכני — מ-Yahoo Finance בזמן אמת.</div>
+  </div>
+
+</main>
+</div>
+
 <style>
   /* Scoped additions for the sector-trends card layout - reuses the site's
      existing --bg/--surface/--accent/etc. CSS variables, no new palette. */
@@ -2808,6 +2849,78 @@ function renderEquityCurve(history){
     history[0].snapshot_date+' → '+history[history.length-1].snapshot_date+
     ' &nbsp;·&nbsp; שינוי בתקופה: <b style="color:'+(pctChange>=0?'var(--green)':'var(--red)')+';">'+(pctChange>=0?'+':'')+pctChange.toFixed(2)+'%</b>'+
     ' &nbsp;·&nbsp; '+history.length+' נקודות נתון</div>';
+}
+
+// ══ STOCK COMPARISON ══
+function fetchCompareFundamentals(ticker,price){
+  var prompt='אתה אנליסט פונדמנטלי. נתח בקצרה את המניה '+ticker+' (מחיר נוכחי כרגע: '+(price||'לא ידוע')+').\n'+
+    'החזר JSON בלבד, בעברית, במבנה הבא (בלי טקסט נוסף):\n'+
+    '{"score":0,"verdict":"אטרקטיבי|ניטרלי|יקר","moat_strength":"חזק|בינוני|חלש|אין","moat_type":"סוג החפיר בקצרה","one_liner":"משפט אחד שמסכם למה כדאי/לא כדאי להחזיק לטווח ארוך"}';
+  return fetch('/api/analyze',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:400,messages:[{role:'user',content:[{type:'text',text:prompt}]}]})
+  }).then(function(r){return r.json();}).then(function(aData){
+    if(aData.error)throw new Error(aData.error.message||'error');
+    var raw=(aData.content||[]).map(function(b){return b.text||'';}).join('').trim();
+    return JSON.parse(raw.replace(/```json|```/g,'').trim());
+  }).catch(function(){
+    return {score:null,verdict:'—',moat_strength:'—',moat_type:'',one_liner:'לא ניתן היה להשלים ניתוח AI עבור '+ticker+'.'};
+  });
+}
+
+function runComparison(){
+  var tickers=[1,2,3].map(function(i){return document.getElementById('cmp-ticker-'+i).value.trim().toUpperCase();}).filter(Boolean);
+  tickers=tickers.filter(function(t,i){return tickers.indexOf(t)===i;}); // dedupe
+  if(tickers.length<2){alert('הכנס לפחות 2 סימולים להשוואה.');return;}
+
+  document.getElementById('cmp-run-btn').disabled=true;
+  document.getElementById('cmp-empty').style.display='none';
+  document.getElementById('cmp-results').style.display='none';
+  document.getElementById('cmp-loading').style.display='block';
+
+  Promise.all(tickers.map(function(t){
+    return fetchQuote(t).then(function(q){
+      return fetchCompareFundamentals(t,q?q.price:null).then(function(f){return {ticker:t,q:q,f:f};});
+    });
+  })).then(function(results){
+    renderComparison(results);
+  }).catch(function(err){
+    alert('שגיאה בהשוואה: '+err.message);
+  }).finally(function(){
+    document.getElementById('cmp-run-btn').disabled=false;
+    document.getElementById('cmp-loading').style.display='none';
+  });
+}
+
+function renderComparison(results){
+  var rowsDef=[
+    {label:'מחיר נוכחי',fn:function(r){return r.q?'$'+r.q.price.toFixed(2):'—';}},
+    {label:'שינוי יומי',fn:function(r){if(!r.q)return '—';var c=r.q.pct>=0?'var(--green)':'var(--red)';return '<span style="color:'+c+';font-weight:600;">'+(r.q.pct>=0?'+':'')+r.q.pct.toFixed(2)+'%</span>';}},
+    {label:'RSI',fn:function(r){return r.q&&r.q.rsi!=null?r.q.rsi.toFixed(1):'—';}},
+    {label:'ציון טכני',fn:function(r){if(!r.q)return '—';return '<b style="color:'+scoreColor(r.q.score)+';">'+r.q.score+'</b>';}},
+    {label:'סיגנל טכני',fn:function(r){return r.q&&r.q.signal?signalBadge(r.q.signal==='WAIT'?'HOLD':r.q.signal):'—';}},
+    {label:'P/E',fn:function(r){return r.q&&r.q.pe?r.q.pe.toFixed(1):'—';}},
+    {label:'Market Cap',fn:function(r){if(!r.q||!r.q.marketCap)return '—';var mc=r.q.marketCap;return mc>=1e9?'$'+(mc/1e9).toFixed(1)+'B':'$'+(mc/1e6).toFixed(0)+'M';}},
+    {label:'ציון פונדמנטלי (AI)',fn:function(r){return r.f&&r.f.score!=null?'<b style="color:'+scoreColor(r.f.score)+';">'+r.f.score+'</b>':'—';}},
+    {label:'פסק דין',fn:function(r){return r.f?r.f.verdict:'—';}},
+    {label:'חפיר כלכלי',fn:function(r){return r.f?(r.f.moat_strength+(r.f.moat_type?' · '+r.f.moat_type:'')):'—';}},
+    {label:'סיכום',fn:function(r){return '<span style="font-size:12px;color:var(--muted);">'+(r.f?r.f.one_liner:'—')+'</span>';}}
+  ];
+
+  var thead='<thead><tr style="border-bottom:1px solid var(--border);"><th style="text-align:right;padding:12px 14px;color:var(--muted);">מדד</th>'+
+    results.map(function(r){return '<th style="text-align:right;padding:12px 14px;font-family:var(--mono);color:var(--accent);font-size:14px;">'+r.ticker+'</th>';}).join('')+
+    '</tr></thead>';
+
+  var tbody='<tbody>'+rowsDef.map(function(row){
+    return '<tr style="border-bottom:1px solid var(--border);">'+
+      '<td style="padding:10px 14px;color:var(--muted);font-weight:600;">'+row.label+'</td>'+
+      results.map(function(r){return '<td style="padding:10px 14px;">'+row.fn(r)+'</td>';}).join('')+
+      '</tr>';
+  }).join('')+'</tbody>';
+
+  document.getElementById('cmp-table').innerHTML=thead+tbody;
+  document.getElementById('cmp-results').style.display='block';
 }
 </script>
 
