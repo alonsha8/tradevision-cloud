@@ -3195,25 +3195,35 @@ function renderBacktestResults(results,totalScanned,buyThr,sellThr,months){
     return;
   }
 
-  var returns=results.map(function(r){return r.returnPct;});
-  var avgReturn=avgArr(returns);
-  var winners=results.filter(function(r){return r.returnPct>0;});
-  var winRate=(winners.length/results.length*100);
+  var SUSPICIOUS_THRESHOLD=300;
+  var clean=results.filter(function(r){return Math.abs(r.returnPct)<=SUSPICIOUS_THRESHOLD;});
+  var excludedCount=results.length-clean.length;
+  var returns=clean.map(function(r){return r.returnPct;});
+  var avgReturn=clean.length?avgArr(returns):0;
+  var winners=clean.filter(function(r){return r.returnPct>0;});
+  var winRate=clean.length?(winners.length/clean.length*100):0;
 
   document.getElementById('bt-summary').innerHTML=
     '<div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">נבדקו</div><div style="font-size:20px;font-weight:700;">'+totalScanned+' מניות</div></div>'+
     '<div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">ביצעו עסקה</div><div style="font-size:20px;font-weight:700;">'+results.length+'</div></div>'+
     '<div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">תשואה ממוצעת</div><div style="font-size:20px;font-weight:700;color:'+(avgReturn>=0?'var(--green)':'var(--red)')+';">'+(avgReturn>=0?'+':'')+avgReturn.toFixed(1)+'%</div></div>'+
     '<div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">אחוז הצלחה</div><div style="font-size:20px;font-weight:700;">'+winRate.toFixed(0)+'%</div></div>'+
-    '<div style="font-size:12px;color:var(--muted);width:100%;margin-top:4px;">אסטרטגיה: כניסה מעל ציון '+buyThr+', יציאה מתחת ל-'+sellThr+', '+months+' חודשים אחרונים</div>';
+    '<div style="font-size:12px;color:var(--muted);width:100%;margin-top:4px;">אסטרטגיה: כניסה מעל ציון '+buyThr+', יציאה מתחת ל-'+sellThr+', '+months+' חודשים אחרונים'+
+    (excludedCount>0?' &nbsp;·&nbsp; <span style="color:var(--accent2);">⚠️ '+excludedCount+' תוצאות עם תשואה חריגה (מעל 300%) הוצאו מהממוצע - כנראה באג בנתונים, ראה טבלאות למטה</span>':'')+
+    '</div>';
 
   var sorted=results.slice().sort(function(a,b){return b.returnPct-a.returnPct;});
   function tableRows(list){
     return list.map(function(r){
+      var suspicious=Math.abs(r.returnPct)>300; // a 3x+ move from simple in/out trades in under a year is implausible - almost certainly a data glitch (unadjusted split, bad tick on a thin small-cap), not real strategy performance
+      var retDisplay=(r.returnPct>=0?'+':'')+r.returnPct.toFixed(1)+'%';
+      var retCell=suspicious
+        ? '<span style="color:var(--accent2);font-weight:700;" title="תשואה חריגה - כמעט בוודאות באג בנתונים (למשל פיצול מניה שלא הותאם), לא ביצוע אמיתי. אל תסמוך על המספר הזה.">⚠️ '+retDisplay+'</span>'
+        : '<span style="color:'+(r.returnPct>=0?'var(--green)':'var(--red)')+';font-weight:600;">'+retDisplay+'</span>';
       return '<tr style="border-bottom:1px solid var(--border);">'+
-        '<td style="padding:8px 12px;font-family:var(--mono);color:var(--accent);font-weight:600;">'+r.ticker+'</td>'+
-        '<td style="padding:8px 12px;color:'+(r.returnPct>=0?'var(--green)':'var(--red)')+';font-weight:600;">'+(r.returnPct>=0?'+':'')+r.returnPct.toFixed(1)+'%</td>'+
-        '<td style="padding:8px 12px;color:var(--muted);">'+r.numTrades+' עסקאות</td>'+
+        '<td style="padding:8px 12px;font-family:var(--mono);color:var(--accent);font-weight:600;white-space:nowrap;">'+r.ticker+'</td>'+
+        '<td style="padding:8px 12px;white-space:nowrap;">'+retCell+'</td>'+
+        '<td style="padding:8px 12px;color:var(--muted);white-space:nowrap;">'+r.numTrades+' עסק\'</td>'+
       '</tr>';
     }).join('');
   }
