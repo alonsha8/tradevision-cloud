@@ -749,7 +749,10 @@ function fetchQuote(ticker){
       var meta=chart.meta||{};
       if(closes.length<15){window.DEBUG_LOG=window.DEBUG_LOG||[];window.DEBUG_LOG.push(ticker+': only '+closes.length+' closes');return null;}
       var price=meta.regularMarketPrice||closes[closes.length-1];
-      var prevClose=meta.chartPreviousClose||closes[closes.length-2];
+      // Prefer the previous daily close from the freshly-fetched historical series over
+      // meta.chartPreviousClose, which has been observed to return stale/cached values
+      // for some tickers and produces wildly wrong daily % changes.
+      var prevClose=closes.length>=2?closes[closes.length-2]:(meta.chartPreviousClose||price);
       var pct=prevClose?((price-prevClose)/prevClose*100):0;
       var rsi=calcRSI(closes,14);
       var sma20=avgArr(closes.slice(-20));
