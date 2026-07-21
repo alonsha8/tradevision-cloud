@@ -767,7 +767,7 @@ function fetchQuote(ticker){
       var score=calcScore(rsi,pct,price,sma20,sma50,closes,pctFrom52High,pctFrom52Low,obvSignal,volRatio);
       var signal=score>=65?'BUY':score<=35?'SELL':'WAIT';
       var levels=calcLevels(price,atr,signal);
-      var base={ticker:ticker,price:price,pct:pct,rsi:rsi,score:score,signal:signal,entry:levels.entry,target:levels.target,stopLoss:levels.sl,rr:levels.rr,pctFrom52High:pctFrom52High,pctFrom52Low:pctFrom52Low,obvSignal:obvSignal,volRatio:volRatio,pe:null,marketCap:null,divYield:null};
+      var base={ticker:ticker,price:price,pct:pct,pctSuspicious:Math.abs(pct)>20,rsi:rsi,score:score,signal:signal,entry:levels.entry,target:levels.target,stopLoss:levels.sl,rr:levels.rr,pctFrom52High:pctFrom52High,pctFrom52Low:pctFrom52Low,obvSignal:obvSignal,volRatio:volRatio,pe:null,marketCap:null,divYield:null};
 
       // Try to enrich with fundamentals (P/E, market cap) - best effort, fails gracefully
       return fetch('/api/yahoo-quote?ticker='+ticker).then(function(r2){return r2.json();}).then(function(qd){
@@ -812,6 +812,17 @@ function calcVolRatio(volumes){
 
 function calcRSI(c,p){if(c.length<p+1)return 50;var g=0,l=0;for(var i=c.length-p;i<c.length;i++){var d=c[i]-c[i-1];if(d>0)g+=d;else l+=Math.abs(d);}var rs=(g/p)/((l/p)||0.001);return Math.round(100-(100/(1+rs)));}
 function avgArr(a){return a.reduce(function(x,y){return x+y;},0)/a.length;}
+
+// Shared renderer for daily % change - flags anomalous values instead of silently trusting them.
+// A >20% single-day move is rare outside earnings/splits/major news, so we surface it as
+// suspect rather than presenting it with full confidence like a normal number.
+function pctBadge(pct,suspicious){
+  var s=(pct>=0?'+':'')+pct.toFixed(2)+'%';
+  if(suspicious){
+    return '<span style="color:var(--accent2);font-weight:700;" title="שינוי חריג ('+s+') - ייתכן ונתון לא מדויק ממקור הנתונים (Yahoo Finance). מומלץ לאמת מול מקור נוסף לפני קבלת החלטה.">⚠️ '+s+'</span>';
+  }
+  return '<span style="color:'+(pct>=0?'var(--green)':'var(--red)')+';font-weight:600;">'+s+'</span>';
+}
 function calcATR(h,l,c,p){if(h.length<p+1)return c[c.length-1]*0.02;var trs=[];for(var i=h.length-p;i<h.length;i++){trs.push(Math.max(h[i]-l[i],Math.abs(h[i]-c[i-1]),Math.abs(l[i]-c[i-1])));}return avgArr(trs);}
 function calcScore(rsi,pct,price,sma20,sma50,closes,pctFrom52High,pctFrom52Low,obvSignal,volRatio){
   var s=50;
@@ -944,8 +955,7 @@ function renderTable(){
     tbody.innerHTML='<tr><td colspan="15" style="text-align:center;padding:30px;color:var(--muted);">אין תוצאות לפי הפילטרים</td></tr>';
   }else{
     tbody.innerHTML=filtered.map(function(r){
-      var pStr=(r.pct>=0?'+':'')+r.pct.toFixed(2)+'%';
-      var pc=r.pct>=0?'pct-pos':'pct-neg';
+      var pStr=pctBadge(r.pct,r.pctSuspicious);
       var rc=r.rsi<35?'oversold':r.rsi>65?'overbought':'neutral-r';
       var sc=r.score>=65?'var(--green)':r.score<=35?'var(--red)':'var(--accent2)';
       var sp=r.signal==='BUY'?'buy':r.signal==='SELL'?'sell':'wait';
@@ -956,7 +966,7 @@ function renderTable(){
       return '<tr>'+
         '<td class="ticker-cell">'+hot+r.ticker+'</td>'+
         '<td style="font-family:var(--mono)">$'+r.price.toFixed(2)+'</td>'+
-        '<td class="'+pc+'">'+pStr+'</td>'+
+        '<td>'+pStr+'</td>'+
         '<td class="rsi-val '+rc+'">'+r.rsi+'</td>'+
         '<td>'+renderPE(r.pe)+'</td>'+
         '<td>'+render52Badge(r.pctFrom52Low,r.pctFrom52High)+'</td>'+
@@ -1022,8 +1032,7 @@ function renderTaTable(){
     tbody.innerHTML='<tr><td colspan="12" style="text-align:center;padding:30px;color:var(--muted);">אין תוצאות לפי הפילטרים, או שהסריקה עדיין לא רצה</td></tr>';
   }else{
     tbody.innerHTML=filtered.map(function(r){
-      var pStr=(r.pct>=0?'+':'')+r.pct.toFixed(2)+'%';
-      var pc=r.pct>=0?'pct-pos':'pct-neg';
+      var pStr=pctBadge(r.pct,r.pctSuspicious);
       var rc=r.rsi<35?'oversold':r.rsi>65?'overbought':'neutral-r';
       var sc=r.score>=65?'var(--green)':r.score<=35?'var(--red)':'var(--accent2)';
       var sp=r.signal==='BUY'?'buy':r.signal==='SELL'?'sell':'wait';
@@ -1032,7 +1041,7 @@ function renderTaTable(){
       return '<tr>'+
         '<td class="ticker-cell">'+cleanTicker+'</td>'+
         '<td style="font-family:var(--mono)">₪'+r.price.toFixed(2)+'</td>'+
-        '<td class="'+pc+'">'+pStr+'</td>'+
+        '<td>'+pStr+'</td>'+
         '<td class="rsi-val '+rc+'">'+r.rsi+'</td>'+
         '<td>'+render52Badge(r.pctFrom52Low,r.pctFrom52High)+'</td>'+
         '<td>'+renderObvBadge(r.obvSignal)+'</td>'+
@@ -1430,7 +1439,7 @@ function renderHealthResults(results,portfolio){
         '<div><span class="ticker-cell">'+r.ticker+'</span> <span style="font-size:12px;color:var(--muted)">'+(r.percent||0)+'% מהתיק</span></div>'+
         '<div style="color:'+statusColor+';font-family:var(--mono);font-size:13px;font-weight:700;">'+statusText+' · ציון '+r.score+'</div>'+
       '</div>'+
-      '<div style="font-size:11px;color:var(--muted);margin-top:4px;">RSI: '+r.rsi+' · מגמה: '+(r.pct>=0?'+':'')+r.pct.toFixed(1)+'%</div>'+
+      '<div style="font-size:11px;color:var(--muted);margin-top:4px;">RSI: '+r.rsi+' · מגמה: '+pctBadge(r.pct,r.pctSuspicious)+'</div>'+
       replaceBtn+
       '<div id="replace-suggestion-'+r.ticker.replace(/[^a-zA-Z0-9]/g,'')+'"></div>'+
     '</div>';
@@ -2899,7 +2908,7 @@ function runComparison(){
 function renderComparison(results){
   var rowsDef=[
     {label:'מחיר נוכחי',fn:function(r){return r.q?'$'+r.q.price.toFixed(2):'—';}},
-    {label:'שינוי יומי',fn:function(r){if(!r.q)return '—';var c=r.q.pct>=0?'var(--green)':'var(--red)';return '<span style="color:'+c+';font-weight:600;">'+(r.q.pct>=0?'+':'')+r.q.pct.toFixed(2)+'%</span>';}},
+    {label:'שינוי יומי',fn:function(r){return r.q?pctBadge(r.q.pct,r.q.pctSuspicious):'—';}},
     {label:'RSI',fn:function(r){return r.q&&r.q.rsi!=null?r.q.rsi.toFixed(1):'—';}},
     {label:'ציון טכני',fn:function(r){if(!r.q)return '—';return '<b style="color:'+scoreColor(r.q.score)+';">'+r.q.score+'</b>';}},
     {label:'סיגנל טכני',fn:function(r){return r.q&&r.q.signal?signalBadge(r.q.signal==='WAIT'?'HOLD':r.q.signal):'—';}},
