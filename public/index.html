@@ -37,6 +37,39 @@
 
   main{max-width:1100px;margin:0 auto;padding:32px 24px;display:grid;grid-template-columns:1fr 400px;gap:24px;}
   @media(max-width:800px){main{grid-template-columns:1fr;}}
+
+  /* ══ Mobile responsive pass ══ */
+  @media(max-width:700px){
+    main{padding:16px 12px;gap:16px;}
+    .card-header{padding:12px 14px;font-size:13px;}
+    .card-body{padding:14px;}
+
+    /* Prevent iOS Safari auto-zoom on input focus (needs >=16px font-size) */
+    .field input,.field select{font-size:16px;padding:12px;}
+
+    /* Dropdown nav: full-width button + full-width panel instead of fixed 230px/270px */
+    .nav-bar{padding:10px 14px;}
+    .nav-menu-wrap{display:block;}
+    .nav-menu-btn{width:100%;min-width:0;}
+    .nav-menu-panel{left:0;right:0;width:auto;min-width:0;max-width:none;}
+
+    /* Fixed multi-column grids collapse to something that fits a phone screen */
+    .td-stats-row{grid-template-columns:repeat(2,1fr);}
+    .td-order-row{grid-template-columns:1fr 1fr;}
+    .scan-stats{grid-template-columns:repeat(2,1fr);}
+    .field-row{grid-template-columns:1fr;}
+    .targets-grid{grid-template-columns:1fr;}
+    .two-col-grid{grid-template-columns:1fr;}
+    #st-scan-stats{grid-template-columns:repeat(2,1fr)!important;}
+    #fa-financials-grid{grid-template-columns:1fr!important;}
+
+    /* Bigger touch targets for buttons and links throughout */
+    .btn-primary,button,.home-quicklink,.nav-item{min-height:44px;}
+    .home-quicklink{flex:1 1 45%;text-align:center;}
+
+    /* Tables: slightly smaller text so more columns fit before needing to scroll */
+    table{font-size:12px;}
+  }
   .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
   .card-header{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;letter-spacing:0.5px;color:var(--muted);text-transform:uppercase;}
   .card-header .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);}
@@ -49,6 +82,7 @@
   #preview-wrap{display:none;margin-top:16px;}
   #preview-wrap img{width:100%;border-radius:8px;border:1px solid var(--border);}
   .field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
+  .two-col-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
   .field{display:flex;flex-direction:column;gap:6px;}
   .field label{font-size:11px;color:var(--muted);font-family:var(--mono);letter-spacing:0.5px;}
   .field input,.field select{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-family:var(--sans);font-size:14px;outline:none;transition:border-color 0.2s;direction:rtl;}
@@ -1888,7 +1922,7 @@ function autoClosePosition(posId,currentPrice,reason){
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+    <div class="two-col-grid">
       <div class="card">
         <div class="card-header"><span class="dot" style="background:var(--green);"></span>חוזקות</div>
         <div class="card-body" id="pa-strengths" style="display:flex;flex-direction:column;gap:6px;"></div>
@@ -2084,7 +2118,7 @@ function autoClosePosition(posId,currentPrice,reason){
     <div class="fa-acc">
       <div class="fa-acc-header" onclick="toggleFaSection(this)">⚠️ סיכונים ו-🚀 זרזים <span class="fa-chevron">▾</span></div>
       <div class="fa-acc-body">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="two-col-grid">
           <div id="fa-risks" style="display:flex;flex-direction:column;gap:6px;"></div>
           <div id="fa-catalysts" style="display:flex;flex-direction:column;gap:6px;"></div>
         </div>
