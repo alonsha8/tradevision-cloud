@@ -527,6 +527,14 @@
     <div class="td-stat"><div class="td-stat-label">📈 P&L כולל</div><div class="td-stat-value" id="td-total-pnl">—</div></div>
   </div>
 
+  <!-- Equity curve: portfolio value over time, one point per day -->
+  <div id="td-equity-card" class="card" style="display:none;margin-bottom:20px;">
+    <div class="card-header"><span class="dot"></span>📈 עקומת ביצועים</div>
+    <div class="card-body" id="td-equity-chart-wrap">
+      <div style="text-align:center;padding:20px;color:var(--muted);font-size:13px;">⏳ טוען היסטוריה...</div>
+    </div>
+  </div>
+
   <!-- Order entry form -->
   <div id="td-order-form" class="td-order-form" style="display:none;">
     <div class="td-section-title">📝 הזמנה חדשה</div>
@@ -1624,6 +1632,7 @@ function renderTradingDesk(){
   if(!acc){
     document.getElementById('td-setup-bar').style.display='flex';
     document.getElementById('td-stats-row').style.display='none';
+    document.getElementById('td-equity-card').style.display='none';
     document.getElementById('td-order-form').style.display='none';
     document.getElementById('td-positions-title').style.display='none';
     document.getElementById('td-positions-table').style.display='none';
@@ -1635,6 +1644,7 @@ function renderTradingDesk(){
 
   document.getElementById('td-setup-bar').style.display='none';
   document.getElementById('td-stats-row').style.display='grid';
+  document.getElementById('td-equity-card').style.display='block';
   document.getElementById('td-order-form').style.display='block';
   document.getElementById('td-empty').style.display=acc.positions.length===0&&acc.history.length===0?'block':'none';
 
@@ -1707,6 +1717,9 @@ function renderTradingDesk(){
       var pnlEl=document.getElementById('td-total-pnl');
       pnlEl.textContent=(totalReturnPct>=0?'+':'')+totalReturnPct.toFixed(2)+'%';
       pnlEl.style.color=totalReturnPct>=0?'var(--green)':'var(--red)';
+
+      saveEquitySnapshot(totalValue,acc.cash,positionsValue);
+      loadEquityCurve();
     });
   }else{
     document.getElementById('td-positions-title').style.display='none';
@@ -1718,6 +1731,9 @@ function renderTradingDesk(){
     var pnlEl0=document.getElementById('td-total-pnl');
     pnlEl0.textContent=(totalReturnPct0>=0?'+':'')+totalReturnPct0.toFixed(2)+'%';
     pnlEl0.style.color=totalReturnPct0>=0?'var(--green)':'var(--red)';
+
+    saveEquitySnapshot(acc.cash,acc.cash,0);
+    loadEquityCurve();
   }
 
   // History table
@@ -2728,6 +2744,71 @@ function loadHomeWatcherFeed(){
 
 // Load the home dashboard on first page load, since it's now the default landing tab
 document.addEventListener('DOMContentLoaded',function(){loadHomeDashboard();});
+
+// ══ EQUITY CURVE (portfolio value over time) ══
+function saveEquitySnapshot(totalValue,cash,positionsValue){
+  fetch('/api/equity-snapshot',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({totalValue:totalValue,cash:cash,positionsValue:positionsValue})
+  }).catch(function(){/* non-critical, ignore failures */});
+}
+
+function loadEquityCurve(){
+  var wrap=document.getElementById('td-equity-chart-wrap');
+  fetch('/api/equity-history').then(function(r){return r.json();}).then(function(rows){
+    renderEquityCurve(Array.isArray(rows)?rows:[]);
+  }).catch(function(){
+    wrap.innerHTML='<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px;">⚠️ לא ניתן לטעון את היסטוריית הביצועים כרגע.</div>';
+  });
+}
+
+function renderEquityCurve(history){
+  var wrap=document.getElementById('td-equity-chart-wrap');
+  if(!history||history.length<2){
+    wrap.innerHTML='<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px;line-height:1.6;">נדרשים לפחות 2 ימים עם נתונים כדי להציג עקומה.<br>המערכת שומרת נקודת נתון אוטומטית בכל ביקור בטאב הזה — חזור מחר לראות את ההתחלה של העקומה.</div>';
+    return;
+  }
+
+  var values=history.map(function(r){return parseFloat(r.total_value);});
+  var w=760,h=220,padL=55,padR=15,padT=15,padB=30;
+  var min=Math.min.apply(null,values),max=Math.max.apply(null,values);
+  var range=(max-min)||(max*0.05)||1;
+  min-=range*0.08; max+=range*0.08; range=max-min;
+
+  var stepX=values.length>1?(w-padL-padR)/(values.length-1):0;
+  var pts=values.map(function(v,i){
+    var x=padL+i*stepX;
+    var y=h-padB-((v-min)/range)*(h-padT-padB);
+    return {x:x,y:y};
+  });
+  var pointsAttr=pts.map(function(p){return p.x.toFixed(1)+','+p.y.toFixed(1);}).join(' ');
+
+  var first=values[0],last=values[values.length-1];
+  var pctChange=((last-first)/first*100);
+  var lineColor=pctChange>=0?'#22c55e':'#ef4444';
+  var fillPts=pointsAttr+' '+(padL+(values.length-1)*stepX).toFixed(1)+','+(h-padB)+' '+padL+','+(h-padB);
+
+  // Simple y-axis labels: min/mid/max
+  var midVal=(min+max)/2;
+  var yLabels=[max,midVal,min].map(function(v,i){
+    var y=padT+i*((h-padT-padB)/2);
+    return '<text x="'+(padL-8)+'" y="'+(y+4)+'" text-anchor="end" font-size="10" fill="var(--muted)" font-family="var(--mono)">'+Math.round(v).toLocaleString()+'</text>';
+  }).join('');
+
+  var svg='<svg viewBox="0 0 '+w+' '+h+'" style="width:100%;height:220px;overflow:visible;">'+
+    '<polygon points="'+fillPts+'" fill="'+lineColor+'" opacity="0.08"/>'+
+    yLabels+
+    '<polyline points="'+pointsAttr+'" fill="none" stroke="'+lineColor+'" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>'+
+    '<circle cx="'+pts[pts.length-1].x+'" cy="'+pts[pts.length-1].y+'" r="4" fill="'+lineColor+'"/>'+
+    '</svg>';
+
+  wrap.innerHTML=svg+
+    '<div style="text-align:center;font-size:12px;color:var(--muted);margin-top:8px;">'+
+    history[0].snapshot_date+' → '+history[history.length-1].snapshot_date+
+    ' &nbsp;·&nbsp; שינוי בתקופה: <b style="color:'+(pctChange>=0?'var(--green)':'var(--red)')+';">'+(pctChange>=0?'+':'')+pctChange.toFixed(2)+'%</b>'+
+    ' &nbsp;·&nbsp; '+history.length+' נקודות נתון</div>';
+}
 </script>
 
 </body>
