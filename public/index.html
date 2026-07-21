@@ -1440,13 +1440,27 @@ function renderPerformance(p,priceMap){
       '<div class="signal-value '+totalClass+'">'+totalStr+'</div>'+
       '<div class="signal-conf">תשואה משוקללת לפי אחוזי הקצאה</div>'+
     '</div>'+
-    '<button class="btn-primary" onclick="runHealthCheck(this)" data-portfolio="'+JSON.stringify(p).replace(/"/g,'&quot;')+'" style="margin-bottom:16px;">🩺 בדוק בריאות תיק (זהה מניות חלשות)</button>'+
+    '<button class="btn-primary" onclick="runHealthCheck(this)" data-portfolio="'+JSON.stringify(p).replace(/"/g,'&quot;')+'" style="margin-bottom:16px;">🤖 הרץ אלגו - פעולות מומלצות היום</button>'+
     '<div class="card-header" style="background:none;border:none;padding:0 4px 10px;">📈 פירוט לפי מניה</div>'+
     rows+
     '<div id="pf-health-results" style="margin-top:16px;"></div>';
 }
 
 // ══ Portfolio Health Check + Replacement Finder ══
+// ══ Portfolio Daily Action Algo (rule-based, no AI calls - fast enough to run daily) ══
+// Built on top of the existing technical score (same one powering the scanner/comparison/alerts):
+// score >= 75  -> שקול הוספה (strong, below-target weight candidate)
+// score 60-74  -> החזק
+// score 40-59  -> עקוב מקרוב
+// score <= 39  -> שקול צמצום/מכירה
+function actionTier(score){
+  if(score==null)return {action:'אין נתון',verb:'—',color:'var(--muted)',order:2};
+  if(score>=75)return {action:'שקול הוספה',verb:'🟢 הוסף',color:'var(--green)',order:3};
+  if(score>=60)return {action:'החזק',verb:'🟢 החזק',color:'var(--green)',order:2};
+  if(score>=40)return {action:'עקוב מקרוב',verb:'🟡 עקוב',color:'var(--accent2)',order:1};
+  return {action:'שקול צמצום/מכירה',verb:'🔴 צמצם',color:'var(--red)',order:0};
+}
+
 function runHealthCheck(btn){
   var p=JSON.parse(btn.getAttribute('data-portfolio').replace(/&quot;/g,'"'));
   btn.disabled=true;
@@ -1460,7 +1474,7 @@ function runHealthCheck(btn){
     });
   })).then(function(healthResults){
     btn.disabled=false;
-    btn.textContent='🩺 בדוק בריאות תיק (זהה מניות חלשות)';
+    btn.textContent='🤖 הרץ אלגו - פעולות מומלצות היום';
     renderHealthResults(healthResults,p);
   });
 }
@@ -1470,17 +1484,31 @@ function renderHealthResults(results,portfolio){
   var weak=results.filter(function(r){return r.score!=null&&r.score<=40;});
   var strong=results.filter(function(r){return r.score!=null&&r.score>=60;});
 
+  // Action board: sorted most-urgent-first (trim candidates on top, add candidates last)
+  var sorted=results.slice().sort(function(a,b){
+    var ta=actionTier(a.score),tb=actionTier(b.score);
+    return ta.order-tb.order;
+  });
+  var boardRows=sorted.map(function(r){
+    var tier=actionTier(r.score);
+    return '<tr style="border-bottom:1px solid var(--border);">'+
+      '<td style="padding:8px 12px;font-family:var(--mono);color:var(--accent);font-weight:600;white-space:nowrap;">'+r.ticker+'</td>'+
+      '<td style="padding:8px 12px;">'+(r.percent||0)+'% מהתיק</td>'+
+      '<td style="padding:8px 12px;">'+(r.score!=null?r.score:'—')+'</td>'+
+      '<td style="padding:8px 12px;color:'+tier.color+';font-weight:700;white-space:nowrap;">'+tier.verb+'</td>'+
+    '</tr>';
+  }).join('');
+
   var rowsHtml=results.map(function(r){
     if(r.score==null){
       return '<div class="target-item" style="margin-bottom:8px;border-right:3px solid var(--muted);"><div class="ticker-cell">'+r.ticker+'</div><div style="font-size:12px;color:var(--muted);margin-top:4px;">לא ניתן לקבל נתונים טכניים כרגע</div></div>';
     }
-    var statusColor=r.score>=60?'var(--green)':r.score<=40?'var(--red)':'var(--accent2)';
-    var statusText=r.score>=60?'✅ תקין':r.score<=40?'⚠️ מועמד להחלפה':'🟡 בינוני';
+    var tier=actionTier(r.score);
     var replaceBtn=r.score<=40?'<button class="scan-btn" style="margin-top:8px;font-size:12px;padding:6px 14px;" onclick="findReplacement(\''+r.ticker+'\',\''+(r.category||'')+'\')">🔄 מצא חלופה</button>':'';
-    return '<div class="target-item" style="margin-bottom:8px;border-right:3px solid '+statusColor+';">'+
+    return '<div class="target-item" style="margin-bottom:8px;border-right:3px solid '+tier.color+';">'+
       '<div style="display:flex;justify-content:space-between;align-items:center;">'+
         '<div><span class="ticker-cell">'+r.ticker+'</span> <span style="font-size:12px;color:var(--muted)">'+(r.percent||0)+'% מהתיק</span></div>'+
-        '<div style="color:'+statusColor+';font-family:var(--mono);font-size:13px;font-weight:700;">'+statusText+' · ציון '+r.score+'</div>'+
+        '<div style="color:'+tier.color+';font-family:var(--mono);font-size:13px;font-weight:700;">'+tier.verb+' · ציון '+r.score+'</div>'+
       '</div>'+
       '<div style="font-size:11px;color:var(--muted);margin-top:4px;">RSI: '+r.rsi+' · מגמה: '+pctBadge(r.pct,r.pctSuspicious)+'</div>'+
       replaceBtn+
@@ -1490,9 +1518,21 @@ function renderHealthResults(results,portfolio){
 
   healthEl.innerHTML=
     '<div class="card" style="background:var(--surface2);margin-bottom:16px;"><div class="card-body">'+
-      '<div class="analysis-title">🩺 סיכום בריאות התיק</div>'+
-      '<div class="analysis-text" style="margin-top:8px;">'+strong.length+' אחזקות במצב טכני טוב, '+weak.length+' אחזקות מועמדות לבחינה/החלפה.</div>'+
+      '<div class="analysis-title">🤖 לוח פעולות מומלצות היום</div>'+
+      '<div class="analysis-text" style="margin-top:8px;">'+strong.length+' אחזקות במצב טכני טוב, '+weak.length+' אחזקות מועמדות לצמצום/מכירה. הפעולות מבוססות כלל קבוע לפי ציון טכני (אותו ציון שמזין את הסורק, ההשוואה וההתראות) — לא ניתוח AI חד-פעמי, כך שאפשר להריץ את זה כל יום.</div>'+
     '</div></div>'+
+    '<div class="card" style="margin-bottom:16px;"><div class="card-body" style="padding:0;overflow-x:auto;">'+
+      '<table style="width:100%;border-collapse:collapse;font-size:13px;">'+
+        '<thead><tr style="border-bottom:1px solid var(--border);">'+
+          '<th style="text-align:right;padding:10px 12px;color:var(--muted);">מניה</th>'+
+          '<th style="text-align:right;padding:10px 12px;color:var(--muted);">משקל</th>'+
+          '<th style="text-align:right;padding:10px 12px;color:var(--muted);">ציון</th>'+
+          '<th style="text-align:right;padding:10px 12px;color:var(--muted);">פעולה מומלצת</th>'+
+        '</tr></thead>'+
+        '<tbody>'+boardRows+'</tbody>'+
+      '</table>'+
+    '</div></div>'+
+    '<div class="card-header" style="background:none;border:none;padding:0 4px 10px;">📈 פירוט לפי מניה</div>'+
     rowsHtml;
 }
 
