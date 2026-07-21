@@ -235,6 +235,7 @@
       <div class="nav-item" data-tab="ta125" onclick="switchTab('ta125')">🇮🇱 סורק ת"א 125</div>
       <div class="nav-item" data-tab="sector-trends" onclick="switchTab('sector-trends')">📡 Sector Trends</div>
       <div class="nav-item" data-tab="compare" onclick="switchTab('compare')">⚖️ השוואת מניות</div>
+      <div class="nav-item" data-tab="backtest" onclick="switchTab('backtest')">🧪 בקטסטינג</div>
 
       <div class="nav-group-label">ניתוח פונדמנטלי</div>
       <div class="nav-item" data-tab="fundamental" onclick="switchTab('fundamental')">🏦 ניתוח פונדמנטלי</div>
@@ -641,11 +642,12 @@ var TAB_META={
   'portfolio-analysis':{icon:'📊',label:'ניתוח תיק'},
   'sector-trends':{icon:'📡',label:'Sector Trends'},
   fundamental:{icon:'🏦',label:'ניתוח פונדמנטלי'},
-  compare:{icon:'⚖️',label:'השוואת מניות'}
+  compare:{icon:'⚖️',label:'השוואת מניות'},
+  backtest:{icon:'🧪',label:'בקטסטינג'}
 };
 
 function switchTab(t){
-  ['home','watcher','analyzer','scanner','ta125','portfolio','trading','portfolio-analysis','sector-trends','fundamental','compare'].forEach(function(n){document.getElementById('tab-'+n).classList.toggle('active',n===t);});
+  ['home','watcher','analyzer','scanner','ta125','portfolio','trading','portfolio-analysis','sector-trends','fundamental','compare','backtest'].forEach(function(n){document.getElementById('tab-'+n).classList.toggle('active',n===t);});
   var meta=TAB_META[t];
   if(meta){
     document.getElementById('nav-current-icon').textContent=meta.icon;
@@ -2175,6 +2177,73 @@ function autoClosePosition(posId,currentPrice,reason){
 </main>
 </div>
 
+<!-- ══════════════ BACKTESTING TAB ══════════════ -->
+<div id="tab-backtest" class="tab-content">
+<main style="flex-direction:column;gap:20px;">
+
+  <div class="card">
+    <div class="card-header"><span class="dot"></span>🧪 בקטסטינג אסטרטגיית ציון</div>
+    <div class="card-body">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6;">
+        בודק: "אם קניתי כל מניה כשהציון הטכני עבר X, ומכרתי כשהוא ירד מתחת ל-Y — מה הייתה התשואה?"
+        רץ על כל 318 המניות (נאסד"ק + ת"א 125), מדמה יום-אחר-יום בלי להסתכל קדימה.
+      </p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+        <div class="field" style="min-width:140px;"><label>כניסה כשהציון מעל</label><input type="number" id="bt-buy-thr" value="80" min="50" max="99" style="width:100%;"></div>
+        <div class="field" style="min-width:140px;"><label>יציאה כשהציון מתחת ל</label><input type="number" id="bt-sell-thr" value="40" min="1" max="79" style="width:100%;"></div>
+        <div class="field" style="min-width:140px;">
+          <label>טווח בדיקה</label>
+          <select id="bt-months" style="width:100%;">
+            <option value="3">3 חודשים אחרונים</option>
+            <option value="6">6 חודשים אחרונים</option>
+            <option value="12" selected>12 חודשים אחרונים</option>
+          </select>
+        </div>
+        <button class="btn-primary" id="bt-run-btn" style="width:auto;margin-top:0;padding:12px 22px;white-space:nowrap;" onclick="runBacktest()">🧪 הרץ בקטסטינג</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="bt-empty" style="text-align:center;padding:40px;color:var(--muted);">
+    <div style="font-size:44px;margin-bottom:14px;opacity:0.4;">🧪</div>
+    <p style="font-size:13px;line-height:1.7;">קבע ספים ולחץ "הרץ בקטסטינג" כדי לראות איך אסטרטגיית הציון הייתה מתפקדת היסטורית</p>
+  </div>
+
+  <div id="bt-loading" style="display:none;text-align:center;padding:40px;">
+    <div class="spinner"></div>
+    <div class="loading-text" id="bt-loading-text">בודק 0 / 318 מניות...</div>
+    <div style="font-size:12px;color:var(--muted);margin-top:8px;">עשוי לקחת דקה-שתיים - רץ כולו בדפדפן, בלי צורך לחכות לשרת</div>
+  </div>
+
+  <div id="bt-results" style="display:none;flex-direction:column;gap:16px;">
+    <div class="card">
+      <div class="card-header"><span class="dot"></span>📊 תוצאות</div>
+      <div class="card-body">
+        <div style="display:flex;gap:28px;flex-wrap:wrap;" id="bt-summary"></div>
+      </div>
+    </div>
+
+    <div class="two-col-grid">
+      <div class="card">
+        <div class="card-header"><span class="dot" style="background:var(--green);"></span>🏆 10 המניות הטובות ביותר</div>
+        <div class="card-body" style="padding:0;overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;" id="bt-best-table"></table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="dot" style="background:var(--red);"></span>📉 10 המניות הגרועות ביותר</div>
+        <div class="card-body" style="padding:0;overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;" id="bt-worst-table"></table>
+        </div>
+      </div>
+    </div>
+
+    <div class="disclaimer">⚠️ זו סימולציה היסטורית פשוטה — ללא עמלות, מס, דיבידנדים, מרווח ביצוע (slippage), או הטיית שרידות (הרשימה היא רשימת המניות של היום, לא מי שהיה קיים אז). ביצועי עבר אינם מבטיחים תשואה עתידית. זהו כלי מחקר, לא ייעוץ השקעות.</div>
+  </div>
+
+</main>
+</div>
+
 <style>
   /* Scoped additions for the sector-trends card layout - reuses the site's
      existing --bg/--surface/--accent/etc. CSS variables, no new palette. */
@@ -3016,6 +3085,142 @@ function renderComparison(results){
 
   document.getElementById('cmp-table').innerHTML=thead+tbody;
   document.getElementById('cmp-results').style.display='block';
+}
+
+// ══ BACKTESTING ══
+// Walks each ticker's own historical closes day-by-day, recomputing the same
+// RSI/score used live in the scanner using ONLY data up to that day (no lookahead),
+// then simulates buying when the score crosses the buy threshold and selling when
+// it drops below the sell threshold. Everything runs from a single historical fetch
+// per ticker - no per-day API calls.
+function computeHistoricalScores(closes,volumes){
+  var out=[];
+  for(var i=50;i<closes.length;i++){
+    var slice=closes.slice(0,i+1);
+    var volSlice=volumes.slice(0,i+1);
+    var price=slice[slice.length-1];
+    var prev=slice[slice.length-2];
+    var pct=prev?((price-prev)/prev*100):0;
+    var rsi=calcRSI(slice,14);
+    var sma20=avgArr(slice.slice(-20));
+    var sma50=avgArr(slice.slice(-50));
+    var lookback=slice.slice(-252);
+    var w52High=Math.max.apply(null,lookback);
+    var w52Low=Math.min.apply(null,lookback);
+    var pctFrom52High=((price-w52High)/w52High*100);
+    var pctFrom52Low=((price-w52Low)/w52Low*100);
+    var obvSignal=calcOBVTrend(slice,volSlice);
+    var volRatio=calcVolRatio(volSlice);
+    var score=calcScore(rsi,pct,price,sma20,sma50,slice,pctFrom52High,pctFrom52Low,obvSignal,volRatio);
+    out.push({price:price,score:score});
+  }
+  return out;
+}
+
+function simulateTicker(scores,buyThr,sellThr){
+  var inPos=false,entryPrice=0,trades=[];
+  for(var k=0;k<scores.length;k++){
+    var s=scores[k];
+    if(!inPos&&s.score>=buyThr){inPos=true;entryPrice=s.price;}
+    else if(inPos&&s.score<sellThr){inPos=false;trades.push((s.price-entryPrice)/entryPrice*100);}
+  }
+  if(inPos){var last=scores[scores.length-1];trades.push((last.price-entryPrice)/entryPrice*100);}
+  return trades;
+}
+
+function compoundReturn(trades){
+  var mult=1;
+  trades.forEach(function(r){mult*=(1+r/100);});
+  return (mult-1)*100;
+}
+
+async function runBacktest(){
+  var buyThr=parseInt(document.getElementById('bt-buy-thr').value)||80;
+  var sellThr=parseInt(document.getElementById('bt-sell-thr').value)||40;
+  if(sellThr>=buyThr){alert('סף היציאה חייב להיות נמוך מסף הכניסה.');return;}
+  var months=parseInt(document.getElementById('bt-months').value)||12;
+  var range=months<=3?'6mo':months<=6?'1y':'2y'; // fetch extra history so the 50-day warmup doesn't eat into the requested window
+  var allTickers=TICKERS.concat(TA_TICKERS);
+
+  document.getElementById('bt-run-btn').disabled=true;
+  document.getElementById('bt-empty').style.display='none';
+  document.getElementById('bt-results').style.display='none';
+  document.getElementById('bt-loading').style.display='block';
+
+  var results=[];
+  var done=0;
+  var i=0;
+  while(i<allTickers.length){
+    var batch=allTickers.slice(i,i+5);
+    i+=5;
+    await Promise.all(batch.map(function(ticker){
+      return fetch('/api/yahoo?ticker='+encodeURIComponent(ticker)+'&interval=1d&range='+range)
+        .then(function(r){return r.json();})
+        .then(function(data){
+          var chart=data&&data.chart&&data.chart.result&&data.chart.result[0];
+          if(!chart)return;
+          var q=chart.indicators&&chart.indicators.quote&&chart.indicators.quote[0];
+          if(!q)return;
+          var rawClose=q.close||[],rawHigh=q.high||[],rawLow=q.low||[],rawVol=q.volume||[];
+          var closes=[],volumes=[];
+          for(var j=0;j<rawClose.length;j++){
+            if(rawClose[j]!=null&&rawHigh[j]!=null&&rawLow[j]!=null){
+              closes.push(rawClose[j]);volumes.push(rawVol[j]!=null?rawVol[j]:0);
+            }
+          }
+          if(closes.length<70)return; // not enough history for a meaningful walk-forward
+          var scores=computeHistoricalScores(closes,volumes);
+          var tradingDaysWanted=Math.round(months*21);
+          var scoresWindow=scores.length>tradingDaysWanted?scores.slice(-tradingDaysWanted):scores;
+          var trades=simulateTicker(scoresWindow,buyThr,sellThr);
+          if(trades.length>0){
+            results.push({ticker:ticker,returnPct:compoundReturn(trades),numTrades:trades.length});
+          }
+        }).catch(function(){/* skip tickers that fail to fetch */});
+    }));
+    done+=batch.length;
+    document.getElementById('bt-loading-text').textContent='בודק '+done+' / '+allTickers.length+' מניות...';
+    await new Promise(function(res){setTimeout(res,300);});
+  }
+
+  renderBacktestResults(results,allTickers.length,buyThr,sellThr,months);
+  document.getElementById('bt-run-btn').disabled=false;
+  document.getElementById('bt-loading').style.display='none';
+}
+
+function renderBacktestResults(results,totalScanned,buyThr,sellThr,months){
+  if(results.length===0){
+    document.getElementById('bt-empty').style.display='block';
+    document.getElementById('bt-empty').innerHTML='<div style="font-size:44px;margin-bottom:14px;opacity:0.4;">🧪</div><p style="font-size:13px;line-height:1.7;">אף מניה לא ביצעה עסקה עם הספים האלה בתקופה שנבחרה. נסה סף כניסה נמוך יותר או תקופה ארוכה יותר.</p>';
+    return;
+  }
+
+  var returns=results.map(function(r){return r.returnPct;});
+  var avgReturn=avgArr(returns);
+  var winners=results.filter(function(r){return r.returnPct>0;});
+  var winRate=(winners.length/results.length*100);
+
+  document.getElementById('bt-summary').innerHTML=
+    '<div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">נבדקו</div><div style="font-size:20px;font-weight:700;">'+totalScanned+' מניות</div></div>'+
+    '<div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">ביצעו עסקה</div><div style="font-size:20px;font-weight:700;">'+results.length+'</div></div>'+
+    '<div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">תשואה ממוצעת</div><div style="font-size:20px;font-weight:700;color:'+(avgReturn>=0?'var(--green)':'var(--red)')+';">'+(avgReturn>=0?'+':'')+avgReturn.toFixed(1)+'%</div></div>'+
+    '<div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">אחוז הצלחה</div><div style="font-size:20px;font-weight:700;">'+winRate.toFixed(0)+'%</div></div>'+
+    '<div style="font-size:12px;color:var(--muted);width:100%;margin-top:4px;">אסטרטגיה: כניסה מעל ציון '+buyThr+', יציאה מתחת ל-'+sellThr+', '+months+' חודשים אחרונים</div>';
+
+  var sorted=results.slice().sort(function(a,b){return b.returnPct-a.returnPct;});
+  function tableRows(list){
+    return list.map(function(r){
+      return '<tr style="border-bottom:1px solid var(--border);">'+
+        '<td style="padding:8px 12px;font-family:var(--mono);color:var(--accent);font-weight:600;">'+r.ticker+'</td>'+
+        '<td style="padding:8px 12px;color:'+(r.returnPct>=0?'var(--green)':'var(--red)')+';font-weight:600;">'+(r.returnPct>=0?'+':'')+r.returnPct.toFixed(1)+'%</td>'+
+        '<td style="padding:8px 12px;color:var(--muted);">'+r.numTrades+' עסקאות</td>'+
+      '</tr>';
+    }).join('');
+  }
+  document.getElementById('bt-best-table').innerHTML=tableRows(sorted.slice(0,10));
+  document.getElementById('bt-worst-table').innerHTML=tableRows(sorted.slice(-10).reverse());
+
+  document.getElementById('bt-results').style.display='flex';
 }
 </script>
 
