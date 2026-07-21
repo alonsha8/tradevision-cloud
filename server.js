@@ -51,6 +51,17 @@ async function initDb() {
       updated_at TIMESTAMP DEFAULT NOW()
     );
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS equity_snapshots (
+      account_id TEXT NOT NULL,
+      snapshot_date DATE NOT NULL,
+      total_value NUMERIC NOT NULL,
+      cash NUMERIC NOT NULL,
+      positions_value NUMERIC NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW(),
+      PRIMARY KEY (account_id, snapshot_date)
+    );
+  `);
   console.log('✅ Database tables ready');
 }
 
@@ -269,6 +280,39 @@ app.post('/api/saved-portfolios', async (req, res) => {
       `INSERT INTO saved_portfolios (account_id, data, updated_at) VALUES ($1, $2, NOW())
        ON CONFLICT (account_id) DO UPDATE SET data = $2, updated_at = NOW()`,
       [ACCOUNT_ID, JSON.stringify(data)]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ══ Equity curve: one snapshot per day (upserted), used to plot portfolio value over time ══
+app.get('/api/equity-history', async (req, res) => {
+  if (!pool) return res.status(503).json({ error: 'Database not configured' });
+  try {
+    const result = await pool.query(
+      'SELECT snapshot_date, total_value, cash, positions_value FROM equity_snapshots WHERE account_id = $1 ORDER BY snapshot_date ASC',
+      [ACCOUNT_ID]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/equity-snapshot', async (req, res) => {
+  if (!pool) return res.status(503).json({ error: 'Database not configured' });
+  try {
+    const { totalValue, cash, positionsValue } = req.body;
+    if (typeof totalValue !== 'number' || typeof cash !== 'number' || typeof positionsValue !== 'number') {
+      return res.status(400).json({ error: 'totalValue, cash, positionsValue must be numbers' });
+    }
+    await pool.query(
+      `INSERT INTO equity_snapshots (account_id, snapshot_date, total_value, cash, positions_value)
+       VALUES ($1, CURRENT_DATE, $2, $3, $4)
+       ON CONFLICT (account_id, snapshot_date) DO UPDATE SET total_value = $2, cash = $3, positions_value = $4`,
+      [ACCOUNT_ID, totalValue, cash, positionsValue]
     );
     res.json({ success: true });
   } catch (err) {
