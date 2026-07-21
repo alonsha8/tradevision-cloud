@@ -23,9 +23,11 @@ const pool = DATABASE_URL ? new Pool({
 }) : null;
 const startDailyWatcher = require('./watchers/dailyCheck');
    const createWatcherApi = require('./routes/watcherApi');
+   const startPositionWatcher = require('./watchers/positionWatcher');
 
    if (pool) {
      startDailyWatcher(pool);
+     startPositionWatcher(pool);
      app.use('/api/watcher', createWatcherApi(pool));
      const createPortfolioApi = require('./routes/portfolioApi');
 app.use('/api/portfolio', createPortfolioApi(API_KEY));
@@ -60,6 +62,14 @@ async function initDb() {
       positions_value NUMERIC NOT NULL,
       created_at TIMESTAMP DEFAULT NOW(),
       PRIMARY KEY (account_id, snapshot_date)
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS alert_log (
+      alert_key TEXT NOT NULL,
+      sent_date DATE NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW(),
+      PRIMARY KEY (alert_key, sent_date)
     );
   `);
   console.log('✅ Database tables ready');
