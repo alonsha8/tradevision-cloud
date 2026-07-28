@@ -1,99 +1,14 @@
-const express = require('express');
+const http = require('http');
 const https = require('https');
+const fs = require('fs');
 const path = require('path');
-const { Pool } = require('pg');
+const url = require('url');
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = 3000;
+const API_KEY = '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';
 
-// ══ Configuration via environment variables (set in Render dashboard) ══
-const API_KEY = process.env.ANTHROPIC_API_KEY || '';
-const DATABASE_URL = process.env.DATABASE_URL || '';
-
-if (!API_KEY) {
-  console.warn('⚠️  WARNING: ANTHROPIC_API_KEY environment variable is not set. AI features will not work.');
-}
-if (!DATABASE_URL) {
-  console.warn('⚠️  WARNING: DATABASE_URL environment variable is not set. Trading desk / portfolio sync will not work.');
-}
-
-const pool = DATABASE_URL ? new Pool({
-  connectionString: DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
-}) : null;
-const startDailyWatcher = require('./watchers/dailyCheck');
-   const createWatcherApi = require('./routes/watcherApi');
-   const startPositionWatcher = require('./watchers/positionWatcher');
-
-   if (pool) {
-     startDailyWatcher(pool);
-     startPositionWatcher(pool);
-     app.use('/api/watcher', createWatcherApi(pool));
-     const createPortfolioApi = require('./routes/portfolioApi');
-app.use('/api/portfolio', createPortfolioApi(API_KEY));
-   }
-const createSectorScannerApi = require('./routes/sectorScannerApi');
-app.use('/api/sector-scanner', createSectorScannerApi(pool));
-// ══ Database setup: single-row tables keyed by a fixed account id ══
-// Since this is a personal single-user app, we use a fixed accountId ('default')
-// rather than building a full multi-user auth system.
-async function initDb() {
-  if (!pool) return;
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS trading_account (
-      account_id TEXT PRIMARY KEY,
-      data JSONB NOT NULL,
-      updated_at TIMESTAMP DEFAULT NOW()
-    );
-  `);
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS saved_portfolios (
-      account_id TEXT PRIMARY KEY,
-      data JSONB NOT NULL,
-      updated_at TIMESTAMP DEFAULT NOW()
-    );
-  `);
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS equity_snapshots (
-      account_id TEXT NOT NULL,
-      snapshot_date DATE NOT NULL,
-      total_value NUMERIC NOT NULL,
-      cash NUMERIC NOT NULL,
-      positions_value NUMERIC NOT NULL,
-      created_at TIMESTAMP DEFAULT NOW(),
-      PRIMARY KEY (account_id, snapshot_date)
-    );
-  `);
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS alert_log (
-      alert_key TEXT NOT NULL,
-      sent_date DATE NOT NULL,
-      created_at TIMESTAMP DEFAULT NOW(),
-      PRIMARY KEY (alert_key, sent_date)
-    );
-  `);
-  console.log('✅ Database tables ready');
-}
-
-initDb().catch(err => console.error('DB init error:', err.message));
-
-// ══ Middleware ══
-app.use(express.json({ limit: '2mb' }));
-app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.sendStatus(204);
-  next();
-});
-
-// ══ Serve static frontend ══
-app.use(express.static(path.join(__dirname, 'public')));
-
-// ══ Anthropic API proxy ══
-app.post('/api/analyze', (req, res) => {
-  const body = JSON.stringify(req.body);
-  const apiReq = https.request({
+function proxyAnthropic(body, res) {
+  const req = https.request({
     hostname: 'api.anthropic.com',
     path: '/v1/messages',
     method: 'POST',
@@ -106,19 +21,21 @@ app.post('/api/analyze', (req, res) => {
     let data = '';
     apiRes.on('data', c => data += c);
     apiRes.on('end', () => {
-      res.status(200).json(JSON.parse(data));
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(data);
     });
   });
-  apiReq.on('error', err => res.status(500).json({ error: err.message }));
-  apiReq.write(body);
-  apiReq.end();
-});
+  req.on('error', err => { res.writeHead(500); res.end(JSON.stringify({ error: err.message })); });
+  req.write(body);
+  req.end();
+}
 
-// ══ Yahoo Finance chart proxy ══
-function proxyYahooChart(ticker, interval, range, res) {
+function proxyYahoo(ticker, res, interval, range) {
+  interval = interval || '1d';
+  range = range || '3mo';
   const reqOptions = {
     hostname: 'query1.finance.yahoo.com',
-    path: '/v8/finance/chart/' + encodeURIComponent(ticker) + '?interval=' + encodeURIComponent(interval) + '&range=' + encodeURIComponent(range) + '&includePrePost=false',
+    path: '/v8/finance/chart/' + ticker + '?interval=' + interval + '&range=' + range + '&includePrePost=false',
     method: 'GET',
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -130,26 +47,19 @@ function proxyYahooChart(ticker, interval, range, res) {
       'Connection': 'keep-alive'
     }
   };
+
   const req = https.request(reqOptions, apiRes => {
     let data = '';
     apiRes.on('data', c => data += c);
     apiRes.on('end', () => {
-      res.status(200).send(data);
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(data);
     });
   });
-  req.on('error', err => res.status(500).json({ error: err.message }));
+  req.on('error', err => { res.writeHead(500); res.end(JSON.stringify({ error: err.message })); });
   req.end();
 }
 
-app.get('/api/yahoo', (req, res) => {
-  const ticker = req.query.ticker;
-  if (!ticker) return res.status(400).send('Missing ticker');
-  const interval = req.query.interval || '1d';
-  const range = req.query.range || '3mo';
-  proxyYahooChart(ticker, interval, range, res);
-});
-
-// ══ Yahoo Finance quote proxy (P/E, market cap - best effort with crumb) ══
 let YAHOO_COOKIE = null;
 let YAHOO_CRUMB = null;
 let crumbFetchInProgress = false;
@@ -195,11 +105,11 @@ function fetchYahooCrumb(callback) {
 
 function proxyYahooQuote(ticker, res) {
   function doRequest(crumb) {
-    let qpath = '/v7/finance/quote?symbols=' + encodeURIComponent(ticker);
-    if (crumb) qpath += '&crumb=' + encodeURIComponent(crumb);
+    let path = '/v7/finance/quote?symbols=' + ticker;
+    if (crumb) path += '&crumb=' + encodeURIComponent(crumb);
     const reqOptions = {
       hostname: 'query1.finance.yahoo.com',
-      path: qpath,
+      path: path,
       method: 'GET',
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -215,131 +125,93 @@ function proxyYahooQuote(ticker, res) {
     const req = https.request(reqOptions, apiRes => {
       let data = '';
       apiRes.on('data', c => data += c);
-      apiRes.on('end', () => res.status(200).send(data));
+      apiRes.on('end', () => {
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(data);
+      });
     });
-    req.on('error', err => res.status(500).json({ error: err.message }));
+    req.on('error', err => { res.writeHead(500); res.end(JSON.stringify({ error: err.message })); });
     req.end();
   }
 
-  if (YAHOO_CRUMB) doRequest(YAHOO_CRUMB);
-  else fetchYahooCrumb(crumb => doRequest(crumb));
+  if (YAHOO_CRUMB) {
+    doRequest(YAHOO_CRUMB);
+  } else {
+    fetchYahooCrumb(crumb => doRequest(crumb));
+  }
 }
 
-app.get('/api/yahoo-quote', (req, res) => {
-  const ticker = req.query.ticker;
-  if (!ticker) return res.status(400).send('Missing ticker');
-  proxyYahooQuote(ticker, res);
-});
+const server = http.createServer((req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
-// ══ Trading Account persistence (synced across all devices) ══
-const ACCOUNT_ID = 'default'; // single-user app
-
-app.get('/api/trading-account', async (req, res) => {
-  if (!pool) return res.status(503).json({ error: 'Database not configured' });
-  try {
-    const result = await pool.query('SELECT data FROM trading_account WHERE account_id = $1', [ACCOUNT_ID]);
-    if (result.rows.length === 0) return res.json(null);
-    res.json(result.rows[0].data);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  if (req.method === 'GET' && (req.url === '/' || req.url === '/index.html')) {
+    const html = fs.readFileSync(path.join(__dirname, 'index.html'));
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(html);
+    return;
   }
-});
 
-app.post('/api/trading-account', async (req, res) => {
-  if (!pool) return res.status(503).json({ error: 'Database not configured' });
-  try {
-    const data = req.body;
-    await pool.query(
-      `INSERT INTO trading_account (account_id, data, updated_at) VALUES ($1, $2, NOW())
-       ON CONFLICT (account_id) DO UPDATE SET data = $2, updated_at = NOW()`,
-      [ACCOUNT_ID, JSON.stringify(data)]
-    );
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  if (req.method === 'POST' && req.url === '/api/analyze') {
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', () => proxyAnthropic(body, res));
+    return;
   }
-});
 
-app.delete('/api/trading-account', async (req, res) => {
-  if (!pool) return res.status(503).json({ error: 'Database not configured' });
-  try {
-    await pool.query('DELETE FROM trading_account WHERE account_id = $1', [ACCOUNT_ID]);
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  if (req.method === 'GET' && req.url.startsWith('/api/yahoo') && !req.url.startsWith('/api/yahoo-quote')) {
+    const parsed = new url.URL('http://x' + req.url);
+    const ticker = parsed.searchParams.get('ticker');
+    if (!ticker) { res.writeHead(400); res.end('Missing ticker'); return; }
+    const interval = parsed.searchParams.get('interval') || '1d';
+    const range = parsed.searchParams.get('range') || '3mo';
+    proxyYahoo(ticker, res, interval, range);
+    return;
   }
-});
 
-// ══ Saved Portfolios persistence (synced across all devices) ══
-app.get('/api/saved-portfolios', async (req, res) => {
-  if (!pool) return res.status(503).json({ error: 'Database not configured' });
-  try {
-    const result = await pool.query('SELECT data FROM saved_portfolios WHERE account_id = $1', [ACCOUNT_ID]);
-    if (result.rows.length === 0) return res.json([]);
-    res.json(result.rows[0].data);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  if (req.method === 'GET' && req.url.startsWith('/api/yahoo-quote')) {
+    const parsed = new url.URL('http://x' + req.url);
+    const ticker = parsed.searchParams.get('ticker');
+    if (!ticker) { res.writeHead(400); res.end('Missing ticker'); return; }
+    proxyYahooQuote(ticker, res);
+    return;
   }
-});
 
-app.post('/api/saved-portfolios', async (req, res) => {
-  if (!pool) return res.status(503).json({ error: 'Database not configured' });
-  try {
-    const data = req.body;
-    await pool.query(
-      `INSERT INTO saved_portfolios (account_id, data, updated_at) VALUES ($1, $2, NOW())
-       ON CONFLICT (account_id) DO UPDATE SET data = $2, updated_at = NOW()`,
-      [ACCOUNT_ID, JSON.stringify(data)]
-    );
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  if (req.method === 'GET' && req.url.startsWith('/api/yahoo-news')) {
+    const parsed = new url.URL('http://x' + req.url);
+    const category = parsed.searchParams.get('category') || '';
+    let newsPath = '/rss/topfinstories';
+    if (category === 'market') newsPath = '/rss/topfinstories';
+    else if (category === 'stocks') newsPath = '/rss/headline?s=^GSPC,^IXIC,^DJI';
+    else if (category === 'crypto') newsPath = '/rss/headline?s=BTC-USD';
+
+    const newsReq = https.request({
+      hostname: 'finance.yahoo.com',
+      path: newsPath,
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'application/rss+xml, application/xml, text/xml, */*',
+        'Accept-Language': 'en-US,en;q=0.9'
+      }
+    }, newsRes => {
+      let data = '';
+      newsRes.on('data', c => data += c);
+      newsRes.on('end', () => {
+        res.writeHead(200, { 'Content-Type': 'text/xml', 'Access-Control-Allow-Origin': '*' });
+        res.end(data);
+      });
+    });
+    newsReq.on('error', err => { res.writeHead(500); res.end(JSON.stringify({ error: err.message })); });
+    newsReq.end();
+    return;
   }
+
+  res.writeHead(404); res.end('Not found');
 });
 
-// ══ Equity curve: one snapshot per day (upserted), used to plot portfolio value over time ══
-app.get('/api/equity-history', async (req, res) => {
-  if (!pool) return res.status(503).json({ error: 'Database not configured' });
-  try {
-    const result = await pool.query(
-      'SELECT snapshot_date, total_value, cash, positions_value FROM equity_snapshots WHERE account_id = $1 ORDER BY snapshot_date ASC',
-      [ACCOUNT_ID]
-    );
-    res.json(result.rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post('/api/equity-snapshot', async (req, res) => {
-  if (!pool) return res.status(503).json({ error: 'Database not configured' });
-  try {
-    const { totalValue, cash, positionsValue } = req.body;
-    if (typeof totalValue !== 'number' || typeof cash !== 'number' || typeof positionsValue !== 'number') {
-      return res.status(400).json({ error: 'totalValue, cash, positionsValue must be numbers' });
-    }
-    await pool.query(
-      `INSERT INTO equity_snapshots (account_id, snapshot_date, total_value, cash, positions_value)
-       VALUES ($1, CURRENT_DATE, $2, $3, $4)
-       ON CONFLICT (account_id, snapshot_date) DO UPDATE SET total_value = $2, cash = $3, positions_value = $4`,
-      [ACCOUNT_ID, totalValue, cash, positionsValue]
-    );
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ══ Health check (useful for uptime monitoring) ══
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', database: !!pool, timestamp: new Date().toISOString() });
-});
-
-// ══ Fallback to index.html for any other route (SPA-style) ══
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-app.listen(PORT, () => {
-  console.log('TradeVision Cloud running on port ' + PORT);
+server.listen(PORT, () => {
+  console.log('TradeVision running on http://localhost:' + PORT);
 });
