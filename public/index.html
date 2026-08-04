@@ -662,7 +662,7 @@ var TA_TICKERS=['TEVA.TA','ICL.TA','NICE.TA','POLI.TA','LUMI.TA','HARL.TA','MZTF
 var activeFilters={buy:true,wait:true,sell:false};
 var scanResults=[];
 var prevScores={};
-var history=[];
+var scanHistory=[];
 var alertsOn=false;
 var alertsSent={};
 
@@ -824,13 +824,13 @@ function saveHistory(results){
   var lbl=now.getHours()+':'+String(now.getMinutes()).padStart(2,'0')+' | '+results.length+' מניות';
   var snap={lbl:lbl,results:JSON.parse(JSON.stringify(results)),scores:{}};
   results.forEach(function(r){snap.scores[r.ticker]=r.score;});
-  history.unshift(snap);if(history.length>5)history.pop();
+  scanHistory.unshift(snap);if(scanHistory.length>5)scanHistory.pop();
   var chips=document.getElementById('hist-chips');
-  chips.innerHTML=history.map(function(h,i){return '<div class="h-chip" onclick="loadHist('+i+')">'+h.lbl+'</div>';}).join('');
+  chips.innerHTML=scanHistory.map(function(h,i){return '<div class="h-chip" onclick="loadHist('+i+')">'+h.lbl+'</div>';}).join('');
 }
 
 function loadHist(i){
-  var h=history[i];scanResults=h.results;
+  var h=scanHistory[i];scanResults=h.results;
   document.getElementById('stat-buy').textContent=scanResults.filter(function(r){return r.signal==='BUY';}).length;
   document.getElementById('stat-wait').textContent=scanResults.filter(function(r){return r.signal==='WAIT';}).length;
   document.getElementById('stat-sell').textContent=scanResults.filter(function(r){return r.signal==='SELL';}).length;
