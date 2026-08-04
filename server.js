@@ -177,15 +177,8 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  if (req.method === 'GET' && req.url.startsWith('/api/yahoo') && !req.url.startsWith('/api/yahoo-quote')) {
-    const parsed = new url.URL('http://x' + req.url);
-    const ticker = parsed.searchParams.get('ticker');
-    if (!ticker) { res.writeHead(400); res.end('Missing ticker'); return; }
-    const interval = parsed.searchParams.get('interval') || '1d';
-    const range = parsed.searchParams.get('range') || '3mo';
-    proxyYahoo(ticker, res, interval, range);
-    return;
-  }
+  // חשוב: הבדיקות הספציפיות (yahoo-quote, yahoo-news) חייבות לבוא
+  // *לפני* הבדיקה הכללית של /api/yahoo, אחרת הן ייתפסו בטעות שם.
 
   if (req.method === 'GET' && req.url.startsWith('/api/yahoo-quote')) {
     const parsed = new url.URL('http://x' + req.url);
@@ -222,6 +215,17 @@ const server = http.createServer((req, res) => {
     });
     newsReq.on('error', err => { res.writeHead(500); res.end(JSON.stringify({ error: err.message })); });
     newsReq.end();
+    return;
+  }
+
+  // הבדיקה הכללית של /api/yahoo (לצ'ארטים) - אחרי הבדיקות הספציפיות
+  if (req.method === 'GET' && req.url.startsWith('/api/yahoo')) {
+    const parsed = new url.URL('http://x' + req.url);
+    const ticker = parsed.searchParams.get('ticker');
+    if (!ticker) { res.writeHead(400); res.end('Missing ticker'); return; }
+    const interval = parsed.searchParams.get('interval') || '1d';
+    const range = parsed.searchParams.get('range') || '3mo';
+    proxyYahoo(ticker, res, interval, range);
     return;
   }
 
