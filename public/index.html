@@ -178,6 +178,7 @@
   <div class="tab" onclick="switchTab('portfolio')">💼 בנאי תיק AI</div>
   <div class="tab" onclick="switchTab('trading')">💹 דסק מסחר</div>
   <div class="tab" onclick="switchTab('fundamental')">🏦 ניתוח פונדמנטלי</div>
+  <div class="tab" onclick="switchTab('watchlist')">⭐ רשימת מעקב</div>
 </div>
 
 <!-- TAB 1 -->
@@ -576,17 +577,64 @@
 </div>
 </div>
 
+<!-- TAB 7: WATCHLIST -->
+<div id="tab-watchlist" class="tab-content">
+<div class="scanner-wrap">
+  <div class="scanner-top">
+    <h2>⭐ רשימת מעקב אישית</h2>
+    <button class="scan-btn" id="wl-refresh-btn" onclick="refreshWatchlist()">🔄 רענן מחירים</button>
+  </div>
+
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-body">
+      <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;">
+        <div class="field" style="flex:1;min-width:180px;margin-bottom:0;">
+          <label>הוסף סימול (AAPL / TEVA.TA)</label>
+          <input type="text" id="wl-add-input" placeholder="AAPL / MSFT / TEVA.TA" style="text-transform:uppercase;" onkeydown="if(event.key==='Enter')addToWatchlist();">
+        </div>
+        <button class="scan-btn" onclick="addToWatchlist()">➕ הוסף לרשימה</button>
+      </div>
+      <div id="wl-add-msg" style="margin-top:8px;font-size:12px;"></div>
+    </div>
+  </div>
+
+  <div class="scan-loading" id="wl-loading">
+    <div class="spinner"></div>
+    <div class="loading-text">מעדכן מחירים...</div>
+  </div>
+
+  <div class="scan-empty" id="wl-empty">
+    <div style="font-size:44px;margin-bottom:14px;opacity:0.4;">⭐</div>
+    <p style="font-size:13px;line-height:1.7;">הרשימה שלך ריקה כרגע.<br>הוסף סימול מניה למעלה כדי להתחיל לעקוב אחריה.</p>
+  </div>
+
+  <div class="results-table-wrap" id="wl-results" style="display:none;">
+    <table>
+      <thead><tr>
+        <th>סימול</th><th>מחיר</th><th>שינוי %</th><th>RSI</th>
+        <th>כוח קונים</th><th>מ-52ש"נ</th>
+        <th>ציון</th><th>סיגנל</th>
+        <th>גרף</th><th>פעולה</th>
+      </tr></thead>
+      <tbody id="wl-tbody"></tbody>
+    </table>
+  </div>
+  <div style="margin-top:16px;" class="disclaimer">⚠️ נתונים מ-Yahoo Finance. הרשימה נשמרת בדפדפן זה בלבד (localStorage).</div>
+</div>
+</div>
+
 <script>
 // EmailJS init
 emailjs.init('LkDpHo19XM92ZLmZm');
 
 // Tabs
 function switchTab(t){
-  ['dashboard','analyzer','scanner','ta125','portfolio','trading','fundamental'].forEach(function(n){document.getElementById('tab-'+n).classList.toggle('active',n===t);});
-  var order=['dashboard','analyzer','scanner','ta125','portfolio','trading','fundamental'];
+  ['dashboard','analyzer','scanner','ta125','portfolio','trading','fundamental','watchlist'].forEach(function(n){document.getElementById('tab-'+n).classList.toggle('active',n===t);});
+  var order=['dashboard','analyzer','scanner','ta125','portfolio','trading','fundamental','watchlist'];
   document.querySelectorAll('.tab').forEach(function(el,i){el.classList.toggle('active',order[i]===t);});
   if(t==='trading')renderTradingDesk();
   if(t==='dashboard')loadDashboardNews();
+  if(t==='watchlist')refreshWatchlist();
 }
 
 // ── Analyzer ──
@@ -2285,6 +2333,100 @@ setTimeout(function(){
     loadDashboardNews();
   }
 },500);
+
+// ══════════════════════════════════════
+// WATCHLIST
+// ══════════════════════════════════════
+function getWatchlist(){
+  try{return JSON.parse(localStorage.getItem('tv_watchlist')||'[]');}catch(e){return [];}
+}
+function setWatchlist(arr){
+  localStorage.setItem('tv_watchlist',JSON.stringify(arr));
+}
+
+function addToWatchlist(){
+  var input=document.getElementById('wl-add-input');
+  var ticker=input.value.trim().toUpperCase();
+  var msgEl=document.getElementById('wl-add-msg');
+  if(!ticker){msgEl.innerHTML='<span style="color:var(--red)">⚠️ הכנס סימול מניה</span>';return;}
+
+  var list=getWatchlist();
+  if(list.indexOf(ticker)>=0){
+    msgEl.innerHTML='<span style="color:var(--accent2)">⚠️ '+ticker+' כבר ברשימה</span>';
+    return;
+  }
+
+  msgEl.innerHTML='<span style="color:var(--accent)">⏳ בודק שהסימול תקין...</span>';
+  fetchQuote(ticker).then(function(q){
+    if(!q){
+      msgEl.innerHTML='<span style="color:var(--red)">⚠️ לא נמצא סימול '+ticker+'. ודא שהוא תקין (לדוגמה AAPL או TEVA.TA)</span>';
+      return;
+    }
+    list.push(ticker);
+    setWatchlist(list);
+    input.value='';
+    msgEl.innerHTML='<span style="color:var(--green)">✅ '+ticker+' נוסף לרשימה</span>';
+    refreshWatchlist();
+  });
+}
+
+function removeFromWatchlist(ticker){
+  var list=getWatchlist().filter(function(t){return t!==ticker;});
+  setWatchlist(list);
+  refreshWatchlist();
+}
+
+function refreshWatchlist(){
+  var list=getWatchlist();
+  var emptyEl=document.getElementById('wl-empty');
+  var resultsEl=document.getElementById('wl-results');
+  var loadingEl=document.getElementById('wl-loading');
+
+  if(list.length===0){
+    emptyEl.style.display='block';
+    resultsEl.style.display='none';
+    loadingEl.style.display='none';
+    return;
+  }
+
+  emptyEl.style.display='none';
+  resultsEl.style.display='none';
+  loadingEl.style.display='block';
+
+  Promise.all(list.map(function(ticker){
+    return fetchQuote(ticker).then(function(q){return{ticker:ticker,q:q};});
+  })).then(function(results){
+    loadingEl.style.display='none';
+    resultsEl.style.display='block';
+    var tbody=document.getElementById('wl-tbody');
+    tbody.innerHTML=results.map(function(r){
+      var q=r.q;
+      if(!q){
+        return '<tr><td class="ticker-cell">'+r.ticker+'</td><td colspan="7" style="color:var(--muted);">לא ניתן לטעון נתונים כרגע</td>'+
+          '<td><button class="close-pos-btn" onclick="removeFromWatchlist(\''+r.ticker+'\')">הסר</button></td></tr>';
+      }
+      var pStr=(q.pct>=0?'+':'')+q.pct.toFixed(2)+'%';
+      var pc=q.pct>=0?'pct-pos':'pct-neg';
+      var rc=q.rsi<35?'oversold':q.rsi>65?'overbought':'neutral-r';
+      var sc=q.score>=65?'var(--green)':q.score<=35?'var(--red)':'var(--accent2)';
+      var sp=q.signal==='BUY'?'buy':q.signal==='SELL'?'sell':'wait';
+      var sh=q.signal==='BUY'?'קנייה':q.signal==='SELL'?'מכירה':'המתנה';
+      var priceSymbol=r.ticker.indexOf('.TA')>=0?'₪':'$';
+      return '<tr>'+
+        '<td class="ticker-cell">'+r.ticker+'</td>'+
+        '<td style="font-family:var(--mono)">'+priceSymbol+q.price.toFixed(2)+'</td>'+
+        '<td class="'+pc+'">'+pStr+'</td>'+
+        '<td class="rsi-val '+rc+'">'+q.rsi+'</td>'+
+        '<td>'+renderObvBadge(q.obvSignal)+'</td>'+
+        '<td>'+render52Badge(q.pctFrom52Low,q.pctFrom52High)+'</td>'+
+        '<td><div class="score-bar-wrap"><div class="score-bar"><div class="score-fill" style="width:'+q.score+'%;background:'+sc+'"></div></div><span class="score-num" style="color:'+sc+'">'+q.score+'</span></div></td>'+
+        '<td><span class="signal-pill '+sp+'">'+sh+'</span></td>'+
+        '<td><a href="https://finance.yahoo.com/chart/'+r.ticker+'" target="_blank" class="chart-link">גרף ↗</a></td>'+
+        '<td><button class="close-pos-btn" onclick="removeFromWatchlist(\''+r.ticker+'\')">הסר</button></td>'+
+        '</tr>';
+    }).join('');
+  });
+}
 </script>
 </body>
 </html>
