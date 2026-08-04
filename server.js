@@ -5,7 +5,23 @@ const path = require('path');
 const url = require('url');
 
 const PORT = 3000;
-const API_KEY = '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';
+const API_KEY = process.env.ANTHROPIC_API_KEY;
+
+function getContentType(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  const map = {
+    '.html': 'text/html; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
+    '.js': 'application/javascript; charset=utf-8',
+    '.json': 'application/json; charset=utf-8',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.svg': 'image/svg+xml',
+    '.ico': 'image/x-icon'
+  };
+  return map[ext] || 'application/octet-stream';
+}
 
 function proxyAnthropic(body, res) {
   const req = https.request({
@@ -148,7 +164,7 @@ const server = http.createServer((req, res) => {
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
   if (req.method === 'GET' && (req.url === '/' || req.url === '/index.html')) {
-    const html = fs.readFileSync(path.join(__dirname, 'index.html'));
+    const html = fs.readFileSync(path.join(__dirname, 'public', 'index.html'));
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(html);
     return;
@@ -207,6 +223,22 @@ const server = http.createServer((req, res) => {
     newsReq.on('error', err => { res.writeHead(500); res.end(JSON.stringify({ error: err.message })); });
     newsReq.end();
     return;
+  }
+
+  // route גנרי לכל קובץ אחר בתוך public (css/js/watcher.html/תמונות וכו')
+  if (req.method === 'GET' && !req.url.startsWith('/api/')) {
+    const parsed = new url.URL('http://x' + req.url);
+    const safePath = path.normalize(decodeURIComponent(parsed.pathname)).replace(/^(\.\.[/\\])+/, '');
+    const filePath = path.join(__dirname, 'public', safePath);
+
+    if (filePath.startsWith(path.join(__dirname, 'public'))) {
+      fs.readFile(filePath, (err, data) => {
+        if (err) { res.writeHead(404); res.end('Not found'); return; }
+        res.writeHead(200, { 'Content-Type': getContentType(filePath) });
+        res.end(data);
+      });
+      return;
+    }
   }
 
   res.writeHead(404); res.end('Not found');
