@@ -190,6 +190,14 @@
     <button class="scan-btn" onclick="loadDashboardNews()">🔄 רענן חדשות</button>
   </div>
 
+  <!-- Israeli macro indicators widget -->
+  <div id="macro-widget" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px;">
+    <div class="stat-box" id="macro-ta35"><div class="stat-lbl">🇮🇱 ת"א 35</div><div class="stat-val" style="color:var(--muted);font-size:16px;">טוען...</div></div>
+    <div class="stat-box" id="macro-ta125"><div class="stat-lbl">🇮🇱 ת"א 125</div><div class="stat-val" style="color:var(--muted);font-size:16px;">טוען...</div></div>
+    <div class="stat-box" id="macro-usdils"><div class="stat-lbl">💵 דולר/שקל</div><div class="stat-val" style="color:var(--muted);font-size:16px;">טוען...</div></div>
+    <div class="stat-box" id="macro-banks"><div class="stat-lbl">🏦 ת"א בנקים</div><div class="stat-val" style="color:var(--muted);font-size:16px;">טוען...</div></div>
+  </div>
+
   <div id="dash-loading" class="scan-loading">
     <div class="spinner"></div>
     <div class="loading-text">טוען חדשות שוק...</div>
@@ -634,7 +642,7 @@ function switchTab(t){
   var order=['dashboard','analyzer','scanner','ta125','portfolio','trading','fundamental','watchlist'];
   document.querySelectorAll('.tab').forEach(function(el,i){el.classList.toggle('active',order[i]===t);});
   if(t==='trading')renderTradingDesk();
-  if(t==='dashboard')loadDashboardNews();
+  if(t==='dashboard'){loadDashboardNews();loadMacroWidget();}
   if(t==='watchlist')refreshWatchlist();
 }
 
@@ -736,7 +744,7 @@ function showDebugLog(){
 }
 
 function fetchQuote(ticker){
-  return fetch('/api/yahoo?ticker='+ticker)
+  return fetch('/api/yahoo?ticker='+encodeURIComponent(ticker))
     .then(function(r){return r.json();})
     .then(function(data){
       var chart=data&&data.chart&&data.chart.result&&data.chart.result[0];
@@ -2338,8 +2346,42 @@ function renderDashboardNews(parsed,originalNews){
 setTimeout(function(){
   if(document.getElementById('tab-dashboard')&&document.getElementById('tab-dashboard').classList.contains('active')){
     loadDashboardNews();
+    loadMacroWidget();
   }
 },500);
+
+// ══════════════════════════════════════
+// ISRAELI MACRO WIDGET (TA-35 / TA-125 / USD-ILS / TA-Banks)
+// ══════════════════════════════════════
+function renderMacroCard(elId,label,q,unit){
+  var el=document.getElementById(elId);
+  if(!q){
+    el.innerHTML='<div class="stat-lbl">'+label+'</div><div class="stat-val" style="color:var(--muted);font-size:14px;">אין נתון</div>';
+    return;
+  }
+  var pc=q.pct>=0?'var(--green)':'var(--red)';
+  var pStr=(q.pct>=0?'+':'')+q.pct.toFixed(2)+'%';
+  var priceStr=(unit||'')+q.price.toFixed(2);
+  el.innerHTML='<div class="stat-lbl">'+label+'</div>'+
+    '<div class="stat-val" style="color:var(--text);font-size:17px;">'+priceStr+'</div>'+
+    '<div style="font-family:var(--mono);font-size:12px;color:'+pc+';margin-top:2px;">'+pStr+'</div>';
+}
+
+function loadMacroWidget(){
+  var items=[
+    {id:'macro-ta35',ticker:'^TA35.TA',label:'🇮🇱 ת"א 35',unit:''},
+    {id:'macro-ta125',ticker:'^TA125.TA',label:'🇮🇱 ת"א 125',unit:''},
+    {id:'macro-usdils',ticker:'ILS=X',label:'💵 דולר/שקל',unit:'₪'},
+    {id:'macro-banks',ticker:'TA_BANKS5.TA',label:'🏦 ת"א בנקים',unit:''}
+  ];
+  items.forEach(function(it){
+    fetchQuote(it.ticker).then(function(q){
+      renderMacroCard(it.id,it.label,q,it.unit);
+    }).catch(function(){
+      renderMacroCard(it.id,it.label,null,it.unit);
+    });
+  });
+}
 
 // ══════════════════════════════════════
 // WATCHLIST
