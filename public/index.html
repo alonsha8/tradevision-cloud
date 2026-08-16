@@ -2369,10 +2369,10 @@ function renderMacroCard(elId,label,q,unit){
 
 function loadMacroWidget(){
   var items=[
-    {id:'macro-ta35',ticker:'^TA35.TA',label:'🇮🇱 ת"א 35',unit:''},
+    {id:'macro-ta35',ticker:'TA35.TA',label:'🇮🇱 ת"א 35',unit:''},
     {id:'macro-ta125',ticker:'^TA125.TA',label:'🇮🇱 ת"א 125',unit:''},
     {id:'macro-usdils',ticker:'ILS=X',label:'💵 דולר/שקל',unit:'₪'},
-    {id:'macro-banks',ticker:'TA_BANKS5.TA',label:'🏦 ת"א בנקים',unit:''}
+    {id:'macro-banks',ticker:'TA-BANKS.TA',label:'🏦 ת"א בנקים',unit:''}
   ];
   items.forEach(function(it){
     fetchQuote(it.ticker).then(function(q){
