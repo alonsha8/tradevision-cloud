@@ -398,6 +398,12 @@
       <div class="history-chips" id="hist-chips"><span style="font-size:12px;color:var(--muted);">אין היסטוריה עדיין</span></div>
     </div>
 
+    <!-- Sector heatmap -->
+    <div id="sector-heatmap-us" style="display:none;margin-bottom:16px;">
+      <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:8px;">🗺️ מפת חום סקטוריאלית (לחץ לסינון לפי סקטור)</div>
+      <div id="sector-heatmap-us-pills" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+    </div>
+
     <div class="scan-stats" id="scan-stats" style="display:none;">
       <div class="stat-box green"><div class="stat-val" id="stat-buy">0</div><div class="stat-lbl">הזדמנויות קנייה</div></div>
       <div class="stat-box yellow"><div class="stat-val" id="stat-wait">0</div><div class="stat-lbl">המתנה</div></div>
@@ -444,6 +450,12 @@
         <div class="filter-chip" id="ta-fc-sell" onclick="taToggleFilter('sell')">🔴 מכירה</div>
         <button class="scan-btn" id="ta-scan-btn" onclick="runTaScan()">⚡ סרוק עכשיו</button>
       </div>
+    </div>
+
+    <!-- Sector heatmap -->
+    <div id="sector-heatmap-il" style="display:none;margin-bottom:16px;">
+      <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:8px;">🗺️ מפת חום סקטוריאלית (לחץ לסינון לפי סקטור)</div>
+      <div id="sector-heatmap-il-pills" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
     </div>
 
     <div class="scan-stats" id="ta-scan-stats" style="display:none;">
@@ -800,6 +812,93 @@ function renderResults(d){
 // ── Scanner ──
 var TICKERS=['AAPL','MSFT','NVDA','AMZN','GOOGL','META','TSLA','AVGO','JPM','LLY','UNH','V','XOM','MA','JNJ','PG','HD','COST','MRK','ABBV','CVX','CRM','BAC','NFLX','AMD','KO','PEP','TMO','ORCL','ACN','MCD','CSCO','ABT','INTC','DIS','WMT','GE','CAT','GS','BA','AXP','HON','AMGN','GILD','ISRG','BKNG','SBUX','TXN','QCOM','LOW','SPGI','BLK','SYK','ADI','VRTX','REGN','PLD','CI','ETN','ZTS','LRCX','KLAC','AMAT','MU','SNPS','CDNS','PANW','FTNT','CRWD','NOW','ADBE','INTU','PYPL','UBER','ABNB','DDOG','NET','MDB','MRVL','TEAM','WDAY','ON','WFC','MS','C','SCHW','PGR','MMC','AON','CB','TRV','ALL','MET','AIG','PNC','USB','TFC','COF','BK','AMP','DFS','FITB','PFE','BMY','MDT','DHR','BSX','EW','ELV','HUM','CNC','MCK','HCA','CVS','ZBH','BDX','IDXX','IQV','A','MTD','WAT','RMD','PM','MO','CL','KMB','GIS','HSY','STZ','MNST','KDP','EL','CLX','SYY','KHC','HRL','TAP','CHD','K','CAG','LIN','APD','SHW','ECL','PPG','NUE','DOW','LYB','VMC','MLM','IFF','ALB','FMC','CTVA','EMN','CE','PKG','AVY','UPS','FDX','LMT','RTX','NOC','GD','UNP','CSX','NSC','EMR','ITW','PH','ROK','AME','CMI','XYL','DOV','PCAR','PWR','FAST','WM','RSG','VRSK','NEE','DUK','SO','D','AEP','EXC','SRE','XEL','ED','PEG','WEC','ES','AWK','ATO','SPG','PSA','EQIX','DLR','O'];
 var TA_TICKERS=['TEVA.TA','ICL.TA','NICE.TA','POLI.TA','LUMI.TA','HARL.TA','MZTF.TA','ESLT.TA','DSCT.TA','FIBI.TA','BEZQ.TA','PHOE.TA','MGDL.TA','ALHE.TA','OPCE.TA','PTNR.TA','CEL.TA','DLEKG.TA','TASE.TA','SPNS.TA','MLTM.TA','AZRG.TA','SAE.TA','ARYT.TA','ENRG.TA','ELAL.TA','RTEK.TA','CAST.TA','ORA.TA','SHLD.TA','KEN.TA','ILCO.TA','BIG.TA','AMOT.TA','GZT.TA','MISH.TA','SLAR.TA','NXTL.TA','MTRX.TA','ENLV.TA','SKBN.TA','VTLZ.TA','WIZ.TA','APOL.TA','EQTL.TA','MAXO.TA','PRTC.TA','GAON.TA','SNFL.TA','NWMD.TA','ENOG.TA','DRAL.TA','ASHO.TA','BLSR.TA','CMTR.TA','ALMS.TA','UNCT.TA','ELTR.TA','EPSL.TA','PRGR.TA','OBAS.TA','GADM.TA','PLAZ.TA','MTRN.TA','DANE.TA','MMHD.TA','EQTC.TA','RIT1.TA','SCOP.TA','PARZ.TA','GIBN.TA','TIMI.TA','LAPD.TA','ROBO.TA','ADGR.TA','ZNV.TA','SVDA.TA','KFSA.TA','ASTM.TA','IDIN.TA','TLSY.TA','MNRT.TA','TGAS.TA','NFTA.TA','MGRT.TA','MMI.TA','RLCO.TA','ORMT.TA','SVTL.TA','TRDY.TA','SHGR.TA','VRDS.TA','CRGS.TA','EFRT.TA','SRDR.TA','SNS.TA','MLSR.TA','ICCM.TA','ONE.TA','BONS.TA','LDER.TA','PCBT.TA','EVGN.TA','GVUR.TA','RMNF.TA','SKLN.TA','MVNE.TA','HOGN.TA','KMDA.TA','BOND.TA','TGEU.TA','AURA.TA','ELCRE.TA','PERI.TA','UNCM.TA','GLRS.TA','LRHO.TA'];
+
+// ══ SECTOR MAPS (best-effort classification for sector heatmap) ══
+var SECTOR_MAP_US={
+  AAPL:'טכנולוגיה',MSFT:'טכנולוגיה',NVDA:'טכנולוגיה',GOOGL:'טכנולוגיה',META:'טכנולוגיה',AVGO:'טכנולוגיה',CRM:'טכנולוגיה',ORCL:'טכנולוגיה',ACN:'טכנולוגיה',CSCO:'טכנולוגיה',INTC:'טכנולוגיה',ADI:'טכנולוגיה',LRCX:'טכנולוגיה',KLAC:'טכנולוגיה',AMAT:'טכנולוגיה',MU:'טכנולוגיה',SNPS:'טכנולוגיה',CDNS:'טכנולוגיה',PANW:'טכנולוגיה',FTNT:'טכנולוגיה',CRWD:'טכנולוגיה',NOW:'טכנולוגיה',ADBE:'טכנולוגיה',INTU:'טכנולוגיה',PYPL:'טכנולוגיה',UBER:'טכנולוגיה',DDOG:'טכנולוגיה',NET:'טכנולוגיה',MDB:'טכנולוגיה',MRVL:'טכנולוגיה',TEAM:'טכנולוגיה',WDAY:'טכנולוגיה',ON:'טכנולוגיה',TXN:'טכנולוגיה',QCOM:'טכנולוגיה',AMD:'טכנולוגיה',
+  AMZN:'צריכה מחזורית',TSLA:'צריכה מחזורית',HD:'צריכה מחזורית',MCD:'צריכה מחזורית',BKNG:'צריכה מחזורית',SBUX:'צריכה מחזורית',LOW:'צריכה מחזורית',ABNB:'צריכה מחזורית',
+  PG:'צריכה בסיסית',KO:'צריכה בסיסית',PEP:'צריכה בסיסית',WMT:'צריכה בסיסית',COST:'צריכה בסיסית',CL:'צריכה בסיסית',KMB:'צריכה בסיסית',GIS:'צריכה בסיסית',HSY:'צריכה בסיסית',STZ:'צריכה בסיסית',MNST:'צריכה בסיסית',KDP:'צריכה בסיסית',EL:'צריכה בסיסית',CLX:'צריכה בסיסית',SYY:'צריכה בסיסית',KHC:'צריכה בסיסית',HRL:'צריכה בסיסית',TAP:'צריכה בסיסית',CHD:'צריכה בסיסית',K:'צריכה בסיסית',CAG:'צריכה בסיסית',PM:'צריכה בסיסית',MO:'צריכה בסיסית',
+  LLY:'בריאות',UNH:'בריאות',JNJ:'בריאות',MRK:'בריאות',ABBV:'בריאות',TMO:'בריאות',ABT:'בריאות',AMGN:'בריאות',GILD:'בריאות',ISRG:'בריאות',SYK:'בריאות',VRTX:'בריאות',REGN:'בריאות',ZTS:'בריאות',CI:'בריאות',PFE:'בריאות',BMY:'בריאות',MDT:'בריאות',DHR:'בריאות',BSX:'בריאות',EW:'בריאות',ELV:'בריאות',HUM:'בריאות',CNC:'בריאות',MCK:'בריאות',HCA:'בריאות',CVS:'בריאות',ZBH:'בריאות',BDX:'בריאות',IDXX:'בריאות',IQV:'בריאות',A:'בריאות',MTD:'בריאות',WAT:'בריאות',RMD:'בריאות',
+  JPM:'פיננסים',V:'פיננסים',MA:'פיננסים',BAC:'פיננסים',GS:'פיננסים',AXP:'פיננסים',SPGI:'פיננסים',BLK:'פיננסים',WFC:'פיננסים',MS:'פיננסים',C:'פיננסים',SCHW:'פיננסים',PGR:'פיננסים',MMC:'פיננסים',AON:'פיננסים',CB:'פיננסים',TRV:'פיננסים',ALL:'פיננסים',MET:'פיננסים',AIG:'פיננסים',PNC:'פיננסים',USB:'פיננסים',TFC:'פיננסים',COF:'פיננסים',BK:'פיננסים',AMP:'פיננסים',DFS:'פיננסים',FITB:'פיננסים',
+  GE:'תעשייה',CAT:'תעשייה',BA:'תעשייה',HON:'תעשייה',ETN:'תעשייה',UPS:'תעשייה',FDX:'תעשייה',LMT:'תעשייה',RTX:'תעשייה',NOC:'תעשייה',GD:'תעשייה',UNP:'תעשייה',CSX:'תעשייה',NSC:'תעשייה',EMR:'תעשייה',ITW:'תעשייה',PH:'תעשייה',ROK:'תעשייה',AME:'תעשייה',CMI:'תעשייה',XYL:'תעשייה',DOV:'תעשייה',PCAR:'תעשייה',PWR:'תעשייה',FAST:'תעשייה',WM:'תעשייה',RSG:'תעשייה',VRSK:'תעשייה',
+  XOM:'אנרגיה',CVX:'אנרגיה',
+  LIN:'חומרי גלם',APD:'חומרי גלם',SHW:'חומרי גלם',ECL:'חומרי גלם',PPG:'חומרי גלם',NUE:'חומרי גלם',DOW:'חומרי גלם',LYB:'חומרי גלם',VMC:'חומרי גלם',MLM:'חומרי גלם',IFF:'חומרי גלם',ALB:'חומרי גלם',FMC:'חומרי גלם',CTVA:'חומרי גלם',EMN:'חומרי גלם',CE:'חומרי גלם',PKG:'חומרי גלם',AVY:'חומרי גלם',
+  DIS:'תקשורת ומדיה',NFLX:'תקשורת ומדיה',
+  NEE:'יוטיליטיז',DUK:'יוטיליטיז',SO:'יוטיליטיז',D:'יוטיליטיז',AEP:'יוטיליטיז',EXC:'יוטיליטיז',SRE:'יוטיליטיז',XEL:'יוטיליטיז',ED:'יוטיליטיז',PEG:'יוטיליטיז',WEC:'יוטיליטיז',ES:'יוטיליטיז',AWK:'יוטיליטיז',ATO:'יוטיליטיז',
+  PLD:'נדל"ן',SPG:'נדל"ן',PSA:'נדל"ן',EQIX:'נדל"ן',DLR:'נדל"ן',O:'נדל"ן'
+};
+var SECTOR_MAP_IL={
+  'TEVA.TA':'בריאות','ICL.TA':'חומרי גלם','NICE.TA':'טכנולוגיה','POLI.TA':'בנקים','LUMI.TA':'בנקים','MZTF.TA':'בנקים','DSCT.TA':'בנקים','FIBI.TA':'בנקים','SKBN.TA':'בנקים',
+  'HARL.TA':'ביטוח','PHOE.TA':'ביטוח','MGDL.TA':'ביטוח','WIZ.TA':'ביטוח','MNRT.TA':'ביטוח',
+  'ESLT.TA':'ביטחון','ELAL.TA':'תעשייה',
+  'BEZQ.TA':'תקשורת','PTNR.TA':'תקשורת','CEL.TA':'תקשורת',
+  'ALHE.TA':'נדל"ן','AZRG.TA':'נדל"ן','MLTM.TA':'נדל"ן','BIG.TA':'נדל"ן','AMOT.TA':'נדל"ן','DRAL.TA':'נדל"ן','PLAZ.TA':'נדל"ן','GIBN.TA':'נדל"ן','ELCRE.TA':'נדל"ן','SAE.TA':'נדל"ן',
+  'OPCE.TA':'אנרגיה','DLEKG.TA':'אנרגיה','ENRG.TA':'אנרגיה','ENOG.TA':'אנרגיה','TGAS.TA':'אנרגיה',
+  'ENLV.TA':'אנרגיה מתחדשת',
+  'ILCO.TA':'חומרי גלם',
+  'SPNS.TA':'טכנולוגיה','ROBO.TA':'טכנולוגיה','MTRN.TA':'טכנולוגיה','PERI.TA':'טכנולוגיה',
+  'MAXO.TA':'קמעונאות',
+  'KMDA.TA':'בריאות','NWMD.TA':'בריאות',
+  'TASE.TA':'פיננסים'
+};
+function getSector(ticker,isIl){
+  var map=isIl?SECTOR_MAP_IL:SECTOR_MAP_US;
+  return map[ticker]||'אחר';
+}
+
+// ══ Sector Heatmap ══
+var sectorFilterUS=null, sectorFilterIL=null;
+
+function computeSectorHeatmap(results,isIl){
+  var buckets={};
+  results.forEach(function(r){
+    var sec=getSector(r.ticker,isIl);
+    if(!buckets[sec])buckets[sec]={sector:sec,count:0,scoreSum:0,pctSum:0,buyCount:0};
+    var b=buckets[sec];
+    b.count++;b.scoreSum+=r.score;b.pctSum+=r.pct;
+    if(r.signal==='BUY')b.buyCount++;
+  });
+  var arr=Object.keys(buckets).map(function(k){
+    var b=buckets[k];
+    return{sector:b.sector,count:b.count,avgScore:b.scoreSum/b.count,avgPct:b.pctSum/b.count,buyPct:(b.buyCount/b.count*100)};
+  });
+  arr.sort(function(a,b){return b.avgScore-a.avgScore;});
+  return arr;
+}
+
+function renderSectorHeatmap(isIl){
+  var containerId=isIl?'sector-heatmap-il':'sector-heatmap-us';
+  var pillsId=isIl?'sector-heatmap-il-pills':'sector-heatmap-us-pills';
+  var results=isIl?taScanResults:scanResults;
+  var activeFilter=isIl?sectorFilterIL:sectorFilterUS;
+  if(results.length===0){document.getElementById(containerId).style.display='none';return;}
+
+  var heatmap=computeSectorHeatmap(results,isIl).slice(0,8);
+  document.getElementById(containerId).style.display='block';
+  document.getElementById(pillsId).innerHTML=heatmap.map(function(h){
+    var color=h.avgScore>=60?'var(--green)':h.avgScore<=40?'var(--red)':'var(--accent2)';
+    var isActive=activeFilter===h.sector;
+    var pctStr=(h.avgPct>=0?'+':'')+h.avgPct.toFixed(1)+'%';
+    return '<div class="filter-chip'+(isActive?' active':'')+'" style="border-color:'+color+';" onclick="toggleSectorFilter(\''+h.sector.replace(/'/g,"\\'")+'\','+isIl+')">'+
+      '<span style="color:'+color+';font-weight:600;">'+h.sector+'</span> '+
+      '<span style="color:var(--muted);">('+h.count+') </span>'+
+      '<span style="font-family:var(--mono);color:'+color+';">'+pctStr+'</span>'+
+    '</div>';
+  }).join('');
+}
+
+function toggleSectorFilter(sector,isIl){
+  if(isIl){
+    sectorFilterIL=sectorFilterIL===sector?null:sector;
+    renderSectorHeatmap(true);
+    renderTaTable();
+  }else{
+    sectorFilterUS=sectorFilterUS===sector?null:sector;
+    renderSectorHeatmap(false);
+    renderTable();
+  }
+}
+
 var activeFilters={buy:true,wait:true,sell:false};
 var scanResults=[];
 var prevScores={};
@@ -999,7 +1098,7 @@ function runScan(){
       document.getElementById('stat-sell').textContent=scanResults.filter(function(r){return r.signal==='SELL';}).length;
       document.getElementById('stat-total').textContent=scanResults.length;
       document.getElementById('scan-stats').style.display='grid';
-      checkAlerts(scanResults);saveHistory(scanResults);renderTable();return;
+      checkAlerts(scanResults);saveHistory(scanResults);renderSectorHeatmap(false);renderTable();return;
     }
     var batch=TICKERS.slice(i,i+5);i+=5;
     Promise.all(batch.map(fetchQuote)).then(function(res){
@@ -1036,6 +1135,7 @@ function renderPE(pe){
 function renderTable(){
   var thr=parseInt(document.getElementById('alert-thr').value)||80;
   var filtered=scanResults.filter(function(r){return activeFilters[r.signal.toLowerCase()];});
+  if(sectorFilterUS)filtered=filtered.filter(function(r){return getSector(r.ticker,false)===sectorFilterUS;});
   var tbody=document.getElementById('scan-tbody');
   if(filtered.length===0){
     tbody.innerHTML='<tr><td colspan="15" style="text-align:center;padding:30px;color:var(--muted);">אין תוצאות לפי הפילטרים</td></tr>';
@@ -1100,7 +1200,7 @@ function runTaScan(){
       document.getElementById('ta-stat-sell').textContent=taScanResults.filter(function(r){return r.signal==='SELL';}).length;
       document.getElementById('ta-stat-total').textContent=taScanResults.length;
       document.getElementById('ta-scan-stats').style.display='grid';
-      renderTaTable();return;
+      renderSectorHeatmap(true);renderTaTable();return;
     }
     var batch=TA_TICKERS.slice(i,i+5);i+=5;
     Promise.all(batch.map(fetchQuote)).then(function(res){
@@ -1114,6 +1214,7 @@ function runTaScan(){
 
 function renderTaTable(){
   var filtered=taScanResults.filter(function(r){return taActiveFilters[r.signal.toLowerCase()];});
+  if(sectorFilterIL)filtered=filtered.filter(function(r){return getSector(r.ticker,true)===sectorFilterIL;});
   var tbody=document.getElementById('ta-scan-tbody');
   if(filtered.length===0){
     tbody.innerHTML='<tr><td colspan="12" style="text-align:center;padding:30px;color:var(--muted);">אין תוצאות לפי הפילטרים, או שהסריקה עדיין לא רצה</td></tr>';
