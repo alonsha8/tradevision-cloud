@@ -157,6 +157,35 @@ function proxyYahooQuote(ticker, res) {
   }
 }
 
+function proxyTaseNews(res) {
+  const reqOptions = {
+    hostname: 'apicontent.tase.co.il',
+    path: '/api/Cms?Route=/content/news-lobby&culture=he-IL',
+    method: 'GET',
+    headers: {
+      'accept': 'application/json, */*',
+      'accept-language': 'he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7',
+      'content-type': 'application/json',
+      'origin': 'https://www.tase.co.il',
+      'referer': 'https://www.tase.co.il/',
+      'sec-fetch-dest': 'empty',
+      'sec-fetch-mode': 'cors',
+      'sec-fetch-site': 'same-site',
+      'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    }
+  };
+  const req = https.request(reqOptions, apiRes => {
+    let data = '';
+    apiRes.on('data', c => data += c);
+    apiRes.on('end', () => {
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(data);
+    });
+  });
+  req.on('error', err => { res.writeHead(500); res.end(JSON.stringify({ error: err.message })); });
+  req.end();
+}
+
 const server = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -185,6 +214,11 @@ const server = http.createServer((req, res) => {
     const ticker = parsed.searchParams.get('ticker');
     if (!ticker) { res.writeHead(400); res.end('Missing ticker'); return; }
     proxyYahooQuote(ticker, res);
+    return;
+  }
+
+  if (req.method === 'GET' && req.url.startsWith('/api/tase-news')) {
+    proxyTaseNews(res);
     return;
   }
 
