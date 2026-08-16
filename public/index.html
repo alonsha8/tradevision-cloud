@@ -212,8 +212,7 @@
 <div class="tabs">
   <div class="tab active" onclick="switchTab('dashboard')">🏠 דשבורד</div>
   <div class="tab" onclick="switchTab('analyzer')">📊 ניתוח גרף</div>
-  <div class="tab" onclick="switchTab('scanner')">🔍 סורק נאסד"ק</div>
-  <div class="tab" onclick="switchTab('ta125')">🇮🇱 סורק ת"א 125</div>
+  <div class="tab" onclick="switchTab('scanner')">🔍 סורק</div>
   <div class="tab" onclick="switchTab('portfolio')">💼 בנאי תיק AI</div>
   <div class="tab" onclick="switchTab('trading')" style="display:none;">💹 דסק מסחר</div>
   <!-- הוסתר לפי בקשת המשתמש - להחזיר: להסיר את style="display:none;" משורה זו -->
@@ -339,125 +338,135 @@
 </div>
 </div>
 
-<!-- TAB 2 -->
+<!-- TAB 2: UNIFIED SCANNER (US + IL) -->
 <div id="tab-scanner" class="tab-content">
 <div class="scanner-wrap">
   <div class="scanner-top">
-    <h2>🔍 סורק הזדמנויות – S&P 500 + NASDAQ 100 (ארה"ב)</h2>
-    <div class="filter-row">
-      <span style="font-size:12px;color:var(--muted);">סנן:</span>
-      <div class="filter-chip active" id="fc-buy" onclick="toggleFilter('buy')">🟢 קנייה</div>
-      <div class="filter-chip active" id="fc-wait" onclick="toggleFilter('wait')">🟡 המתנה</div>
-      <div class="filter-chip" id="fc-sell" onclick="toggleFilter('sell')">🔴 מכירה</div>
-      <button class="scan-btn" id="scan-btn" onclick="runScan()">⚡ סרוק עכשיו</button>
-      <button class="scan-btn" style="background:var(--surface2);color:var(--accent);border:1px solid var(--accent);" onclick="showDebugLog()">🐛 הצג שגיאות</button>
+    <h2 id="scanner-title">🔍 סורק הזדמנויות – S&P 500 + NASDAQ 100 (ארה"ב)</h2>
+  </div>
+
+  <!-- Market toggle -->
+  <div class="filter-row" style="margin-bottom:16px;">
+    <span style="font-size:12px;color:var(--muted);">שוק:</span>
+    <div class="filter-chip active" id="market-us-btn" onclick="setScannerMarket('us')">🇺🇸 ארה"ב (נאסד"ק)</div>
+    <div class="filter-chip" id="market-il-btn" onclick="setScannerMarket('il')">🇮🇱 ישראל (ת"א 125)</div>
+  </div>
+
+  <!-- ══ US SCANNER ══ -->
+  <div id="scanner-us">
+    <div class="scanner-top">
+      <div class="filter-row">
+        <span style="font-size:12px;color:var(--muted);">סנן:</span>
+        <div class="filter-chip active" id="fc-buy" onclick="toggleFilter('buy')">🟢 קנייה</div>
+        <div class="filter-chip active" id="fc-wait" onclick="toggleFilter('wait')">🟡 המתנה</div>
+        <div class="filter-chip" id="fc-sell" onclick="toggleFilter('sell')">🔴 מכירה</div>
+        <button class="scan-btn" id="scan-btn" onclick="runScan()">⚡ סרוק עכשיו</button>
+        <button class="scan-btn" style="background:var(--surface2);color:var(--accent);border:1px solid var(--accent);" onclick="showDebugLog()">🐛 הצג שגיאות</button>
+      </div>
     </div>
-  </div>
 
-  <!-- Alert bar -->
-  <div class="alert-bar">
-    <label>🔔 התראות מייל:</label>
-    <div class="toggle-wrap" onclick="toggleAlerts()">
-      <div class="toggle" id="alert-tog"></div>
-      <span style="font-size:13px" id="alert-lbl">כבוי</span>
+    <!-- Alert bar -->
+    <div class="alert-bar">
+      <label>🔔 התראות מייל:</label>
+      <div class="toggle-wrap" onclick="toggleAlerts()">
+        <div class="toggle" id="alert-tog"></div>
+        <span style="font-size:13px" id="alert-lbl">כבוי</span>
+      </div>
+      <label>שלח כשציון עולה מעל</label>
+      <input type="number" class="alert-input" id="alert-thr" value="80" min="50" max="99">
+      <label>| alonsha8@gmail.com</label>
+      <span class="alert-msg" id="alert-msg">ממתין...</span>
     </div>
-    <label>שלח כשציון עולה מעל</label>
-    <input type="number" class="alert-input" id="alert-thr" value="80" min="50" max="99">
-    <label>| alonsha8@gmail.com</label>
-    <span class="alert-msg" id="alert-msg">ממתין...</span>
-  </div>
 
-  <!-- History -->
-  <div class="history-bar">
-    <div class="history-title">📋 היסטוריית סריקות (לחץ לטעינה)</div>
-    <div class="history-chips" id="hist-chips"><span style="font-size:12px;color:var(--muted);">אין היסטוריה עדיין</span></div>
-  </div>
-
-  <div class="scan-stats" id="scan-stats" style="display:none;">
-    <div class="stat-box green"><div class="stat-val" id="stat-buy">0</div><div class="stat-lbl">הזדמנויות קנייה</div></div>
-    <div class="stat-box yellow"><div class="stat-val" id="stat-wait">0</div><div class="stat-lbl">המתנה</div></div>
-    <div class="stat-box red"><div class="stat-val" id="stat-sell">0</div><div class="stat-lbl">מכירה / שורט</div></div>
-    <div class="stat-box"><div class="stat-val" id="stat-total" style="color:var(--accent)">0</div><div class="stat-lbl">סרוקו סה"כ</div></div>
-  </div>
-
-  <div class="scan-loading" id="scan-loading">
-    <div class="spinner"></div>
-    <div class="loading-text">סורק מניות...</div>
-    <div class="scan-progress" id="scan-progress">מאתחל...</div>
-  </div>
-
-  <div class="scan-empty" id="scan-empty">
-    <div style="font-size:44px;margin-bottom:14px;opacity:0.4;">🔍</div>
-    <p style="font-size:13px;line-height:1.7;">לחץ "סרוק עכשיו" כדי לאתר הזדמנויות מסחר<br>כולל מחיר כניסה, יעד ו-Stop Loss לכל מניה</p>
-  </div>
-
-  <div class="results-table-wrap" id="scan-results" style="display:none;">
-    <table class="responsive-table">
-      <thead><tr>
-        <th>סימול</th><th>מחיר</th><th>שינוי %</th><th>RSI</th>
-        <th>P/E</th><th>מ-52ש"נ</th><th>כוח קונים</th>
-        <th>ציון</th><th>ציון קודם</th><th>סיגנל</th>
-        <th style="color:var(--accent2)">כניסה 💰</th>
-        <th style="color:var(--green)">יעד 🎯</th>
-        <th style="color:var(--red)">Stop Loss 🛑</th>
-        <th style="color:#8b5cf6">R/R</th>
-        <th>גרף</th>
-      </tr></thead>
-      <tbody id="scan-tbody"></tbody>
-    </table>
-  </div>
-  <div style="margin-top:16px;" class="disclaimer">⚠️ נתונים מ-Yahoo Finance. מחירי כניסה/יעד הם הערכה טכנית בלבד – אינם ייעוץ השקעות. "כוח קונים" מבוסס על ניתוח ווליום-מחיר (OBV) ומשקף מומנטום, לא נתון פונדמנטלי.</div>
-</div>
-</div>
-
-<!-- TAB 3: TA-125 -->
-<div id="tab-ta125" class="tab-content">
-<div class="scanner-wrap">
-  <div class="scanner-top">
-    <h2>🇮🇱 סורק הזדמנויות – בורסת תל אביב (TA-125)</h2>
-    <div class="filter-row">
-      <span style="font-size:12px;color:var(--muted);">סנן:</span>
-      <div class="filter-chip active" id="ta-fc-buy" onclick="taToggleFilter('buy')">🟢 קנייה</div>
-      <div class="filter-chip active" id="ta-fc-wait" onclick="taToggleFilter('wait')">🟡 המתנה</div>
-      <div class="filter-chip" id="ta-fc-sell" onclick="taToggleFilter('sell')">🔴 מכירה</div>
-      <button class="scan-btn" id="ta-scan-btn" onclick="runTaScan()">⚡ סרוק עכשיו</button>
+    <!-- History -->
+    <div class="history-bar">
+      <div class="history-title">📋 היסטוריית סריקות (לחץ לטעינה)</div>
+      <div class="history-chips" id="hist-chips"><span style="font-size:12px;color:var(--muted);">אין היסטוריה עדיין</span></div>
     </div>
+
+    <div class="scan-stats" id="scan-stats" style="display:none;">
+      <div class="stat-box green"><div class="stat-val" id="stat-buy">0</div><div class="stat-lbl">הזדמנויות קנייה</div></div>
+      <div class="stat-box yellow"><div class="stat-val" id="stat-wait">0</div><div class="stat-lbl">המתנה</div></div>
+      <div class="stat-box red"><div class="stat-val" id="stat-sell">0</div><div class="stat-lbl">מכירה / שורט</div></div>
+      <div class="stat-box"><div class="stat-val" id="stat-total" style="color:var(--accent)">0</div><div class="stat-lbl">סרוקו סה"כ</div></div>
+    </div>
+
+    <div class="scan-loading" id="scan-loading">
+      <div class="spinner"></div>
+      <div class="loading-text">סורק מניות...</div>
+      <div class="scan-progress" id="scan-progress">מאתחל...</div>
+    </div>
+
+    <div class="scan-empty" id="scan-empty">
+      <div style="font-size:44px;margin-bottom:14px;opacity:0.4;">🔍</div>
+      <p style="font-size:13px;line-height:1.7;">לחץ "סרוק עכשיו" כדי לאתר הזדמנויות מסחר<br>כולל מחיר כניסה, יעד ו-Stop Loss לכל מניה</p>
+    </div>
+
+    <div class="results-table-wrap" id="scan-results" style="display:none;">
+      <table class="responsive-table">
+        <thead><tr>
+          <th>סימול</th><th>מחיר</th><th>שינוי %</th><th>RSI</th>
+          <th>P/E</th><th>מ-52ש"נ</th><th>כוח קונים</th>
+          <th>ציון</th><th>ציון קודם</th><th>סיגנל</th>
+          <th style="color:var(--accent2)">כניסה 💰</th>
+          <th style="color:var(--green)">יעד 🎯</th>
+          <th style="color:var(--red)">Stop Loss 🛑</th>
+          <th style="color:#8b5cf6">R/R</th>
+          <th>גרף</th>
+        </tr></thead>
+        <tbody id="scan-tbody"></tbody>
+      </table>
+    </div>
+    <div style="margin-top:16px;" class="disclaimer">⚠️ נתונים מ-Yahoo Finance. מחירי כניסה/יעד הם הערכה טכנית בלבד – אינם ייעוץ השקעות. "כוח קונים" מבוסס על ניתוח ווליום-מחיר (OBV) ומשקף מומנטום, לא נתון פונדמנטלי.</div>
   </div>
 
-  <div class="scan-stats" id="ta-scan-stats" style="display:none;">
-    <div class="stat-box green"><div class="stat-val" id="ta-stat-buy">0</div><div class="stat-lbl">הזדמנויות קנייה</div></div>
-    <div class="stat-box yellow"><div class="stat-val" id="ta-stat-wait">0</div><div class="stat-lbl">המתנה</div></div>
-    <div class="stat-box red"><div class="stat-val" id="ta-stat-sell">0</div><div class="stat-lbl">מכירה / שורט</div></div>
-    <div class="stat-box"><div class="stat-val" id="ta-stat-total" style="color:var(--accent)">0</div><div class="stat-lbl">סרוקו סה"כ</div></div>
-  </div>
+  <!-- ══ IL (TA-125) SCANNER ══ -->
+  <div id="scanner-il" style="display:none;">
+    <div class="scanner-top">
+      <div class="filter-row">
+        <span style="font-size:12px;color:var(--muted);">סנן:</span>
+        <div class="filter-chip active" id="ta-fc-buy" onclick="taToggleFilter('buy')">🟢 קנייה</div>
+        <div class="filter-chip active" id="ta-fc-wait" onclick="taToggleFilter('wait')">🟡 המתנה</div>
+        <div class="filter-chip" id="ta-fc-sell" onclick="taToggleFilter('sell')">🔴 מכירה</div>
+        <button class="scan-btn" id="ta-scan-btn" onclick="runTaScan()">⚡ סרוק עכשיו</button>
+      </div>
+    </div>
 
-  <div class="scan-loading" id="ta-scan-loading">
-    <div class="spinner"></div>
-    <div class="loading-text">סורק מניות ת"א...</div>
-    <div class="scan-progress" id="ta-scan-progress">מאתחל...</div>
-  </div>
+    <div class="scan-stats" id="ta-scan-stats" style="display:none;">
+      <div class="stat-box green"><div class="stat-val" id="ta-stat-buy">0</div><div class="stat-lbl">הזדמנויות קנייה</div></div>
+      <div class="stat-box yellow"><div class="stat-val" id="ta-stat-wait">0</div><div class="stat-lbl">המתנה</div></div>
+      <div class="stat-box red"><div class="stat-val" id="ta-stat-sell">0</div><div class="stat-lbl">מכירה / שורט</div></div>
+      <div class="stat-box"><div class="stat-val" id="ta-stat-total" style="color:var(--accent)">0</div><div class="stat-lbl">סרוקו סה"כ</div></div>
+    </div>
 
-  <div class="scan-empty" id="ta-scan-empty">
-    <div style="font-size:44px;margin-bottom:14px;opacity:0.4;">🇮🇱</div>
-    <p style="font-size:13px;line-height:1.7;">לחץ "סרוק עכשיו" כדי לאתר הזדמנויות מסחר<br>במניות הבורסה הישראלית – כולל מחיר כניסה, יעד ו-Stop Loss</p>
-  </div>
+    <div class="scan-loading" id="ta-scan-loading">
+      <div class="spinner"></div>
+      <div class="loading-text">סורק מניות ת"א...</div>
+      <div class="scan-progress" id="ta-scan-progress">מאתחל...</div>
+    </div>
 
-  <div class="results-table-wrap" id="ta-scan-results" style="display:none;">
-    <table class="responsive-table">
-      <thead><tr>
-        <th>סימול</th><th>מחיר (₪)</th><th>שינוי %</th><th>RSI</th>
-        <th>מ-52ש"נ</th><th>כוח קונים</th>
-        <th>ציון</th><th>סיגנל</th>
-        <th style="color:var(--accent2)">כניסה 💰</th>
-        <th style="color:var(--green)">יעד 🎯</th>
-        <th style="color:var(--red)">Stop Loss 🛑</th>
-        <th style="color:#8b5cf6">R/R</th>
-        <th>גרף</th>
-      </tr></thead>
-      <tbody id="ta-scan-tbody"></tbody>
-    </table>
+    <div class="scan-empty" id="ta-scan-empty">
+      <div style="font-size:44px;margin-bottom:14px;opacity:0.4;">🇮🇱</div>
+      <p style="font-size:13px;line-height:1.7;">לחץ "סרוק עכשיו" כדי לאתר הזדמנויות מסחר<br>במניות הבורסה הישראלית – כולל מחיר כניסה, יעד ו-Stop Loss</p>
+    </div>
+
+    <div class="results-table-wrap" id="ta-scan-results" style="display:none;">
+      <table class="responsive-table">
+        <thead><tr>
+          <th>סימול</th><th>מחיר (₪)</th><th>שינוי %</th><th>RSI</th>
+          <th>מ-52ש"נ</th><th>כוח קונים</th>
+          <th>ציון</th><th>סיגנל</th>
+          <th style="color:var(--accent2)">כניסה 💰</th>
+          <th style="color:var(--green)">יעד 🎯</th>
+          <th style="color:var(--red)">Stop Loss 🛑</th>
+          <th style="color:#8b5cf6">R/R</th>
+          <th>גרף</th>
+        </tr></thead>
+        <tbody id="ta-scan-tbody"></tbody>
+      </table>
+    </div>
+    <div style="margin-top:16px;" class="disclaimer">⚠️ נתונים מ-Yahoo Finance (סימולי .TA). מחירי כניסה/יעד הם הערכה טכנית בלבד – אינם ייעוץ השקעות. P/E לא מוצג למניות ת"א בגלל מגבלות נתונים. "כוח קונים" מבוסס ניתוח ווליום-מחיר.</div>
   </div>
-  <div style="margin-top:16px;" class="disclaimer">⚠️ נתונים מ-Yahoo Finance (סימולי .TA). מחירי כניסה/יעד הם הערכה טכנית בלבד – אינם ייעוץ השקעות. P/E לא מוצג למניות ת"א בגלל מגבלות נתונים. "כוח קונים" מבוסס ניתוח ווליום-מחיר.</div>
 </div>
 </div>
 
@@ -678,12 +687,22 @@ emailjs.init('LkDpHo19XM92ZLmZm');
 
 // Tabs
 function switchTab(t){
-  ['dashboard','analyzer','scanner','ta125','portfolio','trading','fundamental','watchlist'].forEach(function(n){document.getElementById('tab-'+n).classList.toggle('active',n===t);});
-  var order=['dashboard','analyzer','scanner','ta125','portfolio','trading','fundamental','watchlist'];
+  ['dashboard','analyzer','scanner','portfolio','trading','fundamental','watchlist'].forEach(function(n){document.getElementById('tab-'+n).classList.toggle('active',n===t);});
+  var order=['dashboard','analyzer','scanner','portfolio','trading','fundamental','watchlist'];
   document.querySelectorAll('.tab').forEach(function(el,i){el.classList.toggle('active',order[i]===t);});
   if(t==='trading')renderTradingDesk();
   if(t==='dashboard'){loadDashboardNews();loadMacroWidget();}
   if(t==='watchlist')refreshWatchlist();
+}
+
+// Unified scanner market toggle (US / IL)
+function setScannerMarket(mkt){
+  var isUs=mkt==='us';
+  document.getElementById('scanner-us').style.display=isUs?'block':'none';
+  document.getElementById('scanner-il').style.display=isUs?'none':'block';
+  document.getElementById('market-us-btn').classList.toggle('active',isUs);
+  document.getElementById('market-il-btn').classList.toggle('active',!isUs);
+  document.getElementById('scanner-title').textContent=isUs?'🔍 סורק הזדמנויות – S&P 500 + NASDAQ 100 (ארה"ב)':'🔍 סורק הזדמנויות – בורסת תל אביב (TA-125)';
 }
 
 // ── Analyzer ──
