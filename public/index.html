@@ -515,6 +515,17 @@
     </div>
   </div>
 
+  <!-- Accuracy diagnostic dashboard -->
+  <div class="card" style="margin-bottom:16px;" id="pf-audit-card">
+    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+      <span><span class="dot"></span>🩺 אבחון דיוק ותשואה - כל התיקים שנבנו</span>
+      <button class="scan-btn" style="padding:7px 16px;font-size:12px;" onclick="runPortfolioAudit()" id="pf-audit-btn">🔄 בדוק דיוק כעת</button>
+    </div>
+    <div class="card-body" id="pf-audit-body">
+      <div style="font-size:12px;color:var(--muted);">לחץ "בדוק דיוק כעת" כדי לראות סטטיסטיקה מצטברת על כמה התיקים שה-AI בנה בעבר באמת הניבו תשואה חיובית.</div>
+    </div>
+  </div>
+
   <!-- Saved portfolios bar -->
   <div class="history-bar">
     <div class="history-title">📁 תיקים שמורים (לחץ לבדיקת ביצועים)</div>
@@ -1377,6 +1388,88 @@ function executePortfolioToTradingDesk(){
     btn.disabled=false;
     btn.textContent='🚀 בצע תיק זה בדסק מסחר מדומה';
   });
+}
+
+// ══ Portfolio Accuracy Audit (aggregate across all saved portfolios) ══
+function formatShortDate(iso){
+  var d=new Date(iso);
+  return d.getDate()+'/'+(d.getMonth()+1)+'/'+d.getFullYear();
+}
+
+function runPortfolioAudit(){
+  var saved=getSavedPortfolios();
+  var bodyEl=document.getElementById('pf-audit-body');
+  var btnEl=document.getElementById('pf-audit-btn');
+
+  if(saved.length===0){
+    bodyEl.innerHTML='<div style="font-size:12px;color:var(--muted);">עדיין אין תיקים שמורים לבדיקה. בנה תיק ולחץ "שמור תיק זה למעקב" כדי שיתחיל להצטבר כאן היסטוריית דיוק.</div>';
+    return;
+  }
+
+  btnEl.disabled=true;
+  btnEl.textContent='⏳ בודק...';
+  bodyEl.innerHTML='<div class="scan-loading" style="display:block;padding:30px 0;"><div class="spinner"></div><div class="loading-text">שולף מחירים נוכחיים לכל '+saved.length+' התיקים...</div></div>';
+
+  Promise.all(saved.map(function(p){
+    return Promise.all(p.allocations.map(function(a){
+      return fetch('/api/yahoo?ticker='+encodeURIComponent(a.ticker)).then(function(r){return r.json();}).then(function(data){
+        try{
+          var chart=data.chart.result[0];
+          return{current:chart.meta.regularMarketPrice,entry:a.entryPrice,percent:a.percent};
+        }catch(e){return{current:null,entry:a.entryPrice,percent:a.percent};}
+      }).catch(function(){return{current:null,entry:a.entryPrice,percent:a.percent};});
+    })).then(function(allocResults){
+      var weighted=0,hasValid=false,positiveHoldings=0,totalHoldings=0;
+      allocResults.forEach(function(r){
+        if(r.current!=null&&r.entry!=null&&r.entry>0){
+          var pct=(r.current-r.entry)/r.entry*100;
+          weighted+=pct*((r.percent||0)/100);
+          hasValid=true;
+          totalHoldings++;
+          if(pct>=0)positiveHoldings++;
+        }
+      });
+      return{createdAt:p.createdAt,weightedReturn:hasValid?weighted:null,positiveHoldings:positiveHoldings,totalHoldings:totalHoldings};
+    });
+  })).then(function(portfolioStats){
+    btnEl.disabled=false;
+    btnEl.textContent='🔄 בדוק דיוק כעת';
+    renderPortfolioAudit(portfolioStats);
+  });
+}
+
+function renderPortfolioAudit(stats){
+  var bodyEl=document.getElementById('pf-audit-body');
+  var valid=stats.filter(function(s){return s.weightedReturn!=null;});
+
+  if(valid.length===0){
+    bodyEl.innerHTML='<div style="font-size:12px;color:var(--muted);">לא ניתן היה לשלוף מחירים עדכניים כרגע. נסה שוב מאוחר יותר.</div>';
+    return;
+  }
+
+  var avgReturn=valid.reduce(function(s,v){return s+v.weightedReturn;},0)/valid.length;
+  var winCount=valid.filter(function(v){return v.weightedReturn>=0;}).length;
+  var winRate=(winCount/valid.length*100);
+  var totalHoldingsSum=valid.reduce(function(s,v){return s+v.totalHoldings;},0);
+  var positiveHoldingsSum=valid.reduce(function(s,v){return s+v.positiveHoldings;},0);
+  var holdingAccuracy=totalHoldingsSum>0?(positiveHoldingsSum/totalHoldingsSum*100):null;
+  var best=valid.reduce(function(a,b){return b.weightedReturn>a.weightedReturn?b:a;},valid[0]);
+  var worst=valid.reduce(function(a,b){return b.weightedReturn<a.weightedReturn?b:a;},valid[0]);
+
+  var avgColor=avgReturn>=0?'var(--green)':'var(--red)';
+  var avgStr=(avgReturn>=0?'+':'')+avgReturn.toFixed(2)+'%';
+
+  bodyEl.innerHTML=
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;">'+
+      '<div class="stat-box"><div class="stat-val" style="color:var(--accent);font-size:20px;">'+valid.length+'</div><div class="stat-lbl">תיקים שנבדקו</div></div>'+
+      '<div class="stat-box"><div class="stat-val" style="color:'+avgColor+';font-size:20px;">'+avgStr+'</div><div class="stat-lbl">תשואה ממוצעת</div></div>'+
+      '<div class="stat-box"><div class="stat-val" style="color:var(--accent2);font-size:20px;">'+winRate.toFixed(0)+'%</div><div class="stat-lbl">תיקים ברווח</div></div>'+
+      (holdingAccuracy!=null?'<div class="stat-box"><div class="stat-val" style="color:var(--accent2);font-size:20px;">'+holdingAccuracy.toFixed(0)+'%</div><div class="stat-lbl">דיוק בחירת מניה בודדת</div></div>':'')+
+    '</div>'+
+    '<div style="margin-top:14px;font-size:12px;color:var(--muted);line-height:1.8;">'+
+      '🏆 התיק הכי מוצלח: '+formatShortDate(best.createdAt)+' · <span style="color:var(--green);font-family:var(--mono);">'+(best.weightedReturn>=0?'+':'')+best.weightedReturn.toFixed(1)+'%</span><br>'+
+      '📉 התיק החלש ביותר: '+formatShortDate(worst.createdAt)+' · <span style="color:var(--red);font-family:var(--mono);">'+(worst.weightedReturn>=0?'+':'')+worst.weightedReturn.toFixed(1)+'%</span>'+
+    '</div>';
 }
 
 function renderSavedList(){
