@@ -201,10 +201,10 @@
 
   <div id="dash-empty" class="scan-empty">
     <div style="font-size:44px;margin-bottom:14px;opacity:0.4;">📰</div>
-    <p style="font-size:13px;line-height:1.7;">לחץ "רענן חדשות" כדי לטעון חדשות שוק עדכניות<br>עם תרגום לעברית וניתוח השפעה סקטוריאלית</p>
+    <p style="font-size:13px;line-height:1.7;">לחץ "רענן חדשות" כדי לטעון חדשות מהבורסה לניירות ערך<br>עם ניתוח השפעה קצרת וארוכת טווח על המניה הרלוונטית</p>
   </div>
 
-  <div style="margin-top:16px;" class="disclaimer">⚠️ החדשות מ-Yahoo Finance RSS. התרגום והניתוח הסקטוריאלי מבוצעים על ידי AI ועשויים לא להיות מדויקים ב-100%.</div>
+  <div style="margin-top:16px;" class="disclaimer">⚠️ החדשות מאתר הבורסה לניירות ערך בתל אביב (TASE). ניתוח ההשפעה קצרת/ארוכת הטווח מבוצע על ידי AI ועשוי לא להיות מדויק ב-100%. אין לראות בכך המלצה או ייעוץ השקעות.</div>
 </div>
 </div>
 
@@ -614,12 +614,13 @@
         <th>סימול</th><th>מחיר</th><th>שינוי %</th><th>RSI</th>
         <th>כוח קונים</th><th>מ-52ש"נ</th>
         <th>ציון</th><th>סיגנל</th>
+        <th>🔔 מחיר יעד</th><th>כיוון</th><th>התראה</th>
         <th>גרף</th><th>פעולה</th>
       </tr></thead>
       <tbody id="wl-tbody"></tbody>
     </table>
   </div>
-  <div style="margin-top:16px;" class="disclaimer">⚠️ נתונים מ-Yahoo Finance. הרשימה נשמרת בדפדפן זה בלבד (localStorage).</div>
+  <div style="margin-top:16px;" class="disclaimer">⚠️ נתונים מ-Yahoo Finance. הרשימה והתראות המחיר נשמרות בדפדפן זה בלבד (localStorage). ⚠️ ההתראות פועלות רק כשהדף פתוח בדפדפן וב"רענן מחירים" — הן לא רצות ברקע כשהמחשב כבוי. התראה נשלחת פעם אחת בלבד לכל חצייה, ומתאפסת אוטומטית אם תשנה את מחיר היעד.</div>
 </div>
 </div>
 
@@ -2182,7 +2183,7 @@ function renderFundamentalResults(d,ticker){
 }
 
 // ══════════════════════════════════════
-// DASHBOARD - NEWS FEED + SECTOR IMPACT
+// DASHBOARD - TASE NEWS + SHORT/LONG-TERM IMPACT
 // ══════════════════════════════════════
 var _dashNewsLoaded=false;
 
@@ -2191,25 +2192,18 @@ function loadDashboardNews(){
   document.getElementById('dash-news-container').style.display='none';
   document.getElementById('dash-loading').style.display='block';
 
-  fetch('/api/yahoo-news?category=market')
-    .then(function(r){return r.text();})
-    .then(function(xml){
-      var parser=new DOMParser();
-      var doc=parser.parseFromString(xml,'text/xml');
-      var items=doc.querySelectorAll('item');
-      var news=[];
-      items.forEach(function(item,i){
-        if(i>=8)return; // Limit to 8 articles
-        var title=item.querySelector('title');
-        var link=item.querySelector('link');
-        var pubDate=item.querySelector('pubDate');
-        var desc=item.querySelector('description');
-        news.push({
-          title:title?title.textContent:'',
-          link:link?link.textContent:'',
-          date:pubDate?pubDate.textContent:'',
-          description:desc?desc.textContent.replace(/<[^>]*>/g,'').substring(0,200):''
-        });
+  fetch('/api/tase-news')
+    .then(function(r){return r.json();})
+    .then(function(data){
+      var items=(data.items||[]).slice(0,8);
+      var news=items.map(function(it){
+        return {
+          title:it.newsTitle||'',
+          description:(it.newsDescription||'').replace(/\n+/g,' ').trim().substring(0,400),
+          link:(it.link&&it.link.url)?it.link.url:'',
+          date:it.date||'',
+          tags:(it.tags||[]).map(function(t){return t.name;}).join(', ')
+        };
       });
 
       if(news.length===0){
@@ -2218,25 +2212,29 @@ function loadDashboardNews(){
         return;
       }
 
-      // Send to Claude for translation + sector analysis
       var newsText=news.map(function(n,i){return (i+1)+'. '+n.title+'\n   '+n.description;}).join('\n\n');
 
-      var prompt='אתה אנליסט שוק ההון. לפניך 8 כותרות חדשות אחרונות מ-Yahoo Finance:\n\n'+newsText+'\n\n'+
+      var prompt='אתה אנליסט שוק הון שמסביר לאדם פשוט, לא מקצועי, האם כדאי לו להתעניין במניה מסוימת. לפניך '+news.length+' ידיעות אחרונות מאתר הבורסה בתל אביב (TASE):\n\n'+newsText+'\n\n'+
+        'עבור כל ידיעה, ענה בקצרה וברור:\n'+
+        '1. שם החברה - תמיד תן שם, גם אם זו רק ההשערה הכי סבירה שלך על סמך הידיעה. אם באמת אין שום חברה ספציפית (למשל ידיעה על הבורסה עצמה או על השוק כולו), כתוב "שוק כללי".\n'+
+        '2. הסקטור שמושפע (למשל: בנקים, נדל"ן, טכנולוגיה, ביטחון, אנרגיה, קמעונאות וכו׳).\n'+
+        '3. ניתוח קצר - משפט אחד בלבד, בשפה פשוטה, בלי ז׳רגון.\n'+
+        '4. ציון השפעה מיידית (טווח קצר, ימים-שבועות) בין 1 ל-10, שעוזר להחליט אם כדאי להתעניין בכניסה עכשיו: 1-3=השפעה חלשה/לא דחוף, 4-6=השפעה בינונית/שווה מעקב, 7-10=השפעה חזקה/דחוף לבדוק.\n'+
+        '5. כיוון ההשפעה (חיובי/שלילי/ניטרלי) גם לטווח קצר וגם לטווח ארוך (חודשים ומעלה), עם עוצמה 1-3 לכל אחד.\n\n'+
         'החזר JSON בלבד ללא backticks:\n'+
         '{"news":[\n'+
-        '  {"title_he":"כותרת בעברית","summary_he":"סיכום קצר בעברית (משפט אחד)","sector_impact":[{"sector":"שם הסקטור","direction":"חיובי/שלילי/ניטרלי","strength":מספר_1_עד_3,"explanation":"הסבר קצר מאוד"}],"importance":"גבוהה/בינונית/נמוכה"},\n'+
+        '  {"title_he":"כותרת קצרה וברורה (עד 12 מילים)","entity":"שם החברה או שוק כללי","sector":"שם הסקטור","short_analysis":"משפט אחד פשוט וברור","immediate_score":מספר_1_עד_10,"short_term":{"direction":"חיובי/שלילי/ניטרלי","strength":מספר_1_עד_3},"long_term":{"direction":"חיובי/שלילי/ניטרלי","strength":מספר_1_עד_3},"importance":"גבוהה/בינונית/נמוכה"},\n'+
         '  ...\n'+
         '],\n'+
-        '"market_mood":"סנטימנט כללי של השוק על בסיס החדשות (משפט אחד)",\n'+
+        '"market_mood":"סנטימנט כללי של השוק על בסיס הידיעות (משפט אחד)",\n'+
         '"market_mood_score": מספר_1_עד_10_כש_1_פחד_ו_10_חמדנות\n'+
-        '}\n\n'+
-        'תרגם הכל לעברית טבעית. תן sector_impact של 1-2 סקטורים לכל חדשה. strength הוא דירוג עוצמת ההשפעה: 1=נמוכה, 2=בינונית, 3=גבוהה מאוד. importance מבוססת על השפעה פוטנציאלית על השוק.';
+        '}';
 
       return fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:4000,messages:[{role:'user',content:[{type:'text',text:prompt}]}]})})
         .then(function(r2){return r2.json();})
-        .then(function(data){
-          if(data.error)throw new Error(data.error.message||JSON.stringify(data.error));
-          var raw=(data.content||[]).map(function(b){return b.text||'';}).join('').trim();
+        .then(function(data2){
+          if(data2.error)throw new Error(data2.error.message||JSON.stringify(data2.error));
+          var raw=(data2.content||[]).map(function(b){return b.text||'';}).join('').trim();
           var parsed=JSON.parse(raw.replace(/```json|```/g,'').trim());
           renderDashboardNews(parsed,news);
         });
@@ -2249,6 +2247,24 @@ function loadDashboardNews(){
     });
 }
 
+function bullBearIcons(direction,strength){
+  var s=strength||1;
+  if(direction==='חיובי')return s>=3?'🐂🐂🐂':s>=2?'🐂🐂':'🐂';
+  if(direction==='שלילי')return s>=3?'🐻🐻🐻':s>=2?'🐻🐻':'🐻';
+  return '➖';
+}
+
+function scoreColor(score){
+  if(score>=7)return 'var(--red)';
+  if(score>=4)return 'var(--accent2)';
+  return 'var(--muted)';
+}
+function scoreLabel(score){
+  if(score>=7)return 'דחוף לבדוק';
+  if(score>=4)return 'שווה מעקב';
+  return 'לא דחוף';
+}
+
 function renderDashboardNews(parsed,originalNews){
   document.getElementById('dash-loading').style.display='none';
   var container=document.getElementById('dash-news-container');
@@ -2256,44 +2272,35 @@ function renderDashboardNews(parsed,originalNews){
 
   var moodScore=parsed.market_mood_score||5;
   var moodColor=moodScore>=7?'var(--green)':moodScore<=3?'var(--red)':'var(--accent2)';
-  var moodLabel=moodScore>=7?'חמדנות':moodScore<=3?'פחד':'ניטרלי';
   var moodEmoji=moodScore>=7?'🟢':moodScore<=3?'🔴':'🟡';
 
   var newsCards=(parsed.news||[]).map(function(n,i){
     var orig=originalNews[i]||{};
-    var importanceColor=n.importance==='גבוהה'?'var(--red)':n.importance==='בינונית'?'var(--accent2)':'var(--muted)';
-    var importanceBg=n.importance==='גבוהה'?'rgba(255,77,106,0.1)':n.importance==='בינונית'?'rgba(245,166,35,0.1)':'rgba(100,116,139,0.1)';
+    var st=n.short_term||{};
+    var lt=n.long_term||{};
+    var iScore=n.immediate_score||1;
+    var sColor=scoreColor(iScore);
 
-    var sectorBadges=(n.sector_impact||[]).map(function(s){
-      var sColor=s.direction==='חיובי'?'var(--green)':s.direction==='שלילי'?'var(--red)':'var(--muted)';
-      var strength=s.strength||1;
-      var icons='';
-      if(s.direction==='חיובי'){
-        icons=strength>=3?'🐂🐂🐂':strength>=2?'🐂🐂':'🐂';
-      }else if(s.direction==='שלילי'){
-        icons=strength>=3?'🐻🐻🐻':strength>=2?'🐻🐻':'🐻';
-      }else{
-        icons='➖';
-      }
-      return '<div style="display:inline-flex;align-items:center;gap:4px;background:var(--surface2);border-radius:6px;padding:3px 8px;font-size:11px;margin-left:6px;margin-bottom:4px;">'+
-        '<span>'+icons+'</span>'+
-        '<span style="color:var(--text);">'+s.sector+'</span>'+
-      '</div>';
-    }).join('');
-
-    return '<div class="card" style="margin-bottom:12px;border-right:4px solid '+importanceColor+'"><div class="card-body" style="padding:14px 18px;">'+
-      '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">'+
+    return '<div class="card" style="margin-bottom:12px;border-right:4px solid '+sColor+'"><div class="card-body" style="padding:14px 18px;">'+
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px;">'+
         '<div style="flex:1;">'+
+          '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">'+
+            '<span class="ticker-cell" style="font-size:12px;background:var(--surface2);padding:2px 8px;border-radius:6px;">🏢 '+(n.entity||'שוק כללי')+'</span>'+
+            '<span style="font-size:12px;color:var(--accent);background:rgba(0,212,168,0.08);padding:2px 8px;border-radius:6px;">📂 '+(n.sector||'—')+'</span>'+
+          '</div>'+
           '<div style="font-size:15px;font-weight:700;line-height:1.5;margin-bottom:4px;">'+(n.title_he||'')+'</div>'+
-          '<div style="font-size:12px;color:var(--muted);line-height:1.5;">'+(n.summary_he||'')+'</div>'+
+          '<div style="font-size:13px;color:var(--text);line-height:1.6;">'+(n.short_analysis||'')+'</div>'+
         '</div>'+
-        '<div style="margin-right:12px;min-width:60px;text-align:center;">'+
-          '<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:'+importanceBg+';color:'+importanceColor+';font-weight:600;">'+(n.importance||'')+'</span>'+
+        '<div style="text-align:center;min-width:64px;flex-shrink:0;">'+
+          '<div style="font-family:var(--mono);font-size:22px;font-weight:800;color:'+sColor+';">'+iScore+'</div>'+
+          '<div style="font-size:9px;color:var(--muted);">/10</div>'+
+          '<div style="font-size:10px;color:'+sColor+';font-weight:600;margin-top:2px;white-space:nowrap;">'+scoreLabel(iScore)+'</div>'+
         '</div>'+
       '</div>'+
-      '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;">'+
-        '<div>'+sectorBadges+'</div>'+
-        (orig.link?'<a href="'+orig.link+'" target="_blank" style="font-size:11px;color:var(--accent);text-decoration:none;">קרא עוד ↗</a>':'')+
+      '<div style="display:flex;gap:16px;font-size:12px;">'+
+        '<div><span style="color:var(--muted);">קצר: </span>'+bullBearIcons(st.direction,st.strength)+'</div>'+
+        '<div><span style="color:var(--muted);">ארוך: </span>'+bullBearIcons(lt.direction,lt.strength)+'</div>'+
+        (orig.link?'<a href="'+orig.link+'" target="_blank" style="margin-right:auto;color:var(--accent);text-decoration:none;font-size:11px;">קרא עוד ↗</a>':'')+
       '</div>'+
     '</div></div>';
   }).join('');
@@ -2321,7 +2328,7 @@ function renderDashboardNews(parsed,originalNews){
     '</div></div>'+
 
     // News cards
-    '<div class="card-header" style="background:none;border:none;padding:0 4px 10px;">📰 חדשות אחרונות (מתורגם מ-Yahoo Finance)</div>'+
+    '<div class="card-header" style="background:none;border:none;padding:0 4px 10px;">📰 חדשות הבורסה (TASE) — חברה, סקטור וציון השפעה מיידית</div>'+
     newsCards;
 
   _dashNewsLoaded=true;
@@ -2402,7 +2409,7 @@ function refreshWatchlist(){
     tbody.innerHTML=results.map(function(r){
       var q=r.q;
       if(!q){
-        return '<tr><td class="ticker-cell">'+r.ticker+'</td><td colspan="7" style="color:var(--muted);">לא ניתן לטעון נתונים כרגע</td>'+
+        return '<tr><td class="ticker-cell">'+r.ticker+'</td><td colspan="10" style="color:var(--muted);">לא ניתן לטעון נתונים כרגע</td>'+
           '<td><button class="close-pos-btn" onclick="removeFromWatchlist(\''+r.ticker+'\')">הסר</button></td></tr>';
       }
       var pStr=(q.pct>=0?'+':'')+q.pct.toFixed(2)+'%';
@@ -2412,6 +2419,10 @@ function refreshWatchlist(){
       var sp=q.signal==='BUY'?'buy':q.signal==='SELL'?'sell':'wait';
       var sh=q.signal==='BUY'?'קנייה':q.signal==='SELL'?'מכירה':'המתנה';
       var priceSymbol=r.ticker.indexOf('.TA')>=0?'₪':'$';
+      var alert=getPriceAlerts()[r.ticker]||{target:'',direction:'above',enabled:false,triggered:false};
+      var safeId=r.ticker.replace(/[^a-zA-Z0-9]/g,'');
+      var bellLabel=alert.enabled?(alert.triggered?'✅ נשלח':'🔔 פעיל'):'⚪ כבוי';
+      var bellColor=alert.enabled?(alert.triggered?'var(--muted)':'var(--green)'):'var(--muted)';
       return '<tr>'+
         '<td class="ticker-cell">'+r.ticker+'</td>'+
         '<td style="font-family:var(--mono)">'+priceSymbol+q.price.toFixed(2)+'</td>'+
@@ -2421,10 +2432,92 @@ function refreshWatchlist(){
         '<td>'+render52Badge(q.pctFrom52Low,q.pctFrom52High)+'</td>'+
         '<td><div class="score-bar-wrap"><div class="score-bar"><div class="score-fill" style="width:'+q.score+'%;background:'+sc+'"></div></div><span class="score-num" style="color:'+sc+'">'+q.score+'</span></div></td>'+
         '<td><span class="signal-pill '+sp+'">'+sh+'</span></td>'+
+        '<td><input type="text" class="alert-input" style="width:80px;" id="wl-target-'+safeId+'" value="'+(alert.target||'')+'" placeholder="'+q.price.toFixed(2)+'" onblur="saveAlertTarget(\''+r.ticker+'\')"></td>'+
+        '<td><select class="alert-input" style="width:70px;" id="wl-dir-'+safeId+'" onchange="saveAlertTarget(\''+r.ticker+'\')">'+
+          '<option value="above"'+(alert.direction==='above'?' selected':'')+'>מעל ↑</option>'+
+          '<option value="below"'+(alert.direction==='below'?' selected':'')+'>מתחת ↓</option>'+
+        '</select></td>'+
+        '<td><button class="close-pos-btn" style="border-color:'+bellColor+';color:'+bellColor+';" onclick="togglePriceAlert(\''+r.ticker+'\')">'+bellLabel+'</button></td>'+
         '<td><a href="https://finance.yahoo.com/chart/'+r.ticker+'" target="_blank" class="chart-link">גרף ↗</a></td>'+
         '<td><button class="close-pos-btn" onclick="removeFromWatchlist(\''+r.ticker+'\')">הסר</button></td>'+
         '</tr>';
     }).join('');
+    checkPriceAlerts(results);
+  });
+}
+
+// ══ Price Alerts (per-watchlist-ticker) ══
+function getPriceAlerts(){
+  try{return JSON.parse(localStorage.getItem('tv_price_alerts')||'{}');}catch(e){return {};}
+}
+function setPriceAlerts(obj){
+  localStorage.setItem('tv_price_alerts',JSON.stringify(obj));
+}
+
+function saveAlertTarget(ticker){
+  var safeId=ticker.replace(/[^a-zA-Z0-9]/g,'');
+  var targetInput=document.getElementById('wl-target-'+safeId);
+  var dirSelect=document.getElementById('wl-dir-'+safeId);
+  if(!targetInput||!dirSelect)return;
+  var targetVal=parseFloat(targetInput.value);
+  var alerts=getPriceAlerts();
+  var existing=alerts[ticker]||{enabled:false,triggered:false};
+  existing.target=isNaN(targetVal)?'':targetVal;
+  existing.direction=dirSelect.value;
+  existing.triggered=false; // reset trigger when target/direction changes
+  alerts[ticker]=existing;
+  setPriceAlerts(alerts);
+}
+
+function togglePriceAlert(ticker){
+  var alerts=getPriceAlerts();
+  var existing=alerts[ticker]||{target:'',direction:'above',enabled:false,triggered:false};
+  if(!existing.target&&existing.target!==0){
+    alert('קודם הכנס מחיר יעד לפני הפעלת ההתראה');
+    return;
+  }
+  existing.enabled=!existing.enabled;
+  if(existing.enabled)existing.triggered=false; // reset on re-enable
+  alerts[ticker]=existing;
+  setPriceAlerts(alerts);
+  refreshWatchlist();
+}
+
+function checkPriceAlerts(results){
+  var alerts=getPriceAlerts();
+  var changed=false;
+  results.forEach(function(r){
+    var q=r.q;
+    if(!q)return;
+    var a=alerts[r.ticker];
+    if(!a||!a.enabled||a.triggered)return;
+    if(a.target==null||a.target==='')return;
+    var crossed=(a.direction==='above'&&q.price>=a.target)||(a.direction==='below'&&q.price<=a.target);
+    if(crossed){
+      sendPriceAlertEmail(r.ticker,q.price,a.target,a.direction);
+      a.triggered=true;
+      changed=true;
+    }
+  });
+  if(changed){
+    setPriceAlerts(alerts);
+    refreshWatchlist();
+  }
+}
+
+function sendPriceAlertEmail(ticker,currentPrice,targetPrice,direction){
+  var dirLabel=direction==='above'?'עלה מעל':'ירד מתחת ל';
+  emailjs.send('service_q8gw0ao','template_4ekkj96',{
+    ticker:ticker,
+    score:'—',
+    prev_score:'—',
+    price:currentPrice.toFixed(2),
+    signal:'🔔 התראת מחיר: '+ticker+' '+dirLabel+' '+targetPrice,
+    entry:targetPrice,
+    target:currentPrice.toFixed(2),
+    stop_loss:'—',
+    rr:'—',
+    chart_link:'https://finance.yahoo.com/chart/'+ticker
   });
 }
 </script>
