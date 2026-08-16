@@ -162,6 +162,45 @@
   .order-status-pill.filled{background:rgba(0,212,168,0.15);color:var(--green);border:1px solid rgba(0,212,168,0.3);}
   .order-status-pill.stopped{background:rgba(255,77,106,0.15);color:var(--red);border:1px solid rgba(255,77,106,0.3);}
   .td-empty-state{padding:40px 20px;text-align:center;color:var(--muted);font-size:13px;}
+
+  /* ══════════════════════════════════════
+     MOBILE RESPONSIVENESS
+     ══════════════════════════════════════ */
+  @media(max-width:768px){
+    header{padding:12px 16px;gap:10px;}
+    .logo-text{font-size:15px;}
+    .logo-sub{font-size:9px;}
+    .header-badge{font-size:9px;padding:3px 8px;}
+
+    /* Scrollable tabs bar with snap, no wrap */
+    .tabs{padding:0 8px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+    .tabs::-webkit-scrollbar{display:none;}
+    .tab{padding:12px 14px;font-size:13px;white-space:nowrap;flex-shrink:0;scroll-snap-align:start;}
+    .tabs{scroll-snap-type:x proximity;}
+
+    main{grid-template-columns:1fr;padding:16px 12px;gap:16px;}
+    .scanner-wrap,.td-wrap{padding:16px 12px;}
+    .scanner-top{flex-direction:column;align-items:stretch;gap:10px;}
+    .scanner-top h2{font-size:15px;}
+    .filter-row{width:100%;}
+    .field-row{grid-template-columns:1fr;gap:10px;}
+    .td-order-row{grid-template-columns:1fr;gap:10px;}
+    .scan-stats,.td-stats-row{grid-template-columns:repeat(2,1fr);}
+    #macro-widget{grid-template-columns:repeat(2,1fr)!important;}
+
+    /* Responsive tables → stacked cards (uses data-label attrs set in JS) */
+    .results-table-wrap table,.td-positions-table table{min-width:0;}
+    .responsive-table thead{display:none;}
+    .responsive-table tbody tr{display:block;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;padding:10px 12px;}
+    .responsive-table tbody td{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(30,39,64,0.4);font-size:13px;text-align:left;}
+    .responsive-table tbody td:last-child{border-bottom:none;}
+    .responsive-table tbody td::before{content:attr(data-label);font-size:11px;color:var(--muted);font-family:var(--mono);margin-left:10px;}
+    .results-table-wrap,.td-positions-table{overflow-x:visible;}
+
+    .alert-bar{flex-direction:column;align-items:stretch;gap:10px;}
+    .alert-msg{margin-right:0;}
+    .history-chips{overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;padding-bottom:4px;}
+  }
 </style>
 </head>
 <body>
@@ -352,7 +391,7 @@
   </div>
 
   <div class="results-table-wrap" id="scan-results" style="display:none;">
-    <table>
+    <table class="responsive-table">
       <thead><tr>
         <th>סימול</th><th>מחיר</th><th>שינוי %</th><th>RSI</th>
         <th>P/E</th><th>מ-52ש"נ</th><th>כוח קונים</th>
@@ -403,7 +442,7 @@
   </div>
 
   <div class="results-table-wrap" id="ta-scan-results" style="display:none;">
-    <table>
+    <table class="responsive-table">
       <thead><tr>
         <th>סימול</th><th>מחיר (₪)</th><th>שינוי %</th><th>RSI</th>
         <th>מ-52ש"נ</th><th>כוח קונים</th>
@@ -520,7 +559,7 @@
   <!-- Open positions -->
   <div class="td-section-title" id="td-positions-title" style="display:none;">📊 פוזיציות פתוחות</div>
   <div id="td-positions-table" class="td-positions-table" style="display:none;">
-    <table>
+    <table class="responsive-table">
       <thead><tr>
         <th>סימול</th><th>כיוון</th><th>כמות</th><th>מחיר כניסה</th><th>מחיר נוכחי</th>
         <th>שווי</th><th>P&L</th><th>Stop Loss</th><th>יעד</th><th>פעולה</th>
@@ -532,7 +571,7 @@
   <!-- Order history -->
   <div class="td-section-title" id="td-history-title" style="display:none;">📜 היסטוריית הזמנות</div>
   <div id="td-history-table" class="td-positions-table" style="display:none;">
-    <table>
+    <table class="responsive-table">
       <thead><tr>
         <th>תאריך</th><th>סימול</th><th>כיוון</th><th>כמות</th><th>מחיר</th><th>סטטוס</th><th>P&L סופי</th>
       </tr></thead>
@@ -617,7 +656,7 @@
   </div>
 
   <div class="results-table-wrap" id="wl-results" style="display:none;">
-    <table>
+    <table class="responsive-table">
       <thead><tr>
         <th>סימול</th><th>מחיר</th><th>שינוי %</th><th>RSI</th>
         <th>כוח קונים</th><th>מ-52ש"נ</th>
@@ -967,21 +1006,21 @@ function renderTable(){
       var prevCell=prev?(prev<r.score?'<span class="prev-score score-up">↑ '+prev+'</span>':'<span class="prev-score">'+prev+'</span>'):'<span class="prev-score">—</span>';
       var hot=r.score>=thr?'<span class="hot-badge">🔔 חם</span>':'';
       return '<tr>'+
-        '<td class="ticker-cell">'+hot+r.ticker+'</td>'+
-        '<td style="font-family:var(--mono)">$'+r.price.toFixed(2)+'</td>'+
-        '<td class="'+pc+'">'+pStr+'</td>'+
-        '<td class="rsi-val '+rc+'">'+r.rsi+'</td>'+
-        '<td>'+renderPE(r.pe)+'</td>'+
-        '<td>'+render52Badge(r.pctFrom52Low,r.pctFrom52High)+'</td>'+
-        '<td>'+renderObvBadge(r.obvSignal)+'</td>'+
-        '<td><div class="score-bar-wrap"><div class="score-bar"><div class="score-fill" style="width:'+r.score+'%;background:'+sc+'"></div></div><span class="score-num" style="color:'+sc+'">'+r.score+'</span></div></td>'+
-        '<td>'+prevCell+'</td>'+
-        '<td><span class="signal-pill '+sp+'">'+sh+'</span></td>'+
-        '<td class="p-entry">$'+r.entry+'</td>'+
-        '<td class="p-target">$'+r.target+'</td>'+
-        '<td class="p-sl">$'+r.stopLoss+'</td>'+
-        '<td><span class="rr-pill">'+r.rr+'</span></td>'+
-        '<td><a href="https://finance.yahoo.com/chart/'+r.ticker+'" target="_blank" class="chart-link">גרף ↗</a></td>'+
+        '<td class="ticker-cell" data-label="סימול">'+hot+r.ticker+'</td>'+
+        '<td data-label="מחיר" style="font-family:var(--mono)">$'+r.price.toFixed(2)+'</td>'+
+        '<td class="'+pc+'" data-label="שינוי %">'+pStr+'</td>'+
+        '<td class="rsi-val '+rc+'" data-label="RSI">'+r.rsi+'</td>'+
+        '<td data-label="P/E">'+renderPE(r.pe)+'</td>'+
+        '<td data-label="מ-52ש&quot;נ">'+render52Badge(r.pctFrom52Low,r.pctFrom52High)+'</td>'+
+        '<td data-label="כוח קונים">'+renderObvBadge(r.obvSignal)+'</td>'+
+        '<td data-label="ציון"><div class="score-bar-wrap"><div class="score-bar"><div class="score-fill" style="width:'+r.score+'%;background:'+sc+'"></div></div><span class="score-num" style="color:'+sc+'">'+r.score+'</span></div></td>'+
+        '<td data-label="ציון קודם">'+prevCell+'</td>'+
+        '<td data-label="סיגנל"><span class="signal-pill '+sp+'">'+sh+'</span></td>'+
+        '<td class="p-entry" data-label="כניסה">$'+r.entry+'</td>'+
+        '<td class="p-target" data-label="יעד">$'+r.target+'</td>'+
+        '<td class="p-sl" data-label="Stop Loss">$'+r.stopLoss+'</td>'+
+        '<td data-label="R/R"><span class="rr-pill">'+r.rr+'</span></td>'+
+        '<td data-label="גרף"><a href="https://finance.yahoo.com/chart/'+r.ticker+'" target="_blank" class="chart-link">גרף ↗</a></td>'+
         '</tr>';
     }).join('');
   }
@@ -1043,19 +1082,19 @@ function renderTaTable(){
       var sh=r.signal==='BUY'?'קנייה':r.signal==='SELL'?'מכירה':'המתנה';
       var cleanTicker=r.ticker.replace('.TA','');
       return '<tr>'+
-        '<td class="ticker-cell">'+cleanTicker+'</td>'+
-        '<td style="font-family:var(--mono)">₪'+r.price.toFixed(2)+'</td>'+
-        '<td class="'+pc+'">'+pStr+'</td>'+
-        '<td class="rsi-val '+rc+'">'+r.rsi+'</td>'+
-        '<td>'+render52Badge(r.pctFrom52Low,r.pctFrom52High)+'</td>'+
-        '<td>'+renderObvBadge(r.obvSignal)+'</td>'+
-        '<td><div class="score-bar-wrap"><div class="score-bar"><div class="score-fill" style="width:'+r.score+'%;background:'+sc+'"></div></div><span class="score-num" style="color:'+sc+'">'+r.score+'</span></div></td>'+
-        '<td><span class="signal-pill '+sp+'">'+sh+'</span></td>'+
-        '<td class="p-entry">₪'+r.entry+'</td>'+
-        '<td class="p-target">₪'+r.target+'</td>'+
-        '<td class="p-sl">₪'+r.stopLoss+'</td>'+
-        '<td><span class="rr-pill">'+r.rr+'</span></td>'+
-        '<td><a href="https://finance.yahoo.com/chart/'+r.ticker+'" target="_blank" class="chart-link">גרף ↗</a></td>'+
+        '<td class="ticker-cell" data-label="סימול">'+cleanTicker+'</td>'+
+        '<td data-label="מחיר" style="font-family:var(--mono)">₪'+r.price.toFixed(2)+'</td>'+
+        '<td class="'+pc+'" data-label="שינוי %">'+pStr+'</td>'+
+        '<td class="rsi-val '+rc+'" data-label="RSI">'+r.rsi+'</td>'+
+        '<td data-label="מ-52ש&quot;נ">'+render52Badge(r.pctFrom52Low,r.pctFrom52High)+'</td>'+
+        '<td data-label="כוח קונים">'+renderObvBadge(r.obvSignal)+'</td>'+
+        '<td data-label="ציון"><div class="score-bar-wrap"><div class="score-bar"><div class="score-fill" style="width:'+r.score+'%;background:'+sc+'"></div></div><span class="score-num" style="color:'+sc+'">'+r.score+'</span></div></td>'+
+        '<td data-label="סיגנל"><span class="signal-pill '+sp+'">'+sh+'</span></td>'+
+        '<td class="p-entry" data-label="כניסה">₪'+r.entry+'</td>'+
+        '<td class="p-target" data-label="יעד">₪'+r.target+'</td>'+
+        '<td class="p-sl" data-label="Stop Loss">₪'+r.stopLoss+'</td>'+
+        '<td data-label="R/R"><span class="rr-pill">'+r.rr+'</span></td>'+
+        '<td data-label="גרף"><a href="https://finance.yahoo.com/chart/'+r.ticker+'" target="_blank" class="chart-link">גרף ↗</a></td>'+
         '</tr>';
     }).join('');
   }
@@ -1675,16 +1714,16 @@ function renderTradingDesk(){
         var sourceBadge=p.sourceLabel?'<span style="font-size:9px;color:var(--accent);background:rgba(0,212,168,0.1);border:1px solid rgba(0,212,168,0.3);border-radius:6px;padding:1px 6px;margin-right:4px;">🧠 AI</span>':'';
 
         return '<tr>'+
-          '<td class="ticker-cell">'+sourceBadge+p.ticker+'</td>'+
-          '<td>'+dirLabel+'</td>'+
-          '<td style="font-family:var(--mono)">'+p.qty+'</td>'+
-          '<td style="font-family:var(--mono)">'+symbol+p.entryPrice.toFixed(2)+'</td>'+
-          '<td style="font-family:var(--mono)">'+(current!=null?symbol+current.toFixed(2):'—')+'</td>'+
-          '<td style="font-family:var(--mono)">'+(current!=null?symbol+(current*p.qty).toFixed(2):'—')+'</td>'+
-          '<td class="'+pnlClass+'" style="font-family:var(--mono);font-weight:600;">'+pnlStr+'</td>'+
-          '<td style="font-family:var(--mono);color:var(--red);">'+(p.stopLoss?symbol+p.stopLoss:'—')+'</td>'+
-          '<td style="font-family:var(--mono);color:var(--green);">'+(p.takeProfit?symbol+p.takeProfit:'—')+'</td>'+
-          '<td><button class="close-pos-btn" onclick="closePosition('+p.id+')">סגור</button></td>'+
+          '<td class="ticker-cell" data-label="סימול">'+sourceBadge+p.ticker+'</td>'+
+          '<td data-label="כיוון">'+dirLabel+'</td>'+
+          '<td data-label="כמות" style="font-family:var(--mono)">'+p.qty+'</td>'+
+          '<td data-label="מחיר כניסה" style="font-family:var(--mono)">'+symbol+p.entryPrice.toFixed(2)+'</td>'+
+          '<td data-label="מחיר נוכחי" style="font-family:var(--mono)">'+(current!=null?symbol+current.toFixed(2):'—')+'</td>'+
+          '<td data-label="שווי" style="font-family:var(--mono)">'+(current!=null?symbol+(current*p.qty).toFixed(2):'—')+'</td>'+
+          '<td class="'+pnlClass+'" data-label="P&L" style="font-family:var(--mono);font-weight:600;">'+pnlStr+'</td>'+
+          '<td data-label="Stop Loss" style="font-family:var(--mono);color:var(--red);">'+(p.stopLoss?symbol+p.stopLoss:'—')+'</td>'+
+          '<td data-label="יעד" style="font-family:var(--mono);color:var(--green);">'+(p.takeProfit?symbol+p.takeProfit:'—')+'</td>'+
+          '<td data-label="פעולה"><button class="close-pos-btn" onclick="closePosition('+p.id+')">סגור</button></td>'+
           '</tr>';
       }).join('');
 
@@ -1724,13 +1763,13 @@ function renderTradingDesk(){
       var pnlStr=h.pnl!=null?((h.pnl>=0?'+':'')+symbol+Math.abs(h.pnl).toFixed(2)):'—';
       var pnlClass=h.pnl!=null?(h.pnl>=0?'pct-pos':'pct-neg'):'';
       return '<tr>'+
-        '<td style="font-size:11px;color:var(--muted);">'+dateStr+'</td>'+
-        '<td class="ticker-cell">'+h.ticker+'</td>'+
-        '<td>'+h.direction+'</td>'+
-        '<td style="font-family:var(--mono)">'+h.qty+'</td>'+
-        '<td style="font-family:var(--mono)">'+symbol+h.price.toFixed(2)+'</td>'+
-        '<td><span class="order-status-pill '+statusClass+'">'+statusLabel+'</span></td>'+
-        '<td class="'+pnlClass+'" style="font-family:var(--mono)">'+pnlStr+'</td>'+
+        '<td data-label="תאריך" style="font-size:11px;color:var(--muted);">'+dateStr+'</td>'+
+        '<td class="ticker-cell" data-label="סימול">'+h.ticker+'</td>'+
+        '<td data-label="כיוון">'+h.direction+'</td>'+
+        '<td data-label="כמות" style="font-family:var(--mono)">'+h.qty+'</td>'+
+        '<td data-label="מחיר" style="font-family:var(--mono)">'+symbol+h.price.toFixed(2)+'</td>'+
+        '<td data-label="סטטוס"><span class="order-status-pill '+statusClass+'">'+statusLabel+'</span></td>'+
+        '<td class="'+pnlClass+'" data-label="P&L סופי" style="font-family:var(--mono)">'+pnlStr+'</td>'+
         '</tr>';
     }).join('');
   }else{
@@ -2466,22 +2505,22 @@ function refreshWatchlist(){
       var bellLabel=alert.enabled?(alert.triggered?'✅ נשלח':'🔔 פעיל'):'⚪ כבוי';
       var bellColor=alert.enabled?(alert.triggered?'var(--muted)':'var(--green)'):'var(--muted)';
       return '<tr>'+
-        '<td class="ticker-cell">'+r.ticker+'</td>'+
-        '<td style="font-family:var(--mono)">'+priceSymbol+q.price.toFixed(2)+'</td>'+
-        '<td class="'+pc+'">'+pStr+'</td>'+
-        '<td class="rsi-val '+rc+'">'+q.rsi+'</td>'+
-        '<td>'+renderObvBadge(q.obvSignal)+'</td>'+
-        '<td>'+render52Badge(q.pctFrom52Low,q.pctFrom52High)+'</td>'+
-        '<td><div class="score-bar-wrap"><div class="score-bar"><div class="score-fill" style="width:'+q.score+'%;background:'+sc+'"></div></div><span class="score-num" style="color:'+sc+'">'+q.score+'</span></div></td>'+
-        '<td><span class="signal-pill '+sp+'">'+sh+'</span></td>'+
-        '<td><input type="text" class="alert-input" style="width:80px;" id="wl-target-'+safeId+'" value="'+(alert.target||'')+'" placeholder="'+q.price.toFixed(2)+'" onblur="saveAlertTarget(\''+r.ticker+'\')"></td>'+
-        '<td><select class="alert-input" style="width:70px;" id="wl-dir-'+safeId+'" onchange="saveAlertTarget(\''+r.ticker+'\')">'+
+        '<td class="ticker-cell" data-label="סימול">'+r.ticker+'</td>'+
+        '<td data-label="מחיר" style="font-family:var(--mono)">'+priceSymbol+q.price.toFixed(2)+'</td>'+
+        '<td class="'+pc+'" data-label="שינוי %">'+pStr+'</td>'+
+        '<td class="rsi-val '+rc+'" data-label="RSI">'+q.rsi+'</td>'+
+        '<td data-label="כוח קונים">'+renderObvBadge(q.obvSignal)+'</td>'+
+        '<td data-label="מ-52ש&quot;נ">'+render52Badge(q.pctFrom52Low,q.pctFrom52High)+'</td>'+
+        '<td data-label="ציון"><div class="score-bar-wrap"><div class="score-bar"><div class="score-fill" style="width:'+q.score+'%;background:'+sc+'"></div></div><span class="score-num" style="color:'+sc+'">'+q.score+'</span></div></td>'+
+        '<td data-label="סיגנל"><span class="signal-pill '+sp+'">'+sh+'</span></td>'+
+        '<td data-label="🔔 מחיר יעד"><input type="text" class="alert-input" style="width:80px;" id="wl-target-'+safeId+'" value="'+(alert.target||'')+'" placeholder="'+q.price.toFixed(2)+'" onblur="saveAlertTarget(\''+r.ticker+'\')"></td>'+
+        '<td data-label="כיוון"><select class="alert-input" style="width:70px;" id="wl-dir-'+safeId+'" onchange="saveAlertTarget(\''+r.ticker+'\')">'+
           '<option value="above"'+(alert.direction==='above'?' selected':'')+'>מעל ↑</option>'+
           '<option value="below"'+(alert.direction==='below'?' selected':'')+'>מתחת ↓</option>'+
         '</select></td>'+
-        '<td><button class="close-pos-btn" style="border-color:'+bellColor+';color:'+bellColor+';" onclick="togglePriceAlert(\''+r.ticker+'\')">'+bellLabel+'</button></td>'+
-        '<td><a href="https://finance.yahoo.com/chart/'+r.ticker+'" target="_blank" class="chart-link">גרף ↗</a></td>'+
-        '<td><button class="close-pos-btn" onclick="removeFromWatchlist(\''+r.ticker+'\')">הסר</button></td>'+
+        '<td data-label="התראה"><button class="close-pos-btn" style="border-color:'+bellColor+';color:'+bellColor+';" onclick="togglePriceAlert(\''+r.ticker+'\')">'+bellLabel+'</button></td>'+
+        '<td data-label="גרף"><a href="https://finance.yahoo.com/chart/'+r.ticker+'" target="_blank" class="chart-link">גרף ↗</a></td>'+
+        '<td data-label="פעולה"><button class="close-pos-btn" onclick="removeFromWatchlist(\''+r.ticker+'\')">הסר</button></td>'+
         '</tr>';
     }).join('');
     checkPriceAlerts(results);
