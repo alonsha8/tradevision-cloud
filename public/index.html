@@ -215,7 +215,8 @@
   <div class="tab" onclick="switchTab('scanner')">🔍 סורק נאסד"ק</div>
   <div class="tab" onclick="switchTab('ta125')">🇮🇱 סורק ת"א 125</div>
   <div class="tab" onclick="switchTab('portfolio')">💼 בנאי תיק AI</div>
-  <div class="tab" onclick="switchTab('trading')">💹 דסק מסחר</div>
+  <div class="tab" onclick="switchTab('trading')" style="display:none;">💹 דסק מסחר</div>
+  <!-- הוסתר לפי בקשת המשתמש - להחזיר: להסיר את style="display:none;" משורה זו -->
   <div class="tab" onclick="switchTab('fundamental')">🏦 ניתוח פונדמנטלי</div>
   <div class="tab" onclick="switchTab('watchlist')">⭐ רשימת מעקב</div>
 </div>
@@ -1195,9 +1196,8 @@ function renderPortfolio(d,currency,trackPeriod){
       (d.risk_notes?'<div class="analysis-section"><div class="analysis-title">⚠️ סיכונים עיקריים</div><div class="analysis-text">'+d.risk_notes+'</div></div>':'')+
       (d.rebalance_tip?'<div class="analysis-section" style="margin-bottom:0"><div class="analysis-title">🔄 טיפ איזון תיק</div><div class="analysis-text">'+d.rebalance_tip+'</div></div>':'')+
     '</div></div>'+
-    '<button class="btn-primary" onclick="savePortfolio()" id="pf-save-btn" style="margin-bottom:10px;">💾 שמור תיק זה למעקב</button>'+
-    '<button class="buy-btn" onclick="executePortfolioToTradingDesk()" id="pf-execute-btn" style="width:100%;padding:13px;border-radius:10px;font-size:15px;">🚀 בצע תיק זה בדסק מסחר מדומה</button>'+
-    '<div id="pf-execute-msg" style="margin-top:10px;font-size:12px;"></div>';
+    '<button class="btn-primary" onclick="savePortfolio()" id="pf-save-btn" style="margin-bottom:10px;">💾 שמור תיק זה למעקב</button>';
+    // כפתור "בצע בדסק מסחר מדומה" הוסר מכאן זמנית - הטאב מוסתר. קוד הפונקציה executePortfolioToTradingDesk() עדיין קיים בקובץ ולא נמחק.
 
   window.LAST_PORTFOLIO={data:d,currency:currency,trackPeriod:trackPeriod};
 }
