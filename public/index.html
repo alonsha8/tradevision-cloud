@@ -162,6 +162,9 @@
   .order-status-pill.filled{background:rgba(0,212,168,0.15);color:var(--green);border:1px solid rgba(0,212,168,0.3);}
   .order-status-pill.stopped{background:rgba(255,77,106,0.15);color:var(--red);border:1px solid rgba(255,77,106,0.3);}
   .td-empty-state{padding:40px 20px;text-align:center;color:var(--muted);font-size:13px;}
+  details summary::-webkit-details-marker{display:none;}
+  details summary::marker{content:'';}
+  details[open] summary{border-bottom:1px solid var(--border);}
 
   /* ══════════════════════════════════════
      MOBILE RESPONSIVENESS
@@ -257,59 +260,9 @@
 
 <!-- TAB 1: ANALYZER -->
 <div id="tab-analyzer" class="tab-content">
-<main>
-  <div style="display:flex;flex-direction:column;gap:20px;">
-    <div class="card">
-      <div class="card-header"><span class="dot"></span>העלאת גרף</div>
-      <div class="card-body">
-        <div id="drop-zone">
-          <input type="file" id="file-input" accept="image/*">
-          <div class="upload-icon">📊</div><div class="upload-title">גרור גרף לכאן או לחץ לבחירה</div>
-          <div class="upload-sub">תמיכה ב-PNG, JPG, WEBP</div>
-          <div class="upload-hint">Yahoo Finance · TradingView · מיטב · כל ברוקר</div>
-        </div>
-        <div id="preview-wrap">
-          <img id="preview-img" src="" alt="גרף">
-          <div style="margin-top:12px;"><button onclick="clearImage()" style="background:rgba(255,77,106,0.1);border:1px solid rgba(255,77,106,0.3);color:var(--red);padding:7px 14px;border-radius:8px;cursor:pointer;font-family:var(--sans);font-size:13px;">✕ מחק גרף</button></div>
-        </div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-header"><span class="dot"></span>פרטי ניתוח</div>
-      <div class="card-body">
-        <div class="field-row">
-          <div class="field"><label>שם / סימול מניה</label><input type="text" id="stock-name" placeholder="AAPL / בנק הפועלים"></div>
-          <div class="field"><label>טווח הגרף</label><select id="timeframe"><option value="daily">יומי</option><option value="weekly" selected>שבועי</option><option value="monthly">חודשי</option><option value="intraday">תוך-יומי</option></select></div>
-        </div>
-        <div class="field-row">
-          <div class="field"><label>מחיר נוכחי (אופציונלי)</label><input type="text" id="current-price" placeholder="₪ / $"></div>
-          <div class="field"><label>סגנון מסחר</label><select id="trade-style"><option value="swing">סווינג</option><option value="position">פוזיציה</option><option value="scalp">סקאלפ</option></select></div>
-        </div>
-        <div class="field"><label>הקשר / הערות (אופציונלי)</label><input type="text" id="context" placeholder="לאחר דוח רווחים, קרוב לתמיכה..."></div>
-        <button class="btn-primary" id="analyze-btn" onclick="analyze()" disabled>⚡ נתח גרף</button>
-      </div>
-    </div>
-    <div class="source-links">
-      <div class="source-links-title">📎 אתרים מומלצים</div>
-      <a href="https://finance.yahoo.com" target="_blank">Yahoo Finance</a>
-      <a href="https://www.tradingview.com" target="_blank">TradingView</a>
-      <a href="https://www.tase.co.il" target="_blank">בורסת ת"א</a>
-      <a href="https://www.investing.com" target="_blank">Investing.com</a>
-    </div>
-  </div>
-  <div id="results-col">
-    <div class="card" style="flex:1">
-      <div class="card-header"><span class="dot"></span>ניתוח AI</div>
-      <div id="empty-state"><div class="empty-icon">🎯</div><p style="font-size:13px;">העלה גרף ולחץ נתח גרף</p></div>
-      <div id="loading-state"><div class="spinner"></div><div class="loading-text">מנתח את הגרף...</div></div>
-      <div id="results-content" style="display:none;padding:20px;flex-direction:column;gap:14px;"></div>
-    </div>
-    <div class="disclaimer">⚠️ הניתוח לצרכי מידע בלבד ואינו ייעוץ השקעות.</div>
-  </div>
-</main>
 
-<!-- Multi-Timeframe Analysis Section (same tab) -->
-<div class="scanner-wrap" style="max-width:1100px;margin-top:20px;">
+<!-- Multi-Timeframe Analysis (primary) -->
+<div class="scanner-wrap" style="max-width:1100px;">
   <div class="scanner-top">
     <h2>📊 ניתוח גרף רב-טווח (אוטומטי לפי סימול)</h2>
   </div>
@@ -335,6 +288,67 @@
   </div>
 
   <div id="mtf-results" style="display:none;"></div>
+</div>
+
+<!-- Image-upload analysis (secondary, collapsed by default) -->
+<div class="scanner-wrap" style="max-width:1100px;padding-top:0;">
+  <details style="border:1px solid var(--border);border-radius:12px;background:var(--surface);overflow:hidden;">
+    <summary style="padding:16px 20px;cursor:pointer;font-size:14px;font-weight:600;color:var(--text);list-style:none;display:flex;align-items:center;gap:8px;">
+      <span class="dot"></span>📷 ניתוח לפי העלאת תמונת גרף (למקרים שאין נתונים ב-Yahoo, או שכבר סימנת קווי מגמה בעצמך)
+    </summary>
+    <div style="padding:0 20px 20px;">
+    <main style="max-width:100%;margin:0;padding:0;">
+      <div style="display:flex;flex-direction:column;gap:20px;">
+        <div class="card">
+          <div class="card-header"><span class="dot"></span>העלאת גרף</div>
+          <div class="card-body">
+            <div id="drop-zone">
+              <input type="file" id="file-input" accept="image/*">
+              <div class="upload-icon">📊</div><div class="upload-title">גרור גרף לכאן או לחץ לבחירה</div>
+              <div class="upload-sub">תמיכה ב-PNG, JPG, WEBP</div>
+              <div class="upload-hint">Yahoo Finance · TradingView · מיטב · כל ברוקר</div>
+            </div>
+            <div id="preview-wrap">
+              <img id="preview-img" src="" alt="גרף">
+              <div style="margin-top:12px;"><button onclick="clearImage()" style="background:rgba(255,77,106,0.1);border:1px solid rgba(255,77,106,0.3);color:var(--red);padding:7px 14px;border-radius:8px;cursor:pointer;font-family:var(--sans);font-size:13px;">✕ מחק גרף</button></div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="dot"></span>פרטי ניתוח</div>
+          <div class="card-body">
+            <div class="field-row">
+              <div class="field"><label>שם / סימול מניה</label><input type="text" id="stock-name" placeholder="AAPL / בנק הפועלים"></div>
+              <div class="field"><label>טווח הגרף</label><select id="timeframe"><option value="daily">יומי</option><option value="weekly" selected>שבועי</option><option value="monthly">חודשי</option><option value="intraday">תוך-יומי</option></select></div>
+            </div>
+            <div class="field-row">
+              <div class="field"><label>מחיר נוכחי (אופציונלי)</label><input type="text" id="current-price" placeholder="₪ / $"></div>
+              <div class="field"><label>סגנון מסחר</label><select id="trade-style"><option value="swing">סווינג</option><option value="position">פוזיציה</option><option value="scalp">סקאלפ</option></select></div>
+            </div>
+            <div class="field"><label>הקשר / הערות (אופציונלי)</label><input type="text" id="context" placeholder="לאחר דוח רווחים, קרוב לתמיכה..."></div>
+            <button class="btn-primary" id="analyze-btn" onclick="analyze()" disabled>⚡ נתח גרף</button>
+          </div>
+        </div>
+        <div class="source-links">
+          <div class="source-links-title">📎 אתרים מומלצים</div>
+          <a href="https://finance.yahoo.com" target="_blank">Yahoo Finance</a>
+          <a href="https://www.tradingview.com" target="_blank">TradingView</a>
+          <a href="https://www.tase.co.il" target="_blank">בורסת ת"א</a>
+          <a href="https://www.investing.com" target="_blank">Investing.com</a>
+        </div>
+      </div>
+      <div id="results-col">
+        <div class="card" style="flex:1">
+          <div class="card-header"><span class="dot"></span>ניתוח AI</div>
+          <div id="empty-state"><div class="empty-icon">🎯</div><p style="font-size:13px;">העלה גרף ולחץ נתח גרף</p></div>
+          <div id="loading-state"><div class="spinner"></div><div class="loading-text">מנתח את הגרף...</div></div>
+          <div id="results-content" style="display:none;padding:20px;flex-direction:column;gap:14px;"></div>
+        </div>
+        <div class="disclaimer">⚠️ הניתוח לצרכי מידע בלבד ואינו ייעוץ השקעות.</div>
+      </div>
+    </main>
+    </div>
+  </details>
 </div>
 </div>
 
