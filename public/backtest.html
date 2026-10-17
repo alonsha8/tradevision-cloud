@@ -45,6 +45,7 @@
       <label>שוק: <select id="uni"><option value="all">ארה"ב + ת"א (317 מניות)</option><option value="us">ארה"ב (200)</option><option value="ta">ת"א (117)</option></select></label>
       <label>תקופה: <select id="yrs"><option value="2">שנתיים אחרונות</option><option value="5">5 שנים אחרונות</option></select></label>
       <label><input type="checkbox" id="wait" checked> כולל פקודות ממתינות ("ממתין לכניסה")</label>
+      <label><input type="checkbox" id="regime" checked> פילטר מצב שוק (מדד מעל ממוצע 200)</label>
       <button class="go" id="go">הרץ בדיקה</button>
     </div>
     <div id="prog" style="display:none"><div class="bar"><i id="pbar"></i></div><div class="note" id="ptxt"></div></div>
@@ -58,6 +59,7 @@
     • "כן, הייתי נכנס": כניסה בפתיחה של היום הבא. "ממתין לכניסה": פקודה ממתינה (בתיקון או בפריצה) בתוקף ל-5 ימי מסחר.<br>
     • יציאה ביעד, בסטופ, או אחרי 30 ימי מסחר. כשהסטופ והיעד נפגעים באותו יום, העסקה נרשמת כהפסד. פער פתיחה מעבר לסטופ נרשם במחיר הפתיחה.<br>
     • עמלה והחלקה: 0.1% לכל צד בארה"ב, 0.2% בת"א.<br>
+    • פילטר מצב שוק: כשהמדד (S&amp;P 500 או ת"א 125) מתחת לממוצע 200 יום, "כן, הייתי נכנס" הופך ל"ממתין", בדיוק כמו באפליקציה. אזהרת הדוחות לא נבדקת, כי אין היסטוריית מועדי דוחות.<br>
     • R = הרווח או ההפסד ביחידות של הסיכון. ‎+1R הוא רווח בגודל המרחק לסטופ, ו-‎−1R הוא הפסד מלא.<br>
     • עקומת ההון מניחה סיכון של 1% מההון בכל עסקה, ולא מגבילה עסקאות חופפות. זו אינדיקציה בלבד, ולא סימולציה של תיק אמיתי.
   </div>
@@ -72,7 +74,7 @@ let timer = null;
 $('#go').onclick = async () => {
   $('#go').disabled = true;
   const r = await fetch('/api/backtest/start', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ universe: $('#uni').value, years: +$('#yrs').value, includeWait: $('#wait').checked }) });
+    body: JSON.stringify({ universe: $('#uni').value, years: +$('#yrs').value, includeWait: $('#wait').checked, regimeFilter: $('#regime').checked }) });
   if (r.status === 401) { location.href = '/login'; return; }
   poll();
 };
@@ -112,7 +114,7 @@ function render(r) {
   if (!o.trades) { $('#out').innerHTML = '<div class="card" style="margin-top:14px">לא נוצרו עסקאות בבדיקה הזו.</div>'; return; }
   const [vc, vt, vd] = judge(o);
   const P = r.params || {};
-  let h = `<h2>תוצאות — ${P.universe === 'us' ? 'ארה"ב' : P.universe === 'ta' ? 'ת"א' : 'ארה"ב + ת"א'}, ${P.years} שנים${P.includeWait ? ', כולל פקודות ממתינות' : ''}</h2>
+  let h = `<h2>תוצאות — ${P.universe === 'us' ? 'ארה"ב' : P.universe === 'ta' ? 'ת"א' : 'ארה"ב + ת"א'}, ${P.years} שנים${P.includeWait ? ', כולל פקודות ממתינות' : ''}${P.regimeFilter ? ', עם פילטר מצב שוק' : ', בלי פילטר מצב שוק'}</h2>
   <div class="card verdict ${vc}"><b>${vt}</b><div>${vd}</div></div>
   <div class="kpis" style="margin-top:12px">
     <div class="kpi"><span>עסקאות</span><b>${o.trades}</b></div>

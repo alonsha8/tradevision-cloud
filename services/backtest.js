@@ -14,7 +14,7 @@ const WINDOW = 300;      // נרות לכל ניתוח (SMA200 + רמות שנה
 const ORDER_DAYS = 5;    // תוקף פקודה ממתינה (ימי מסחר)
 
 function simulateTicker(bars, opts) {
-  const { maxHold = 30, costPct = 0.1, step = 1, includeWait = true, startIndex = 250, currency } = opts;
+  const { maxHold = 30, costPct = 0.1, step = 1, includeWait = true, startIndex = 250, currency, regimeAt, regimeLabel } = opts;
   const cost = costPct / 100;
   const trades = [];
   let pos = null, order = null;
@@ -67,7 +67,8 @@ function simulateTicker(bars, opts) {
     if (!pos && !order && j < n - 1 && (j - startIndex) % step === 0) {
       const win = bars.slice(Math.max(0, j - WINDOW + 1), j + 1);
       let a;
-      try { a = analyze(win, { currency, nowSec: b.t + 3600, lite: true }); } catch (e) { continue; }
+      const regime = regimeAt ? (r => (r == null ? undefined : { ok: r, label: regimeLabel }))(regimeAt(b.t)) : undefined;
+      try { a = analyze(win, { currency, nowSec: b.t + 3600, lite: true, regime }); } catch (e) { continue; }
       const v = a.verdict;
       if (!v || !v.raw) continue;
       if (v.decision === 'enter' || (includeWait && v.decision === 'wait')) {
