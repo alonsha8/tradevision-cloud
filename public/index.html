@@ -255,7 +255,7 @@
     <div class="stat-box" id="macro-ta35"><div class="stat-lbl">🇮🇱 ת"א 35</div><div class="stat-val" style="color:var(--muted);font-size:16px;">טוען...</div></div>
     <div class="stat-box" id="macro-ta125"><div class="stat-lbl">🇮🇱 ת"א 125</div><div class="stat-val" style="color:var(--muted);font-size:16px;">טוען...</div></div>
     <div class="stat-box" id="macro-usdils"><div class="stat-lbl">💵 דולר/שקל</div><div class="stat-val" style="color:var(--muted);font-size:16px;">טוען...</div></div>
-    <div class="stat-box" id="macro-banks"><div class="stat-lbl">🏦 ת"א בנקים</div><div class="stat-val" style="color:var(--muted);font-size:16px;">טוען...</div></div>
+    <div class="stat-box" id="macro-banks"><div class="stat-lbl">🏦 5 הבנקים (ממוצע)</div><div class="stat-val" style="color:var(--muted);font-size:16px;">טוען...</div></div>
   </div>
 
   <div id="dash-loading" class="scan-loading">
@@ -962,17 +962,23 @@ function fetchQuote(ticker){
       var rawHigh=q.high||[];
       var rawLow=q.low||[];
       var rawVolume=q.volume||[];
-      var closes=[],highs=[],lows=[],volumes=[];
+      var rawTs=chart.timestamp||[];
+      var closes=[],highs=[],lows=[],volumes=[],times=[];
       for(var ii=0;ii<rawClose.length;ii++){
         if(rawClose[ii]!=null&&rawHigh[ii]!=null&&rawLow[ii]!=null){
           closes.push(rawClose[ii]);highs.push(rawHigh[ii]);lows.push(rawLow[ii]);
-          volumes.push(rawVolume[ii]!=null?rawVolume[ii]:0);
+          volumes.push(rawVolume[ii]!=null?rawVolume[ii]:0);times.push(rawTs[ii]);
         }
       }
       var meta=chart.meta||{};
       if(closes.length<15){window.DEBUG_LOG=window.DEBUG_LOG||[];window.DEBUG_LOG.push(ticker+': only '+closes.length+' closes');return null;}
       var price=meta.regularMarketPrice||closes[closes.length-1];
-      var prevClose=meta.chartPreviousClose||closes[closes.length-2];
+      // שינוי יומי: מול סגירת יום המסחר הקודם.
+      // (לא chartPreviousClose — זו הסגירה שלפני תחילת טווח הגרף, כלומר לפני 3 חודשים!)
+      var off=meta.gmtoffset||0;
+      var dayOf=function(t){return Math.floor((t+off)/86400);};
+      var lastT=times[times.length-1], mt=meta.regularMarketTime||lastT;
+      var prevClose=(dayOf(mt)>dayOf(lastT))?closes[closes.length-1]:closes[closes.length-2];
       var pct=prevClose?((price-prevClose)/prevClose*100):0;
       var rsi=calcRSI(closes,14);
       var sma20=avgArr(closes.slice(-20));
@@ -2487,63 +2493,49 @@ var _dashNewsLoaded=false;
 
 function loadDashboardNews(){
   document.getElementById('dash-empty').style.display='none';
-  document.getElementById('dash-news-container').style.display='none';
+  var container=document.getElementById('dash-news-container');
+  container.style.display='none';
   document.getElementById('dash-loading').style.display='block';
 
-  fetch('/api/tase-news')
-    .then(function(r){return r.json();})
-    .then(function(data){
-      var items=(data.items||[]).slice(0,8);
-      var news=items.map(function(it){
-        return {
-          title:it.newsTitle||'',
-          description:(it.newsDescription||'').replace(/\n+/g,' ').trim().substring(0,400),
-          link:(it.link&&it.link.url)?it.link.url:'',
-          date:it.date||'',
-          tags:(it.tags||[]).map(function(t){return t.name;}).join(', ')
-        };
-      });
+  // שלב 1: כותרות מיד (ללא AI)
+  fetch('/api/news-headlines').then(function(r){return r.json();}).then(function(d){
+    if(_dashNewsLoaded&&container.dataset.full==='1')return; // הניתוח המלא כבר הוצג
+    var news=d.news||[];
+    if(!news.length)return;
+    document.getElementById('dash-loading').style.display='none';
+    container.style.display='block';
+    container.dataset.full='0';
+    container.innerHTML='<div class="card-header" style="background:none;border:none;padding:0 4px 10px;">📰 חדשות הבורסה (TASE) <span style="color:var(--muted);font-weight:400;">· ⏳ ניתוח AI בדרך...</span></div>'+
+      news.map(function(n){
+        return '<div class="card" style="margin-bottom:10px;"><div class="card-body" style="padding:12px 18px;">'+
+          '<div style="font-size:15px;font-weight:700;line-height:1.5;">'+escapeHtmlSafe(n.title)+'</div>'+
+          '<div style="font-size:13px;color:var(--muted);line-height:1.6;margin-top:4px;">'+escapeHtmlSafe(n.description.substring(0,180))+(n.description.length>180?'…':'')+'</div>'+
+          (n.link?'<a href="'+n.link+'" target="_blank" style="color:var(--accent);text-decoration:none;font-size:11px;">קרא עוד ↗</a>':'')+
+        '</div></div>';
+      }).join('');
+  }).catch(function(){});
 
-      if(news.length===0){
-        document.getElementById('dash-loading').style.display='none';
-        document.getElementById('dash-empty').style.display='block';
-        return;
-      }
-
-      var newsText=news.map(function(n,i){return (i+1)+'. '+n.title+'\n   '+n.description;}).join('\n\n');
-
-      var prompt='אתה אנליסט שוק הון שמסביר לאדם פשוט, לא מקצועי, האם כדאי לו להתעניין במניה מסוימת. לפניך '+news.length+' ידיעות אחרונות מאתר הבורסה בתל אביב (TASE):\n\n'+newsText+'\n\n'+
-        'עבור כל ידיעה, ענה בקצרה וברור:\n'+
-        '1. שם החברה - תמיד תן שם, גם אם זו רק ההשערה הכי סבירה שלך על סמך הידיעה. אם באמת אין שום חברה ספציפית (למשל ידיעה על הבורסה עצמה או על השוק כולו), כתוב "שוק כללי".\n'+
-        '2. הסקטור שמושפע (למשל: בנקים, נדל"ן, טכנולוגיה, ביטחון, אנרגיה, קמעונאות וכו׳).\n'+
-        '3. ניתוח קצר - משפט אחד בלבד, בשפה פשוטה, בלי ז׳רגון.\n'+
-        '4. ציון השפעה מיידית (טווח קצר, ימים-שבועות) בין 1 ל-10, שעוזר להחליט אם כדאי להתעניין בכניסה עכשיו: 1-3=השפעה חלשה/לא דחוף, 4-6=השפעה בינונית/שווה מעקב, 7-10=השפעה חזקה/דחוף לבדוק.\n'+
-        '5. כיוון ההשפעה (חיובי/שלילי/ניטרלי) גם לטווח קצר וגם לטווח ארוך (חודשים ומעלה), עם עוצמה 1-3 לכל אחד.\n\n'+
-        'החזר JSON בלבד ללא backticks:\n'+
-        '{"news":[\n'+
-        '  {"title_he":"כותרת קצרה וברורה (עד 12 מילים)","entity":"שם החברה או שוק כללי","sector":"שם הסקטור","short_analysis":"משפט אחד פשוט וברור","immediate_score":מספר_1_עד_10,"short_term":{"direction":"חיובי/שלילי/ניטרלי","strength":מספר_1_עד_3},"long_term":{"direction":"חיובי/שלילי/ניטרלי","strength":מספר_1_עד_3},"importance":"גבוהה/בינונית/נמוכה"},\n'+
-        '  ...\n'+
-        '],\n'+
-        '"market_mood":"סנטימנט כללי של השוק על בסיס הידיעות (משפט אחד)",\n'+
-        '"market_mood_score": מספר_1_עד_10_כש_1_פחד_ו_10_חמדנות\n'+
-        '}';
-
-      return fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:4000,messages:[{role:'user',content:[{type:'text',text:prompt}]}]})})
-        .then(function(r2){return r2.json();})
-        .then(function(data2){
-          if(data2.error)throw new Error(data2.error.message||JSON.stringify(data2.error));
-          var raw=(data2.content||[]).map(function(b){return b.text||'';}).join('').trim();
-          var parsed=JSON.parse(raw.replace(/```json|```/g,'').trim());
-          renderDashboardNews(parsed,news);
-        });
-    })
-    .catch(function(err){
+  // שלב 2: ניתוח AI (מיידי אם הכותרות לא השתנו מאז הניתוח האחרון)
+  fetch('/api/news-analysis').then(function(r){return r.json();}).then(function(d){
+    if(d.error)throw new Error(d.error);
+    if(!d.news||!d.news.length){
       document.getElementById('dash-loading').style.display='none';
-      var container=document.getElementById('dash-news-container');
-      container.style.display='block';
-      container.innerHTML='<div class="error-box">⚠️ '+err.message+'</div>';
-    });
+      container.style.display='none';
+      document.getElementById('dash-empty').style.display='block';
+      return;
+    }
+    container.dataset.full='1';
+    renderDashboardNews(d.analysis,d.news);
+  }).catch(function(err){
+    document.getElementById('dash-loading').style.display='none';
+    container.style.display='block';
+    var hdr=container.querySelector('.card-header span');
+    if(hdr)hdr.textContent=' · ⚠️ ניתוח AI לא זמין כרגע ('+err.message+')';
+    else container.innerHTML='<div class="error-box">⚠️ '+escapeHtmlSafe(err.message)+'</div>';
+  });
 }
+
+function escapeHtmlSafe(s){return String(s||'').replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 
 function bullBearIcons(direction,strength){
   var s=strength||1;
@@ -2661,8 +2653,7 @@ function loadMacroWidget(){
   var items=[
     {id:'macro-ta35',ticker:'TA35.TA',label:'🇮🇱 ת"א 35',unit:''},
     {id:'macro-ta125',ticker:'^TA125.TA',label:'🇮🇱 ת"א 125',unit:''},
-    {id:'macro-usdils',ticker:'ILS=X',label:'💵 דולר/שקל',unit:'₪'},
-    {id:'macro-banks',ticker:'TA-BANKS.TA',label:'🏦 ת"א בנקים',unit:''}
+    {id:'macro-usdils',ticker:'ILS=X',label:'💵 דולר/שקל',unit:'₪'}
   ];
   items.forEach(function(it){
     fetchQuote(it.ticker).then(function(q){
@@ -2670,6 +2661,18 @@ function loadMacroWidget(){
     }).catch(function(){
       renderMacroCard(it.id,it.label,null,it.unit);
     });
+  });
+  // ל-Yahoo אין סימול אמין למדד הבנקים — מחשבים ממוצע שינוי יומי של 5 הבנקים הגדולים
+  var banks=['LUMI.TA','POLI.TA','DSCT.TA','MZTF.TA','FIBI.TA'];
+  Promise.all(banks.map(function(t){return fetchQuote(t).catch(function(){return null;});})).then(function(res){
+    var ok=res.filter(function(q){return q&&isFinite(q.pct);});
+    var el=document.getElementById('macro-banks');
+    if(ok.length<3){el.innerHTML='<div class="stat-lbl">🏦 5 הבנקים</div><div class="stat-val" style="color:var(--muted);font-size:14px;">אין נתון</div>';return;}
+    var avg=ok.reduce(function(s,q){return s+q.pct;},0)/ok.length;
+    var up=ok.filter(function(q){return q.pct>0;}).length;
+    el.innerHTML='<div class="stat-lbl">🏦 5 הבנקים (ממוצע)</div>'+
+      '<div class="stat-val" style="color:'+(avg>=0?'var(--green)':'var(--red)')+';font-size:17px;">'+(avg>=0?'+':'')+avg.toFixed(2)+'%</div>'+
+      '<div style="font-size:12px;color:var(--muted);margin-top:2px;">'+up+' מתוך '+ok.length+' בעלייה</div>';
   });
 }
 

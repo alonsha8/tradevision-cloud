@@ -7,6 +7,7 @@ const url = require('url');
 const PORT = process.env.PORT || 3000;
 const yc = require('./services/yahooCache');
 const { handleStockAnalysis } = require('./routes/stockAnalysisApi');
+const news = require('./routes/newsApi');
 const API_KEY = process.env.ANTHROPIC_API_KEY;
 
 function getContentType(filePath) {
@@ -199,6 +200,10 @@ const server = http.createServer((req, res) => {
     yc.send(req, res, 200, html, 'text/html; charset=utf-8');
     return;
   }
+
+  // חדשות הבורסה: כותרות מהירות + ניתוח AI עם מטמון
+  if (req.method === 'GET' && req.url.startsWith('/api/news-headlines')) { news.handleHeadlines(req, res); return; }
+  if (req.method === 'GET' && req.url.startsWith('/api/news-analysis')) { news.handleAnalysis(req, res); return; }
 
   // ניתוח טכני מלא למניה (מודול חדש)
   if (req.method === 'GET' && req.url.startsWith('/api/stock-analysis')) {
