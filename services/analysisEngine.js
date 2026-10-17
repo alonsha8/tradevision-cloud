@@ -230,6 +230,14 @@ function analyze(bars, meta = {}) {
     if (support.every(s => Math.abs(s.price - d.val) > tol)) support.push({ price: d.val, touches: 0, dynamic: d.key });
   }
   support = support.sort((a, b) => b.price - a.price).slice(0, 3);
+  // המחיר מתחת לכל התמיכות ההיסטוריות (שפל חדש / ירידה חדה): רמות מבוססות תנודתיות
+  while (support.length < 3) {
+    const base = support.length ? support[support.length - 1].price : close;
+    const p = base - atrNow * 2;
+    if (p <= 0) break;
+    support.push({ price: p, touches: 0, projected: true });
+  }
+  if (!support.length) support.push({ price: close * 0.9, touches: 0, projected: true });
 
   const fmtLevel = x => ({ price: roundP(x.price), label: fmt(x.price), touches: x.touches, confluence: confl(x.price), projected: !!x.projected });
   const R = resist.map(fmtLevel), S = support.map(fmtLevel);
@@ -302,7 +310,7 @@ function analyze(bars, meta = {}) {
 
   sections.push({
     title: 'רמות הגנה',
-    body: S.map((x, k) => `• תמיכה ${sRoles[k]}: <b>${x.label}</b>` +
+    body: S.map((x, k) => `• תמיכה ${sRoles[k]}: <b>${x.label}</b>` + (x.projected ? ' (רמה מבוססת תנודתיות, אין תמיכה היסטורית)' : '') +
       (x.confluence.length ? ` — יחד עם ${x.confluence.join(', ')}` : x.touches >= 2 ? ` (${x.touches} נגיעות)` : '') +
       (sRoles[k] === 'קריטית' ? '. שבירה וסגירה מתחת לאזור זה תחליש את המבנה העולה.' : sRoles[k] === 'עמוקה' ? '. איבוד שלה יבטל חלק גדול מתרחיש ההתאוששות.' : '.')),
   });
