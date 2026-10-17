@@ -183,6 +183,42 @@ app.get('/api/quick', (req, res) => {
   if (!t || !/^[A-Z0-9.\-^=]{1,15}$/.test(t)) return res.status(400).json({ error: 'סימול לא תקין' });
   scanner.analyzeTicker(t).then(r => res.json(r)).catch(err => res.status(502).json({ error: err.message }));
 });
+// ══════════════ השקעה לטווח ארוך (דוחות SEC + שווי + מגמה) ══════════════
+const longTerm = require('./services/longTerm');
+app.get('/api/longterm', (req, res) => {
+  const q = String(req.query.q || '').trim();
+  if (!q) return res.status(400).json({ error: 'יש להזין שם מניה או סימול' });
+  longTerm.analyzeLongTerm(q).then(r => res.json(r)).catch(e => res.status(502).json({ error: e.message }));
+});
+// בדיקה עצמית מול נתונים אמיתיים: מוודא שהפענוח של SEC ו-Yahoo נכון, ומצליב שווי שוק בין שני המקורות
+app.get('/api/longterm/selftest', async (req, res) => {
+  const list = ['AAPL', 'MSFT', 'KO', 'JNJ', 'NVDA', 'COST', 'TEVA.TA', 'NICE.TA', 'ESLT.TA'];
+  const rows = [];
+  for (const t of list) {
+    const row = { ticker: t, checks: [] };
+    const chk = (name, ok, detail) => row.checks.push({ name, ok, detail });
+    try {
+      const r = await longTerm.analyzeLongTerm(t);
+      const F = r.fundamentals;
+      chk('דוחות נמצאו', !!F, F ? `${F.source} · ${F.name}` : (r.missing || []).join(' | '));
+      if (F) {
+        const rev = F.revenue || [];
+        chk('לפחות 3 שנות הכנסות', rev.length >= 3, `${rev.length} שנים (${rev.map(x => x.end.slice(0, 4)).join(', ')})`);
+        chk('הכנסות חיוביות', rev.every(x => x.val > 0), rev.length ? `אחרונה: ${(rev[rev.length - 1].val / 1e9).toFixed(2)}B ${F.currency}` : '');
+        const v = F.valuation;
+        chk('שווי שוק מחושב', !!(v && v.marketCap > 0), v ? `${(v.marketCap / 1e9).toFixed(1)}B` : 'אין');
+        if (v && v.crossCheck) chk('הצלבה מול Yahoo (עד 25%)', v.crossCheck.diffPct <= 25, `Yahoo ${(v.crossCheck.yahooMarketCap / 1e9).toFixed(1)}B · פער ${v.crossCheck.diffPct}%`);
+        else chk('הצלבה מול Yahoo', null, 'Yahoo לא החזיר שווי שוק — לא נבדק');
+        if (v) chk('מכפיל רווח סביר', v.pe == null || (v.pe > 0 && v.pe < 300), `P/E ${v.pe ?? '—'}`);
+      }
+      chk('ציון והחלטה', !!(r.verdict && r.score), r.verdict ? `${r.verdict.title} (${r.score.total}/100)` : '');
+    } catch (e) { chk('ריצה ללא שגיאה', false, e.message); }
+    row.ok = row.checks.every(c => c.ok !== false);
+    rows.push(row);
+  }
+  res.json({ ok: rows.every(r => r.ok), contactSet: !!process.env.SEC_CONTACT_EMAIL, rows, at: new Date().toISOString() });
+});
+
 app.get('/api/regime', (req, res) => {
   Promise.all([scanner.regime('US'), scanner.regime('TA')]).then(([us, ta]) => res.json({ US: us, TA: ta })).catch(err => res.status(502).json({ error: err.message }));
 });
