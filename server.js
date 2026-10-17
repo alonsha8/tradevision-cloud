@@ -156,6 +156,8 @@ app.get('/api/stock-analysis', handleStockAnalysis);
 // ══════════════ מודולים שהיו מנותקים מאז יולי ══════════════
 const createSectorScannerApi = require('./routes/sectorScannerApi');
 app.use('/api/sector-scanner', createSectorScannerApi(pool));
+const createBacktestApi = require('./routes/backtestApi');
+app.use('/api/backtest', createBacktestApi(pool));
 const createPortfolioApi = require('./routes/portfolioApi');
 app.use('/api/portfolio', createPortfolioApi(API_KEY));
 
