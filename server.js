@@ -153,6 +153,21 @@ app.get('/api/news-headlines', news.handleHeadlines);
 app.get('/api/news-analysis', news.handleAnalysis);
 app.get('/api/stock-analysis', handleStockAnalysis);
 
+// ══════════════ סורק על המנוע (מקור אחד לכל האפליקציה) ══════════════
+const scanner = require('./services/scanner');
+app.get('/api/scan', (req, res) => {
+  const market = String(req.query.market || 'us').toUpperCase() === 'TA' ? 'TA' : 'US';
+  scanner.scanMarket(market, req.query.force === '1').then(v => res.json(v)).catch(err => res.status(502).json({ error: err.message }));
+});
+app.get('/api/quick', (req, res) => {
+  const t = String(req.query.ticker || '').trim().toUpperCase();
+  if (!t || !/^[A-Z0-9.\-^=]{1,15}$/.test(t)) return res.status(400).json({ error: 'סימול לא תקין' });
+  scanner.analyzeTicker(t).then(r => res.json(r)).catch(err => res.status(502).json({ error: err.message }));
+});
+app.get('/api/regime', (req, res) => {
+  Promise.all([scanner.regime('US'), scanner.regime('TA')]).then(([us, ta]) => res.json({ US: us, TA: ta })).catch(err => res.status(502).json({ error: err.message }));
+});
+
 // ══════════════ מודולים שהיו מנותקים מאז יולי ══════════════
 const createSectorScannerApi = require('./routes/sectorScannerApi');
 app.use('/api/sector-scanner', createSectorScannerApi(pool));

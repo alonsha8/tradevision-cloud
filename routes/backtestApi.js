@@ -5,6 +5,22 @@ const express = require('express');
 const yc = require('../services/yahooCache');
 const { simulateTicker, stats, byYear } = require('../services/backtest');
 const { US, TA } = require('../services/universe');
+const { sma } = require('../services/analysisEngine');
+
+// מצב שוק היסטורי: בכל יום — האם המדד מעל ממוצע 200 יום (לפי נתונים עד אותו יום בלבד)
+async function regimeSeries(symbol, range) {
+  try {
+    const { bars } = await loadBars(symbol, range);
+    const s200 = sma(bars.map(b => b.c), 200);
+    const days = bars.map((b, k) => ({ d: Math.floor(b.t / 86400), ok: s200[k] == null ? null : b.c > s200[k] }));
+    return t => {
+      const d = Math.floor(t / 86400);
+      let lo = 0, hi = days.length - 1, ans = null;
+      while (lo <= hi) { const m = (lo + hi) >> 1; if (days[m].d <= d) { ans = days[m].ok; lo = m + 1; } else hi = m - 1; }
+      return ans;
+    };
+  } catch (e) { return null; }
+}
 
 let job = { state: 'idle' };
 
@@ -26,6 +42,9 @@ async function run(params, pool) {
   const fromSec = Date.now() / 1000 - years * 365.25 * 86400;
   job = { state: 'running', params, startedAt: Date.now(), progress: { done: 0, total: tickers.length, current: '' } };
 
+  const regimes = params.regimeFilter
+    ? { US: await regimeSeries('^GSPC', range), TA: await regimeSeries('^TA125.TA', range) }
+    : { US: null, TA: null };
   const all = [], perTicker = [], failed = [];
   const bh = [];
   for (const ticker of tickers) {
@@ -36,7 +55,8 @@ async function run(params, pool) {
       if (start < 0 || bars.length - start < 60) throw new Error('היסטוריה קצרה מדי');
       start = Math.max(start, 250);
       const isTA = ticker.endsWith('.TA');
-      const trades = simulateTicker(bars, { currency, includeWait, startIndex: start, costPct: isTA ? 0.2 : 0.1 })
+      const trades = simulateTicker(bars, { currency, includeWait, startIndex: start, costPct: isTA ? 0.2 : 0.1,
+        regimeAt: regimes[isTA ? 'TA' : 'US'], regimeLabel: isTA ? 'ת"א 125' : 'S&P 500' })
         .map(t => ({ ...t, ticker, market: isTA ? 'TA' : 'US' }));
       all.push(...trades);
       bh.push((bars[bars.length - 1].c / bars[start].o - 1) * 100);
@@ -85,6 +105,7 @@ function createBacktestApi(pool) {
       universe: ['us', 'ta', 'all'].includes(b.universe) ? b.universe : 'all',
       years: [2, 5].includes(+b.years) ? +b.years : 2,
       includeWait: b.includeWait !== false,
+      regimeFilter: b.regimeFilter !== false,
     };
     run(params, pool).catch(e => { job = { state: 'error', params, error: e.message }; });
     res.json({ state: 'running', params });

@@ -152,9 +152,23 @@ function send(req, res, status, body, contentType) {
   }
 }
 
+// כמה סימולים בבקשה אחת (לתאריכי דוחות)
+async function getQuotes(tickers) {
+  const out = {};
+  for (let k = 0; k < tickers.length; k += 40) {
+    const chunk = tickers.slice(k, k + 40);
+    try {
+      const r = await getQuote(chunk.join(','));
+      const j = JSON.parse(r.body);
+      for (const q of (j.quoteResponse && j.quoteResponse.result) || []) out[q.symbol] = q;
+    } catch (e) { /* best effort */ }
+  }
+  return out;
+}
+
 function search(q) {
   const path = '/v1/finance/search?q=' + encodeURIComponent(q) + '&quotesCount=8&newsCount=0';
   return cachedGet('s|' + q.toLowerCase(), 24 * 3600 * 1000, 'query2.finance.yahoo.com', path);
 }
 
-module.exports = { getChart, getQuote, search, send, rawGet, cacheSize: () => cache.size };
+module.exports = { getChart, getQuote, getQuotes, search, send, rawGet, cacheSize: () => cache.size };

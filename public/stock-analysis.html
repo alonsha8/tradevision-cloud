@@ -56,6 +56,10 @@
   .dq ul { margin:4px 0 0; padding-inline-start:18px; }
   .dq-bad { background:#fef2f2; border-color:#fecaca; color:#991b1b; }
   .dq-ok { background:#f0fdf4; border-color:#bbf7d0; color:#166534; }
+  .sizing { margin-top:12px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px 16px; }
+  .sz-row { display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; font-size:14px; }
+  .sz-row input { width:110px; font:inherit; padding:6px 8px; border:1px solid var(--line); border-radius:8px; }
+  .sz-res { margin-top:8px; font-size:15px; } .note { color:var(--mut); font-size:13px; }
   .foot { color:var(--mut); font-size:13px; margin-top:18px; }
   .err { background:#fef2f2; border:1px solid #fecaca; color:#991b1b; padding:12px; border-radius:12px; }
   .load { color:var(--mut); padding:30px 0; text-align:center; }
@@ -123,6 +127,7 @@ function render(d) {
         <div><span>סיכוי/סיכון</span><b>1:${esc(V.rr)}</b></div></div>` : '') +
       `<ul>${V.reasons.map(r => `<li>${esc(r)}</li>`).join('')}</ul>` +
       (V.trigger ? `<div class="v-how">${esc(V.trigger)}</div>` : '') + `</div>`;
+    if (V.raw) h += `<div class="sizing" id="sizing"></div>`;
   }
   h += `<p class="foot">התוכן מבוסס על חישוב אינדיקטורים מנתוני מסחר יומיים, מיועד למטרות מידע בלבד ואינו מהווה ייעוץ השקעות. נכון ל-${new Date(d.asOf * 1000).toLocaleDateString('he-IL')} · חושב ב-${d.ms}ms</p>`;
   h += `<div class="chart-card"><div class="legend">
@@ -130,7 +135,48 @@ function render(d) {
     <span><b style="background:#c084fc"></b>SMA200</span><span><b style="background:#ef4444"></b>SuperTrend(10,3)</span><span><b style="background:#1a1f2b"></b>MACD(12,26,9)</span></div>
     <div id="main"></div><div id="macd"></div></div>`;
   $('#out').innerHTML = h;
+  if (V && V.raw) drawSizing(d);
   drawChart(d);
+}
+
+// ---------- גודל פוזיציה: כמה מניות לקנות כדי לסכן אחוז קבוע מהתיק ----------
+let _fx = null;
+async function usdIls() {
+  if (_fx && Date.now() - _fx.t < 600000) return _fx.v;
+  try { const r = await (await fetch('/api/quick?ticker=ILS%3DX')).json(); if (r && r.price > 2 && r.price < 6) { _fx = { t: Date.now(), v: r.price }; return r.price; } } catch (e) {}
+  return null;
+}
+function lsGet(k, def) { try { const v = localStorage.getItem(k); return v == null ? def : v; } catch (e) { return def; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+async function drawSizing(d) {
+  const el = document.getElementById('sizing'); if (!el) return;
+  const V = d.verdict, cur = d.meta.currency, sym = d.meta.symbol;
+  const acct = parseFloat(lsGet('tv_acct', '100000')), risk = parseFloat(lsGet('tv_risk', '1'));
+  el.innerHTML = `<div class="sz-row"><b>📐 גודל פוזיציה</b>
+    <label>גודל התיק (₪) <input id="sz-acct" type="number" min="0" step="1000" value="${acct}"></label>
+    <label>סיכון לעסקה (%) <input id="sz-risk" type="number" min="0.1" max="5" step="0.1" value="${risk}"></label></div><div id="sz-res" class="sz-res">מחשב…</div>`;
+  const recalc = async () => {
+    const A = parseFloat($('#sz-acct').value), Rk = parseFloat($('#sz-risk').value);
+    lsSet('tv_acct', A); lsSet('tv_risk', Rk);
+    const out = $('#sz-res');
+    if (!(A > 0) || !(Rk > 0)) { out.textContent = 'הזינו גודל תיק ואחוז סיכון'; return; }
+    let conv = cur === 'ILA' ? 0.01 : cur === 'ILS' ? 1 : null;
+    if (cur === 'USD') conv = await usdIls();
+    if (!conv) { out.textContent = 'לא ניתן לחשב — אין שער המרה למטבע ' + cur; return; }
+    const e = V.raw.entry, st = V.raw.stop, perShare = (e - st) * conv;
+    if (!(perShare > 0)) { out.textContent = '—'; return; }
+    const riskIls = A * Rk / 100;
+    let shares = Math.floor(riskIls / perShare), capped = false;
+    if (shares * e * conv > A) { shares = Math.floor(A / (e * conv)); capped = true; }
+    const val = shares * e * conv, loss = shares * perShare;
+    const n = x => Math.round(x).toLocaleString('he-IL');
+    out.innerHTML = shares < 1 ? 'הסיכון לעסקה קטן מדי לקניית מניה אחת במחיר הזה.' :
+      `<b>${shares.toLocaleString('he-IL')} מניות</b> · שווי ≈ ₪${n(val)} (${(val / A * 100).toFixed(1)}% מהתיק) · הפסד אם הסטופ נפגע ≈ ₪${n(loss)}` +
+      (cur === 'USD' ? ` <span class="note">(שער ${conv.toFixed(3)} ₪ לדולר)</span>` : '') +
+      (capped ? '<div class="note">הכמות הוגבלה לגודל התיק — הסטופ קרוב מאוד למחיר הכניסה.</div>' : '');
+  };
+  $('#sz-acct').oninput = recalc; $('#sz-risk').oninput = recalc;
+  recalc();
 }
 
 function drawChart(d) {

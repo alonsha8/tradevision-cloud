@@ -65,9 +65,18 @@ async function getBars(symbol) {
   const m = res.meta;
   const rawLastClose = bars.length ? bars[bars.length - 1].c : null;
   if (m.regularMarketPrice && bars.length) {
-    const lb = { ...bars[bars.length - 1] };
-    lb.c = m.regularMarketPrice; lb.h = Math.max(lb.h, lb.c); lb.l = Math.min(lb.l, lb.c);
-    bars[bars.length - 1] = lb;
+    const off = m.gmtoffset || 0, day = t => Math.floor((t + off) / 86400);
+    const last = bars[bars.length - 1];
+    const mt = m.regularMarketTime || last.t;
+    if (day(mt) > day(last.t)) {
+      // יש מסחר היום אבל Yahoo עוד לא יצר נר — מוסיפים נר של היום מהמחיר החי
+      const p = m.regularMarketPrice;
+      bars.push({ t: mt, o: p, h: p, l: p, c: p, v: 0 });
+    } else {
+      const lb = { ...last };
+      lb.c = m.regularMarketPrice; lb.h = Math.max(lb.h, lb.c); lb.l = Math.min(lb.l, lb.c);
+      bars[bars.length - 1] = lb;
+    }
   }
   return { bars, meta: { symbol: m.symbol, currency: m.currency, exchange: m.exchangeName, name: m.longName || m.shortName,
     livePrice: m.regularMarketPrice || null, rawLastClose, marketTime: m.regularMarketTime || null } };
@@ -79,7 +88,8 @@ async function handleStockAnalysis(req, res) {
     const q = new url.URL('http://x' + req.url).searchParams.get('q') || '';
     const symbol = await resolveSymbol(q);
     const { bars, meta } = await getBars(symbol);
-    const out = analyze(bars, { ...meta, query: q });
+    const ctx = await require('../services/scanner').context(symbol);
+    const out = analyze(bars, { ...meta, ...ctx, query: q });
     out.ms = Date.now() - t0;
     yc.send(req, res, 200, JSON.stringify(out));
   } catch (e) {
@@ -87,4 +97,4 @@ async function handleStockAnalysis(req, res) {
   }
 }
 
-module.exports = { handleStockAnalysis };
+module.exports = { handleStockAnalysis, getBars, resolveSymbol };

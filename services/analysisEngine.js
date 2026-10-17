@@ -433,6 +433,20 @@ function analyze(rawBars, meta = {}) {
     why.push(`הטיה שלילית (ציון ${score.toFixed(1)})`, ...sig.filter(x => /מתחת|שלילי|נחלש/.test(x)).slice(0, 3));
     trigger = `לבחון מחדש רק אחרי סגירה מעל ${R1.label}${ind.stDir === -1 && ind.st ? ` והיפוך SuperTrend לחיובי (מעל ${fmt(ind.st)})` : ''}`;
   }
+  // פילטר מצב שוק: כשהמדד הרחב מתחת ל-SMA(200) לא נכנסים מיד — רק פקודה ממתינה
+  const toWait = reason => {
+    decision = 'wait';
+    plan = good(sPull) ? sPull : good(sBrk) ? sBrk : (sPull || sBrk);
+    why.unshift(reason);
+  };
+  if (decision === 'enter' && meta.regime && meta.regime.ok === false) {
+    toWait(`השוק הרחב (${meta.regime.label}) מתחת לממוצע 200 יום — לא נכנסים מיד לעסקאות חדשות`);
+  }
+  // דוח רבעוני קרוב: סיכון לפער מחיר שעוקף את הסטופ
+  if (meta.earningsDays != null && meta.earningsDays >= 0 && meta.earningsDays <= 10) {
+    dq.warnings.push(`דוח רבעוני בעוד ${meta.earningsDays} ימים — המחיר עלול לקפוץ מעבר לסטופ`);
+    if (decision === 'enter' && meta.earningsDays <= 5) toWait(`דוח רבעוני בעוד ${meta.earningsDays} ימים — עדיף להמתין לאחר הפרסום`);
+  }
   if (plan && plan.raw.entry > 0) {
     const r = plan.raw;
     plan = { ...plan, riskPct: ((r.entry - r.stop) / r.entry * 100).toFixed(1), rewardPct: ((r.target - r.entry) / r.entry * 100).toFixed(1) };
