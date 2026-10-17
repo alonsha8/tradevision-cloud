@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>השקעה לטווח ארוך</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#f5f7fb; --card:#fff; --line:#e2e6ee; --txt:#18202f; --mut:#5f6b80; --pos:#16a34a; --neg:#dc2626; --neu:#d97706; --acc:#0a9b80; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt); font-family:Heebo, system-ui, sans-serif; line-height:1.6; }
+  .wrap { max-width:900px; margin:0 auto; padding:16px; }
+  h1 { font-size:21px; margin:4px 0; } h2 { font-size:17px; margin:22px 0 8px; }
+  .sub { color:var(--mut); font-size:14px; margin-bottom:12px; }
+  form { display:flex; gap:8px; }
+  input { flex:1; min-width:0; background:#fff; border:1px solid var(--line); border-radius:12px; padding:12px 14px; font:inherit; }
+  button { background:var(--acc); color:#fff; border:0; border-radius:12px; padding:0 18px; font:inherit; font-weight:700; cursor:pointer; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px; box-shadow:0 1px 3px rgba(16,24,40,.05); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; }
+  .m { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 12px; }
+  .m span { display:block; color:var(--mut); font-size:13px; } .m b { font-size:18px; unicode-bidi:plaintext; }
+  .m small { color:var(--mut); font-size:12px; display:block; }
+  .verdict { border-inline-start:6px solid var(--mut); margin-top:12px; }
+  .v-buy { border-inline-start-color:var(--pos); } .v-watch { border-inline-start-color:var(--neu); } .v-no, .v-nodata { border-inline-start-color:var(--neg); }
+  .v-title { font-size:20px; font-weight:700; }
+  .bars { display:grid; grid-template-columns:auto 1fr auto; gap:6px 10px; align-items:center; font-size:14px; margin-top:10px; }
+  .bar { height:8px; background:var(--line); border-radius:4px; overflow:hidden; } .bar i { display:block; height:100%; background:var(--acc); }
+  .rev { display:flex; align-items:flex-end; gap:8px; height:120px; margin-top:8px; }
+  .rev div { flex:1; background:rgba(10,155,128,.75); border-radius:6px 6px 0 0; position:relative; min-height:2px; }
+  .rev div span { position:absolute; bottom:-20px; left:0; right:0; text-align:center; font-size:12px; color:var(--mut); }
+  .rev div em { position:absolute; top:-18px; left:0; right:0; text-align:center; font-size:11px; font-style:normal; color:var(--txt); }
+  table { width:100%; border-collapse:collapse; font-size:14px; } th, td { padding:8px 10px; text-align:right; border-bottom:1px solid var(--line); } th { color:var(--mut); font-weight:500; }
+  td.n { unicode-bidi:plaintext; }
+  .pos { color:var(--pos); } .neg { color:var(--neg); } .note { color:var(--mut); font-size:13px; }
+  .warn { background:#fffbeb; border:1px solid #fde68a; color:#92400e; border-radius:12px; padding:10px 12px; margin-top:12px; font-size:14px; }
+  .err { background:#fef2f2; border:1px solid #fecaca; color:#991b1b; border-radius:12px; padding:12px; margin-top:12px; }
+  .dcf { position:relative; height:46px; margin:18px 4px 6px; }
+  .dcf .rng { position:absolute; top:18px; height:10px; background:rgba(10,155,128,.25); border-radius:5px; }
+  .dcf .mk { position:absolute; top:6px; width:2px; height:34px; background:var(--txt); }
+  .dcf .mk span { position:absolute; top:-20px; transform:translateX(50%); white-space:nowrap; font-size:12px; }
+  a { color:var(--acc); }
+  .ok { color:var(--pos); } .bad { color:var(--neg); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📈 השקעה לטווח ארוך <span class="note">(1–5 שנים)</span></h1>
+  <div class="sub">איכות החברה, איתנות, שווי ומגמה ארוכה. כל נתוני הדוחות מגיעים מהדוחות השנתיים הרשמיים ב-SEC, וכל החישובים נעשים בקוד, בלי AI.</div>
+  <form id="f"><input id="q" placeholder="סימול או שם: AAPL, Microsoft, טבע, NICE.TA" autocomplete="off"><button>נתח</button></form>
+  <div id="out"></div>
+  <p class="note" style="margin-top:24px">נתוני דוחות: SEC EDGAR (10-K / 20-F). מחירים: Yahoo Finance. מניות שנסחרות רק בת"א אינן מגישות דוחות ל-SEC, ולכן עבורן מוצגת רק המגמה הארוכה. אין לראות בכך ייעוץ השקעות. · <a href="#" id="st">🔍 בדיקה עצמית מול נתונים אמיתיים</a></p>
+</div>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+const P = (x, d = 1) => x == null ? '—' : (x > 0 ? '+' : '') + Number(x).toFixed(d) + '%';
+const N = x => x == null ? '—' : Number(x).toFixed(1) + '%';
+const big = v => v == null ? '—' : Math.abs(v) >= 1e12 ? (v / 1e12).toFixed(2) + 'T' : Math.abs(v) >= 1e9 ? (v / 1e9).toFixed(2) + 'B' : Math.abs(v) >= 1e6 ? (v / 1e6).toFixed(1) + 'M' : Math.round(v).toLocaleString('en-US');
+const cls = x => x > 0 ? 'pos' : x < 0 ? 'neg' : '';
+const px = (v, cur) => v == null ? '—' : cur === 'ILA' ? Math.round(v).toLocaleString('en-US') + ' אג׳' : '$' + Number(v).toFixed(2);
+
+$('#f').onsubmit = e => { e.preventDefault(); run($('#q').value.trim()); };
+async function run(q) {
+  if (!q) return;
+  $('#out').innerHTML = '<div class="note" style="padding:24px 0">מנתח… (בפעם הראשונה למניה זה יכול לקחת כמה שניות — הדוחות נשלפים מ-SEC)</div>';
+  const r = await fetch('/api/longterm?q=' + encodeURIComponent(q));
+  if (r.status === 401) { (window.top || window).location.href = '/login'; return; }
+  const d = await r.json();
+  if (!r.ok) { $('#out').innerHTML = `<div class="err">${esc(d.error)}</div>`; return; }
+  render(d);
+}
+
+function render(d) {
+  const V = d.verdict, S = d.score, F = d.fundamentals, L = d.longTrend || {};
+  const q = F && F.quality, b = F && F.balance, v = F && F.valuation;
+  let h = `<h2 style="margin-top:16px">${esc(F ? F.name : d.name || d.symbol)} <span class="note">${esc(d.symbol)}${d.usTicker ? ' · דוחות דרך ' + esc(d.usTicker) : ''} · ${px(d.price, d.currency)}</span></h2>
+  <div class="card verdict v-${V.code}"><div class="v-title">${V.code === 'buy' ? '✅' : V.code === 'watch' ? '👀' : V.code === 'nodata' ? '⚠️' : '⛔'} ${esc(V.title)}</div>
+    <ul>${V.reasons.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+    <div class="bars">
+      ${[['איכות', S.quality, 50], ['איתנות', S.balance, 15], ['שווי', S.valuation, 25], ['מגמה ארוכה', S.trend, 10]].map(([n, x, m]) =>
+        `<span>${n}</span><div class="bar"><i style="width:${x == null ? 0 : x / m * 100}%"></i></div><span>${x == null ? '—' : x}/${m}</span>`).join('')}
+      <b>סה"כ</b><div class="bar"><i style="width:${S.total}%"></i></div><b>${S.total}/100</b>
+    </div></div>`;
+  if (V.plan && V.plan.length) h += `<h2>תוכנית צבירה (3 מנות)</h2><div class="card"><table><tr><th>מנה</th><th>מתי</th><th>מחיר</th></tr>${V.plan.map(p => `<tr><td>${p.part}</td><td>${esc(p.when)}</td><td class="n">${px(p.price, d.usTicker ? 'USD' : d.currency)}</td></tr>`).join('')}</table>
+    <div class="note">צבירה הדרגתית מקטינה את הסיכון של כניסה בנקודה גבוהה. המחירים לפי תמיכות טכניות${d.usTicker ? ' במסחר בארה"ב' : ''} ולפי הערכת השווי.</div></div>`;
+  if (d.missing.length || d.warnings.length) h += `<div class="warn">${[...d.missing, ...d.warnings].map(x => '⚠️ ' + esc(x)).join('<br>')}</div>`;
+
+  if (q) {
+    const rev = F.revenue; const mx = Math.max(...rev.map(x => x.val));
+    h += `<h2>איכות החברה</h2><div class="card">
+      <div class="note">הכנסות שנתיות (${esc(F.currency)})</div>
+      <div class="rev">${rev.map(x => `<div style="height:${x.val / mx * 100}%"><em>${big(x.val)}</em><span>${x.end.slice(0, 4)}</span></div>`).join('')}</div><div style="height:22px"></div>
+      <div class="grid">
+        <div class="m"><span>צמיחת הכנסות (שנתית)</span><b class="${cls(q.revenueCagr)}">${P(q.revenueCagr)}</b><small>עלייה ב-${q.revenueUpYears} שנים</small></div>
+        <div class="m"><span>צמיחת רווח למניה</span><b class="${cls(q.epsCagr)}">${P(q.epsCagr)}</b></div>
+        <div class="m"><span>מרווח תפעולי</span><b>${N(q.opMargin)}</b></div>
+        <div class="m"><span>מרווח נקי</span><b>${N(q.netMargin)}</b></div>
+        <div class="m"><span>תשואה על ההון (ROE)</span><b>${N(q.roe)}</b></div>
+        <div class="m"><span>תזרים חופשי (שנה אחרונה)</span><b class="${cls(q.fcfLast)}">${big(q.fcfLast)}</b><small>חיובי ב-${q.fcfPositiveYears} שנים · ${N(q.fcfMargin)} מההכנסות</small></div>
+      </div></div>`;
+  }
+  if (b) h += `<h2>איתנות פיננסית</h2><div class="grid">
+      <div class="m"><span>חוב</span><b>${b.debtKnown ? big(b.debt) : '—'}</b></div>
+      <div class="m"><span>מזומן</span><b>${big(b.cash)}</b></div>
+      <div class="m"><span>מזומן נטו</span><b class="${cls(b.netCash)}">${big(b.netCash)}</b></div>
+      <div class="m"><span>חוב להון</span><b>${b.negativeEquity ? 'הון שלילי' : (b.debtToEquity ?? '—')}</b></div>
+      <div class="m"><span>שינוי במספר המניות (שנתי)</span><b class="${b.shareChangePerYear > 1 ? 'neg' : b.shareChangePerYear < 0 ? 'pos' : ''}">${P(b.shareChangePerYear)}</b><small>${b.shareChangePerYear < 0 ? 'רכישה עצמית' : b.shareChangePerYear > 1 ? 'דילול' : ''}</small></div>
+    </div>`;
+  if (v) {
+    const D = v.dcf;
+    h += `<h2>שווי</h2><div class="grid">
+      <div class="m"><span>שווי שוק</span><b>$${big(v.marketCap)}</b>${v.crossCheck ? `<small>Yahoo: $${big(v.crossCheck.yahooMarketCap)} (פער ${v.crossCheck.diffPct}%)</small>` : ''}</div>
+      <div class="m"><span>מכפיל רווח (P/E)</span><b>${v.pe ?? '—'}</b></div>
+      <div class="m"><span>מחיר לתזרים חופשי</span><b>${v.pFcf ?? '—'}</b></div>
+      <div class="m"><span>תשואת תזרים חופשי</span><b>${N(v.fcfYield)}</b></div>
+      <div class="m"><span>מרווח ביטחון (DCF בסיסי)</span><b class="${cls(v.marginOfSafety)}">${P(v.marginOfSafety)}</b></div>
+    </div>`;
+    if (D && D.base) {
+      const lo = Math.min(D.conservative, v.price) * 0.9, hi = Math.max(D.optimistic, v.price) * 1.1, pos = x => (x - lo) / (hi - lo) * 100;
+      h += `<div class="card" style="margin-top:10px"><div class="note">הערכת שווי למניה (DCF): שמרני / בסיסי / אופטימי, מול המחיר</div>
+        <div class="dcf"><div class="rng" style="right:${pos(D.conservative)}%;width:${pos(D.optimistic) - pos(D.conservative)}%"></div>
+        <div class="mk" style="right:${pos(D.base)}%;background:var(--acc)"><span>בסיס $${D.base}</span></div>
+        <div class="mk" style="right:${pos(v.price)}%"><span style="top:38px">מחיר $${v.price.toFixed(2)}</span></div></div>
+        <div style="height:16px"></div>
+        <div class="note">הנחות: תזרים חופשי בסיס $${big(v.assumptions.baseFcf)}, צמיחה ${v.assumptions.growth}% לשנה ל-5 שנים (לפי צמיחת ההכנסות, עד 15%), היוון ${v.assumptions.discount}%, צמיחה לטווח ארוך ${v.assumptions.terminal}%. שמרני: חצי מהצמיחה והיוון 10%. אופטימי: פי 1.3 מהצמיחה והיוון 8.5%. DCF רגיש מאוד להנחות, ולכן הוא טווח ולא מספר מדויק.</div></div>`;
+    }
+  }
+  h += `<h2>מגמה ארוכה</h2><div class="grid">
+    <div class="m"><span>תשואה שנה</span><b class="${cls(L.ret1y)}">${P(L.ret1y)}</b></div>
+    <div class="m"><span>תשואה שנתית 3 שנים</span><b class="${cls(L.cagr3y)}">${P(L.cagr3y)}</b></div>
+    <div class="m"><span>תשואה שנתית 5 שנים</span><b class="${cls(L.cagr5y)}">${P(L.cagr5y)}</b></div>
+    <div class="m"><span>ירידה מקסימלית (5 שנים)</span><b class="neg">${L.maxDrawdown5y != null ? '-' + L.maxDrawdown5y + '%' : '—'}</b></div>
+    <div class="m"><span>מעל ממוצע 200 יום</span><b>${L.aboveSma200 == null ? '—' : L.aboveSma200 ? '✅ כן' : '❌ לא'}</b></div>
+    <div class="m"><span>מהשיא השנתי</span><b class="${cls(L.fromHigh52)}">${P(L.fromHigh52)}</b></div>
+  </div>
+  <p class="note">תשואות לפי מחירים מותאמים לדיבידנדים ולפיצולים. ${F ? 'הדוח האחרון שהוגש: ' + esc(F.lastFiled) + '.' : ''}</p>`;
+  $('#out').innerHTML = h;
+}
+
+$('#st').onclick = async e => {
+  e.preventDefault();
+  $('#out').innerHTML = '<div class="note" style="padding:24px 0">מריץ בדיקה עצמית על 9 מניות מול SEC ו-Yahoo… (עד דקה)</div>';
+  const d = await (await fetch('/api/longterm/selftest')).json();
+  $('#out').innerHTML = `<h2>🔍 בדיקה עצמית — ${d.ok ? '<span class="ok">הכול תקין ✓</span>' : '<span class="bad">נמצאו בעיות</span>'}</h2>
+    ${d.contactSet ? '' : '<div class="err">חסר SEC_CONTACT_EMAIL בהגדרות השרת — SEC לא יחזיר נתונים בלעדיו.</div>'}
+    ${d.rows.map(r => `<div class="card" style="margin-top:10px"><b>${r.ok ? '✅' : '❌'} ${esc(r.ticker)}</b><table>${r.checks.map(c =>
+      `<tr><td>${c.ok === true ? '✅' : c.ok === false ? '❌' : '➖'}</td><td>${esc(c.name)}</td><td class="note">${esc(c.detail)}</td></tr>`).join('')}</table></div>`).join('')}
+    <p class="note">${esc(d.at)}</p>`;
+};
+const qp = new URLSearchParams(location.search).get('q'); if (qp) { $('#q').value = qp; run(qp); }
+</script>
+</body>
+</html>
