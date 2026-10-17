@@ -46,8 +46,16 @@ function rateLimit(key, max, windowMs) {
 }
 
 // ══════════════ סיסמה ══════════════
+// כניסה דורשת סיסמה בכל פתיחה מחדש של הדפדפן, ואחרי LOGIN_IDLE_MINUTES (ברירת מחדל 30) דקות ללא שימוש.
 const AUTH_COOKIE = 'tv_auth';
-const authToken = APP_PASSWORD ? crypto.createHmac('sha256', APP_PASSWORD).update('tradevision-v1').digest('hex') : '';
+const IDLE_MS = (parseInt(process.env.LOGIN_IDLE_MINUTES, 10) || 30) * 60 * 1000;
+const sign = ts => crypto.createHmac('sha256', APP_PASSWORD).update('tradevision-v2:' + ts).digest('hex');
+const makeToken = () => { const ts = Date.now(); return ts + '.' + sign(ts); };
+function setAuthCookie(req, res) {
+  const secure = req.secure ? ' Secure;' : '';
+  // בלי Max-Age = עוגיית סשן: נמחקת כשסוגרים את הדפדפן
+  res.setHeader('Set-Cookie', `${AUTH_COOKIE}=${makeToken()}; Path=/; HttpOnly;${secure} SameSite=Lax`);
+}
 
 function getCookie(req, name) {
   const m = (req.headers.cookie || '').match(new RegExp('(?:^|;\\s*)' + name + '=([^;]+)'));
@@ -56,7 +64,14 @@ function getCookie(req, name) {
 function isAuthed(req) {
   if (!APP_PASSWORD) return true;
   const c = getCookie(req, AUTH_COOKIE);
-  return !!c && c.length === authToken.length && crypto.timingSafeEqual(Buffer.from(c), Buffer.from(authToken));
+  if (!c) return false;
+  const [tsStr, mac] = c.split('.');
+  const ts = parseInt(tsStr, 10);
+  if (!ts || !mac || Date.now() - ts > IDLE_MS || Date.now() < ts - 60000) return false;
+  const good = sign(ts);
+  if (mac.length !== good.length || !crypto.timingSafeEqual(Buffer.from(mac), Buffer.from(good))) return false;
+  req._authTs = ts;
+  return true;
 }
 
 const LOGIN_PAGE = (err) => `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -76,8 +91,7 @@ app.post('/login', express.urlencoded({ extended: false, limit: '2kb' }), (req, 
   const ok = typeof req.body.password === 'string' &&
     crypto.timingSafeEqual(crypto.createHash('sha256').update(req.body.password).digest(), crypto.createHash('sha256').update(APP_PASSWORD).digest());
   if (!ok) return res.status(401).type('html').send(LOGIN_PAGE('סיסמה שגויה'));
-  const secure = req.secure ? ' Secure;' : '';
-  res.setHeader('Set-Cookie', `${AUTH_COOKIE}=${authToken}; Path=/; HttpOnly;${secure} SameSite=Lax; Max-Age=${60 * 60 * 24 * 60}`);
+  setAuthCookie(req, res);
   res.redirect('/');
 });
 app.get('/logout', (req, res) => {
@@ -89,7 +103,11 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok', database: !!pool, 
 
 // כל השאר — רק אחרי כניסה
 app.use((req, res, next) => {
-  if (isAuthed(req)) return next();
+  if (isAuthed(req)) {
+    // חלון חוסר-פעילות מתחדש עם כל שימוש (לכל היותר פעם בדקה)
+    if (APP_PASSWORD && Date.now() - req._authTs > 60000) setAuthCookie(req, res);
+    return next();
+  }
   if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'נדרשת כניסה מחדש — רעננו את הדף' });
   res.redirect('/login');
 });
