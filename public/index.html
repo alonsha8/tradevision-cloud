@@ -204,16 +204,34 @@
     .alert-msg{margin-right:0;}
     .history-chips{overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;padding-bottom:4px;}
   }
+  /* ערכת צבעים בהירה (ברירת מחדל). הכפתור בכותרת מחליף לכהה. */
+  :root[data-theme="light"]{--bg:#f5f7fb;--surface:#ffffff;--surface2:#f0f3f8;--border:#e2e6ee;--accent:#0a9b80;--accent2:#d97706;--red:#dc2645;--green:#0a9b80;--text:#18202f;--muted:#5f6b80;}
+  :root[data-theme="light"] header,:root[data-theme="light"] .tabs{box-shadow:0 1px 0 var(--border);}
+  :root[data-theme="light"] .card{box-shadow:0 1px 3px rgba(16,24,40,.06);}
+  .theme-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:20px;padding:5px 12px;font-size:13px;cursor:pointer;font-family:var(--sans);}
 </style>
+<script>
+  // מוחל לפני הציור כדי שלא יהבהב
+  (function(){var t='light';try{t=localStorage.getItem('tv_theme')||'light';}catch(e){}document.documentElement.setAttribute('data-theme',t);})();
+  function toggleTheme(){
+    var t=document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';
+    document.documentElement.setAttribute('data-theme',t);
+    try{localStorage.setItem('tv_theme',t);}catch(e){}
+    var b=document.getElementById('theme-btn');if(b)b.textContent=t==='light'?'🌙 כהה':'☀️ בהיר';
+  }
+</script>
 </head>
 <body>
 <header>
   <div class="logo-mark">TV</div>
   <div><div class="logo-text">TradeVision AI</div><div class="logo-sub">POWERED BY CLAUDE</div></div>
   <div class="header-badge">BETA v8.0</div>
+  <button id="theme-btn" class="theme-btn" onclick="toggleTheme()">🌙 כהה</button>
 </header>
+<script>(function(){var b=document.getElementById('theme-btn');if(document.documentElement.getAttribute('data-theme')!=='light')b.textContent='☀️ בהיר';})();</script>
 <div class="tabs">
   <div class="tab active" onclick="switchTab('dashboard')">🏠 דשבורד</div>
+  <div class="tab" onclick="switchTab('stockanalysis')">🎯 ניתוח מניה</div>
   <div class="tab" onclick="switchTab('analyzer')">📊 ניתוח גרף</div>
   <div class="tab" onclick="switchTab('scanner')">🔍 סורק</div>
   <div class="tab" onclick="switchTab('portfolio')">💼 בנאי תיק AI</div>
@@ -671,6 +689,11 @@
 </div>
 </div>
 
+<!-- TAB: STOCK ANALYSIS (ניתוח טכני מלא + החלטת כניסה) -->
+<div id="tab-stockanalysis" class="tab-content">
+  <iframe id="sa-frame" title="ניתוח מניה" style="width:100%;height:calc(100vh - 130px);border:0;display:block;" loading="lazy"></iframe>
+</div>
+
 <!-- TAB 7: WATCHLIST -->
 <div id="tab-watchlist" class="tab-content">
 <div class="scanner-wrap">
@@ -724,8 +747,9 @@ emailjs.init('LkDpHo19XM92ZLmZm');
 
 // Tabs
 function switchTab(t){
-  ['dashboard','analyzer','scanner','portfolio','trading','fundamental','watchlist'].forEach(function(n){document.getElementById('tab-'+n).classList.toggle('active',n===t);});
-  var order=['dashboard','analyzer','scanner','portfolio','trading','fundamental','watchlist'];
+  ['dashboard','stockanalysis','analyzer','scanner','portfolio','trading','fundamental','watchlist'].forEach(function(n){document.getElementById('tab-'+n).classList.toggle('active',n===t);});
+  var order=['dashboard','stockanalysis','analyzer','scanner','portfolio','trading','fundamental','watchlist'];
+  if(t==='stockanalysis'){var f=document.getElementById('sa-frame');if(!f.src)f.src='/stock-analysis.html';}
   document.querySelectorAll('.tab').forEach(function(el,i){el.classList.toggle('active',order[i]===t);});
   if(t==='trading')renderTradingDesk();
   if(t==='dashboard'){loadDashboardNews();loadMacroWidget();}
@@ -1100,11 +1124,11 @@ function runScan(){
       document.getElementById('scan-stats').style.display='grid';
       checkAlerts(scanResults);saveHistory(scanResults);renderSectorHeatmap(false);renderTable();return;
     }
-    var batch=TICKERS.slice(i,i+5);i+=5;
+    var batch=TICKERS.slice(i,i+12);i+=12;
     Promise.all(batch.map(fetchQuote)).then(function(res){
       res.forEach(function(r){if(r)scanResults.push(r);});
       document.getElementById('scan-progress').textContent='סרוקו '+Math.min(i,TICKERS.length)+'/'+TICKERS.length+' מניות... ('+scanResults.length+' תוצאות)';
-      setTimeout(next,300);
+      setTimeout(next,0);
     });
   }
   next();
@@ -1202,11 +1226,11 @@ function runTaScan(){
       document.getElementById('ta-scan-stats').style.display='grid';
       renderSectorHeatmap(true);renderTaTable();return;
     }
-    var batch=TA_TICKERS.slice(i,i+5);i+=5;
+    var batch=TA_TICKERS.slice(i,i+12);i+=12;
     Promise.all(batch.map(fetchQuote)).then(function(res){
       res.forEach(function(r){if(r)taScanResults.push(r);});
       document.getElementById('ta-scan-progress').textContent='סרוקו '+Math.min(i,TA_TICKERS.length)+'/'+TA_TICKERS.length+' מניות... ('+taScanResults.length+' תוצאות)';
-      setTimeout(next,300);
+      setTimeout(next,0);
     });
   }
   next();
@@ -1728,10 +1752,10 @@ function findReplacement(weakTicker,category){
         '</div>';
       return;
     }
-    var batch=candidates.slice(i,i+5);i+=5;
+    var batch=candidates.slice(i,i+12);i+=12;
     Promise.all(batch.map(fetchQuote)).then(function(res){
       res.forEach(function(r){if(r)results.push(r);});
-      setTimeout(nextBatch,250);
+      setTimeout(nextBatch,0);
     });
   }
   nextBatch();
