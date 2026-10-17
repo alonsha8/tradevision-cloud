@@ -265,7 +265,11 @@ if (pool) {
 }
 
 // ══════════════ קבצים סטטיים ══════════════
-app.use(express.static(path.join(__dirname, 'public'), { maxAge: '5m' }));
+// דפי HTML לא נשמרים בדפדפן — כל עדכון מופיע מיד אחרי פריסה
+app.use(express.static(path.join(__dirname, 'public'), {
+  maxAge: '5m',
+  setHeaders: (res, file) => { if (file.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache'); },
+}));
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
 app.use((req, res) => res.status(404).send('Not found'));
 
