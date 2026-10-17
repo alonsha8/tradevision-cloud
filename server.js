@@ -75,15 +75,20 @@ function isAuthed(req) {
 }
 
 const LOGIN_PAGE = (err) => `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>TradeVision — כניסה</title><style>
+<title>$trade — כניסה</title><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><style>
+@font-face{font-family:'BrandPoppins';font-weight:800;src:url(/fonts/poppins-800.woff2) format('woff2')}
+.brand{display:flex;align-items:center;justify-content:center;gap:10px;direction:ltr;margin-bottom:18px}.brand img{width:48px;height:48px;border-radius:14px;box-shadow:0 4px 12px rgba(10,155,128,.3)}
+.brand span{font-family:'BrandPoppins',sans-serif;font-weight:800;font-size:34px;letter-spacing:-.5px;color:#18202f}
 body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f5f7fb;font-family:Heebo,system-ui,sans-serif;color:#18202f}
 form{background:#fff;border:1px solid #e2e6ee;border-radius:16px;padding:28px;width:min(340px,92vw);box-shadow:0 4px 20px rgba(16,24,40,.06)}
 h1{font-size:20px;margin:0 0 16px}input{width:100%;box-sizing:border-box;padding:12px;border:1px solid #e2e6ee;border-radius:10px;font:inherit;margin-bottom:12px}
 button{width:100%;padding:12px;border:0;border-radius:10px;background:#0a9b80;color:#fff;font:inherit;font-weight:700;cursor:pointer}
 .e{color:#b91c1c;font-size:14px;margin-bottom:10px}</style></head><body>
-<form method="post" action="/login"><h1>TradeVision AI</h1>${err ? `<div class="e">${err}</div>` : ''}
+<form method="post" action="/login"><div class="brand"><img src="/logo-mark.svg" alt="$"><span>trade</span></div>${err ? `<div class="e">${err}</div>` : ''}
 <input type="password" name="password" placeholder="סיסמה" autofocus autocomplete="current-password"><button>כניסה</button></form></body></html>`;
 
+const PUBLIC_ASSETS = new Set(['/logo-mark.svg', '/favicon.svg', '/apple-touch-icon.png', '/icon-192.png', '/icon-512.png', '/manifest.webmanifest', '/fonts/poppins-800.woff2']);
+app.use((req, res, next) => (PUBLIC_ASSETS.has(req.path) ? express.static(path.join(__dirname, 'public'), { maxAge: '7d' })(req, res, next) : next()));
 app.get('/login', (req, res) => res.type('html').send(LOGIN_PAGE('')));
 app.post('/login', express.urlencoded({ extended: false, limit: '2kb' }), (req, res) => {
   if (!APP_PASSWORD) return res.redirect('/');
