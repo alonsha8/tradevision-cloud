@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>יומן עסקאות</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#f5f7fb; --card:#fff; --line:#e2e6ee; --txt:#18202f; --mut:#5f6b80; --pos:#16a34a; --neg:#dc2626; --neu:#d97706; --acc:#0a9b80; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt); font-family:Heebo, system-ui, sans-serif; line-height:1.6; }
+  .wrap { max-width:1060px; margin:0 auto; padding:16px; }
+  h1 { font-size:22px; margin:6px 0 4px; } h2 { font-size:17px; margin:22px 0 8px; }
+  .sub { color:var(--mut); font-size:14px; margin-bottom:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px; box-shadow:0 1px 3px rgba(16,24,40,.05); }
+  .kpis { display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:10px; }
+  .kpi { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 12px; }
+  .kpi span { display:block; color:var(--mut); font-size:13px; } .kpi b { font-size:20px; unicode-bidi:plaintext; }
+  .tbl { overflow-x:auto; } table { width:100%; border-collapse:collapse; font-size:14px; min-width:820px; }
+  th, td { padding:8px 10px; text-align:right; border-bottom:1px solid var(--line); white-space:nowrap; } th { color:var(--mut); font-weight:500; }
+  td.n { unicode-bidi:plaintext; } .pos { color:var(--pos); } .neg { color:var(--neg); } .mut { color:var(--mut); }
+  button { font:inherit; border:1px solid var(--line); background:#fff; border-radius:8px; padding:4px 10px; cursor:pointer; font-size:13px; }
+  button.go { background:var(--acc); color:#fff; border:0; font-weight:700; padding:8px 16px; font-size:15px; }
+  .pill { display:inline-block; padding:1px 8px; border-radius:999px; font-size:13px; background:#eef1f6; }
+  .st-open { background:#dcfce7; color:#166534; } .st-target { background:#dcfce7; color:#166534; } .st-stop { background:#fee2e2; color:#991b1b; } .st-pending { background:#fef3c7; color:#92400e; }
+  .err { background:#fef2f2; border:1px solid #fecaca; color:#991b1b; padding:12px; border-radius:12px; }
+  a { color:var(--acc); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a href="/">→ חזרה לאפליקציה</a>
+  <h1>📒 יומן עסקאות</h1>
+  <div class="sub">כל תוכנית שנשמרת מ"ניתוח מניה" נבדקת אוטומטית כל 15 דקות בשעות המסחר, באותה לוגיקה של הבדיקה ההיסטורית. במימוש, ביעד, בסטופ או כשפקודה פגה, נשלח מייל.</div>
+  <div style="margin-bottom:14px"><button class="go" id="refresh">🔄 בדוק עכשיו</button> <span id="msg" class="mut"></span></div>
+  <div id="out"><div class="mut">טוען…</div></div>
+</div>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+const sgn = (x, d = 2) => x == null || x === '' ? '—' : ((+x > 0 ? '+' : '') + Number(x).toFixed(d));
+const cls = x => +x > 0 ? 'pos' : +x < 0 ? 'neg' : '';
+const px = (v, cur) => v == null ? '—' : cur === 'ILA' ? Math.round(+v).toLocaleString('en-US') + ' אג׳' : (cur === 'USD' ? '$' : '') + Number(v).toFixed(2);
+const LBL = { pending: '⏳ ממתין למימוש', open: '🟢 פתוחה', target: '🎯 יעד', stop: '🛑 סטופ', time: '⌛ 30 יום', expired: '⌛ פגה', invalid: '⚠️ פער', cancelled: '✖ בוטל' };
+const TYPE = { market: 'מיידית', limit: 'בתיקון', stop: 'בפריצה' };
+const dt = x => x ? new Date(x).toLocaleDateString('he-IL') : '—';
+
+async function load() {
+  const r = await fetch('/api/journal');
+  if (r.status === 401) { location.href = '/login'; return; }
+  const d = await r.json();
+  if (!r.ok) { $('#out').innerHTML = `<div class="err">${esc(d.error)}</div>`; return; }
+  const s = d.stats || {};
+  let h = `<div class="kpis">
+    <div class="kpi"><span>עסקאות סגורות</span><b>${s.trades || 0}</b></div>
+    <div class="kpi"><span>אחוז הצלחה</span><b>${s.trades ? s.winRate + '%' : '—'}</b></div>
+    <div class="kpi"><span>תוחלת לעסקה</span><b class="${cls(s.expectancyR)}">${s.trades ? sgn(s.expectancyR) + 'R' : '—'}</b></div>
+    <div class="kpi"><span>Profit factor</span><b>${s.profitFactor ?? '—'}</b></div>
+    <div class="kpi"><span>פתוחות / ממתינות</span><b>${d.rows.filter(x => x.status === 'open').length} / ${d.rows.filter(x => x.status === 'pending').length}</b></div>
+  </div>`;
+  if (!d.rows.length) h += `<div class="card" style="margin-top:14px">היומן ריק. בלשונית "🎯 ניתוח מניה" לחצו "📒 הוסף ליומן העסקאות" מתחת להחלטה.</div>`;
+  else h += `<h2>כל התוכניות</h2><div class="card tbl"><table>
+    <tr><th>נוצר</th><th>מניה</th><th>סוג כניסה</th><th>כניסה</th><th>סטופ</th><th>יעד</th><th>כמות</th><th>סטטוס</th><th>מימוש</th><th>יציאה</th><th>תשואה</th><th>R</th><th></th></tr>
+    ${d.rows.map(x => `<tr>
+      <td class="n">${dt(x.created_at)}</td><td><b>${esc(x.ticker)}</b></td><td>${TYPE[x.plan_type] || esc(x.plan_type)}</td>
+      <td class="n">${px(x.entry, x.currency)}</td><td class="n neg">${px(x.stop, x.currency)}</td><td class="n pos">${px(x.target, x.currency)}</td>
+      <td class="n">${x.shares ?? '—'}</td>
+      <td><span class="pill st-${esc(x.status)}">${LBL[x.status] || esc(x.status)}</span></td>
+      <td class="n">${x.fill_price != null ? px(x.fill_price, x.currency) + ' · ' + dt(x.fill_time) : '—'}</td>
+      <td class="n">${x.exit_price != null ? px(x.exit_price, x.currency) + ' · ' + dt(x.exit_time) : x.status === 'open' && x.last_price != null ? '<span class="mut">עכשיו ' + px(x.last_price, x.currency) + '</span>' : '—'}</td>
+      <td class="n ${cls(x.ret_pct)}">${x.ret_pct != null ? sgn(x.ret_pct) + '%' : '—'}</td>
+      <td class="n ${cls(x.r_multiple)}">${x.r_multiple != null ? sgn(x.r_multiple) : '—'}</td>
+      <td>${['pending', 'open'].includes(x.status) ? `<button data-cancel="${x.id}">בטל</button>` : ''} <button data-del="${x.id}" title="מחק">🗑</button></td>
+    </tr>`).join('')}</table></div>
+    <div class="mut" style="font-size:13px;margin-top:6px">R בעסקה פתוחה = רווח/הפסד לא ממומש ביחידות סיכון. "בטל" מפסיק את המעקב (למשל אם לא ביצעת את העסקה בפועל).</div>`;
+  $('#out').innerHTML = h;
+  document.querySelectorAll('[data-cancel]').forEach(b => b.onclick = async () => { await fetch('/api/journal/' + b.dataset.cancel + '/cancel', { method: 'POST' }); load(); });
+  document.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => { if (confirm('למחוק את התוכנית מהיומן?')) { await fetch('/api/journal/' + b.dataset.del, { method: 'DELETE' }); load(); } });
+}
+$('#refresh').onclick = async () => {
+  $('#refresh').disabled = true; $('#msg').textContent = 'בודק מול נתוני המסחר…';
+  const r = await fetch('/api/journal/refresh', { method: 'POST' });
+  $('#msg').textContent = r.ok ? 'עודכן ✓' : 'הבדיקה נכשלה';
+  $('#refresh').disabled = false; load();
+};
+load();
+</script>
+</body>
+</html>

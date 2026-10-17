@@ -60,6 +60,9 @@
   .sz-row { display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; font-size:14px; }
   .sz-row input { width:110px; font:inherit; padding:6px 8px; border:1px solid var(--line); border-radius:8px; }
   .sz-res { margin-top:8px; font-size:15px; } .note { color:var(--mut); font-size:13px; }
+  .jr { margin-top:10px; display:flex; flex-wrap:wrap; gap:8px 12px; align-items:center; }
+  .jr-btn { background:var(--card); border:1px solid var(--acc); color:var(--acc); border-radius:10px; padding:8px 14px; font:inherit; font-weight:700; cursor:pointer; }
+  .jr-btn:disabled { opacity:.5; }
   .foot { color:var(--mut); font-size:13px; margin-top:18px; }
   .err { background:#fef2f2; border:1px solid #fecaca; color:#991b1b; padding:12px; border-radius:12px; }
   .load { color:var(--mut); padding:30px 0; text-align:center; }
@@ -127,7 +130,7 @@ function render(d) {
         <div><span>סיכוי/סיכון</span><b>1:${esc(V.rr)}</b></div></div>` : '') +
       `<ul>${V.reasons.map(r => `<li>${esc(r)}</li>`).join('')}</ul>` +
       (V.trigger ? `<div class="v-how">${esc(V.trigger)}</div>` : '') + `</div>`;
-    if (V.raw) h += `<div class="sizing" id="sizing"></div>`;
+    if (V.raw) h += `<div class="sizing" id="sizing"></div><div class="jr"><button id="jr-btn" class="jr-btn">📒 הוסף ליומן העסקאות</button><span id="jr-msg" class="note"></span></div>`;
   }
   h += `<p class="foot">התוכן מבוסס על חישוב אינדיקטורים מנתוני מסחר יומיים, מיועד למטרות מידע בלבד ואינו מהווה ייעוץ השקעות. נכון ל-${new Date(d.asOf * 1000).toLocaleDateString('he-IL')} · חושב ב-${d.ms}ms</p>`;
   h += `<div class="chart-card"><div class="legend">
@@ -135,7 +138,20 @@ function render(d) {
     <span><b style="background:#c084fc"></b>SMA200</span><span><b style="background:#ef4444"></b>SuperTrend(10,3)</span><span><b style="background:#1a1f2b"></b>MACD(12,26,9)</span></div>
     <div id="main"></div><div id="macd"></div></div>`;
   $('#out').innerHTML = h;
-  if (V && V.raw) drawSizing(d);
+  if (V && V.raw) {
+    drawSizing(d);
+    $('#jr-btn').onclick = async () => {
+      $('#jr-btn').disabled = true; $('#jr-msg').textContent = 'שומר…';
+      try {
+        const r = await fetch('/api/journal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+          ticker: d.meta.symbol, currency: d.meta.currency, decision: V.decision, planType: V.planType,
+          entry: V.raw.entry, stop: V.raw.stop, target: V.raw.target, shares: window._lastShares || null, notes: V.how || '' }) });
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error || 'שגיאה');
+        $('#jr-msg').innerHTML = '✅ נשמר. המערכת תעקוב ותשלח מייל במימוש, ביעד או בסטופ. <a href="/journal.html" target="_top">ליומן ←</a>';
+      } catch (e) { $('#jr-msg').textContent = '⚠️ ' + e.message; $('#jr-btn').disabled = false; }
+    };
+  }
   drawChart(d);
 }
 
@@ -169,6 +185,7 @@ async function drawSizing(d) {
     let shares = Math.floor(riskIls / perShare), capped = false;
     if (shares * e * conv > A) { shares = Math.floor(A / (e * conv)); capped = true; }
     const val = shares * e * conv, loss = shares * perShare;
+    window._lastShares = shares >= 1 ? shares : null;
     const n = x => Math.round(x).toLocaleString('he-IL');
     out.innerHTML = shares < 1 ? 'הסיכון לעסקה קטן מדי לקניית מניה אחת במחיר הזה.' :
       `<b>${shares.toLocaleString('he-IL')} מניות</b> · שווי ≈ ₪${n(val)} (${(val / A * 100).toFixed(1)}% מהתיק) · הפסד אם הסטופ נפגע ≈ ₪${n(loss)}` +
