@@ -172,9 +172,58 @@ const last = arr => { for (let i = arr.length - 1; i >= 0; i--) if (arr[i] != nu
 const pct = (a, b) => ((a - b) / b) * 100;
 
 // ---------- הניתוח המלא ----------
-function analyze(bars, meta = {}) {
-  bars = bars.filter(b => [b.o, b.h, b.l, b.c].every(v => Number.isFinite(v)));
-  if (bars.length < 60) throw new Error('אין מספיק היסטוריית מחירים לניתוח (נדרשים לפחות 60 ימי מסחר)');
+// ---------- אימות איכות נתונים ----------
+// blocking = הנתונים לא אמינים, אין החלטת מסחר. warnings = מוצג למשתמש, הניתוח נשאר תקף.
+function checkData(rawBars, meta, nowSec) {
+  const blocking = [], warnings = [];
+  let bars = rawBars.filter(b => [b.o, b.h, b.l, b.c].every(v => Number.isFinite(v) && v > 0));
+  const dropped = rawBars.length - bars.length;
+  // תיקון נרות לא עקביים (גבוה נמוך מהסגירה וכו')
+  let fixed = 0;
+  bars = bars.map(b => {
+    const hi = Math.max(b.h, b.o, b.c), lo = Math.min(b.l, b.o, b.c);
+    if (hi !== b.h || lo !== b.l) { fixed++; return { ...b, h: hi, l: lo }; }
+    return b;
+  });
+  // נר "קוצני" בודד: קפיצה של 25%+ שחוזרת למחרת — תקלה בנתונים, לא תנועה אמיתית
+  let spikes = 0;
+  for (let k = 1; k < bars.length - 1; k++) {
+    const p = bars[k - 1].c, x = bars[k].c, nx = bars[k + 1].c;
+    if (Math.abs(x / p - 1) > 0.25 && Math.abs(nx / p - 1) < 0.08 && Math.sign(x - p) !== Math.sign(nx - x)) {
+      bars.splice(k, 1); spikes++; k--;
+    }
+  }
+  if (dropped + fixed + spikes > 0) warnings.push(`תוקנו ${dropped + fixed + spikes} נרות פגומים בנתוני המקור`);
+  // חשד לפיצול מניה שעדיין לא תוקן בנתונים
+  const SPLIT = [2, 3, 4, 5, 10, 20, 1 / 2, 1 / 3, 1 / 4, 1 / 5, 1 / 10, 1 / 20, 1.5, 2 / 3];
+  for (let k = Math.max(1, bars.length - 260); k < bars.length; k++) {
+    const r = bars[k].c / bars[k - 1].c;
+    if ((r > 1.4 || r < 0.6) && SPLIT.some(f => Math.abs(r / f - 1) < 0.03)) {
+      blocking.push(`קפיצה חדה של פי ${r.toFixed(2)} ב-${new Date(bars[k].t * 1000).toLocaleDateString('he-IL')} — חשד לפיצול מניה שלא תוקן בנתונים`);
+      break;
+    }
+  }
+  if (bars.length < 60) { blocking.push(`רק ${bars.length} ימי מסחר תקינים — נדרשים לפחות 60`); return { bars, blocking, warnings }; }
+  // טריות הנתונים
+  const last = bars[bars.length - 1];
+  const ageDays = (nowSec - last.t) / 86400;
+  if (ageDays > 6) blocking.push(`הנר האחרון מ-${new Date(last.t * 1000).toLocaleDateString('he-IL')} (לפני ${Math.floor(ageDays)} ימים) — הנתונים לא עדכניים`);
+  else if (ageDays > 4) warnings.push(`הנר האחרון מלפני ${Math.floor(ageDays)} ימים (חג / סוף שבוע ארוך?)`);
+  // התאמה בין מחיר חי לסגירה האחרונה בגרף
+  if (meta.livePrice && meta.rawLastClose) {
+    const d = Math.abs(meta.livePrice / meta.rawLastClose - 1);
+    if (d > 0.15) blocking.push(`פער של ${(d * 100).toFixed(1)}% בין המחיר החי לסגירה בגרף — נתונים סותרים`);
+    else if (d > 0.08) warnings.push(`פער של ${(d * 100).toFixed(1)}% בין המחיר החי לסגירה האחרונה בגרף`);
+  }
+  if (bars.length < 200) warnings.push(`רק ${bars.length} ימי מסחר — SMA(200) לא זמין, והניתוח פחות מבוסס`);
+  if (bars.slice(-20).every(b => !b.v)) warnings.push('אין נתוני מחזור — לא ניתן לאשר פריצות לפי מחזור');
+  return { bars, blocking, warnings };
+}
+
+function analyze(rawBars, meta = {}) {
+  const dq = checkData(rawBars, meta, meta.nowSec || Date.now() / 1000);
+  let bars = dq.bars;
+  if (bars.length < 60) throw new Error(dq.blocking.join(' · ') || 'אין מספיק היסטוריית מחירים לניתוח (נדרשים לפחות 60 ימי מסחר)');
   const o = bars.map(b => b.o), h = bars.map(b => b.h), l = bars.map(b => b.l), c = bars.map(b => b.c), v = bars.map(b => b.v || 0);
   const n = c.length, i = n - 1;
   const fmt = makeFmt(meta.currency);
@@ -388,9 +437,14 @@ function analyze(bars, meta = {}) {
     const r = plan.raw;
     plan = { ...plan, riskPct: ((r.entry - r.stop) / r.entry * 100).toFixed(1), rewardPct: ((r.target - r.entry) / r.entry * 100).toFixed(1) };
   }
+  // נתונים לא אמינים: אין החלטת מסחר בכלל
+  if (dq.blocking.length) {
+    decision = 'nodata'; plan = null; trigger = 'לנסות שוב מאוחר יותר או לבדוק את המחיר במקור נוסף (אתר הבורסה / ברוקר)';
+    why.length = 0; why.push(...dq.blocking);
+  }
   const verdict = {
     decision,
-    title: decision === 'enter' ? 'כן, הייתי נכנס' : decision === 'wait' ? 'לא עכשיו, ממתין לכניסה' : 'לא הייתי נכנס',
+    title: decision === 'enter' ? 'כן, הייתי נכנס' : decision === 'wait' ? 'לא עכשיו, ממתין לכניסה' : decision === 'nodata' ? 'אין החלטה — בעיית נתונים' : 'לא הייתי נכנס',
     how: plan ? plan.desc : null,
     entry: plan ? plan.entry : null, stop: plan ? plan.stop.split(' — ')[0] : null, target: plan ? plan.target : null,
     rr: plan ? plan.rr : null, riskPct: plan ? plan.riskPct : null, rewardPct: plan ? plan.rewardPct : null,
@@ -405,11 +459,11 @@ function analyze(bars, meta = {}) {
   }));
 
   return {
-    meta, bias, score: +score.toFixed(1), maxScore, signals: sig,
+    meta, dataQuality: { ok: !dq.blocking.length, blocking: dq.blocking, warnings: dq.warnings }, bias, score: +score.toFixed(1), maxScore, signals: sig,
     indicators: Object.fromEntries(Object.entries(ind).map(([kk, vv]) => [kk, typeof vv === 'number' ? +vv.toFixed(4) : vv])),
     resistances: R, supports: S.map((s, k) => ({ ...s, role: sRoles[k] })), scenarios: scen, verdict,
     sections, series, asOf: bars[i].t,
   };
 }
 
-module.exports = { analyze, sma, ema, bollinger, atr, supertrend, macd, rsi, findLevels, roundP };
+module.exports = { analyze, checkData, sma, ema, bollinger, atr, supertrend, macd, rsi, findLevels, roundP };

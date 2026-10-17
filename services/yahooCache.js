@@ -53,6 +53,22 @@ function rawGet(hostname, path, extraHeaders) {
   });
 }
 
+// --- ניסיונות חוזרים: שגיאת רשת, חסימה זמנית (429) או תקלת שרת (5xx) ---
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function withRetry(fn) {
+  const waits = [400, 1200, 2500];
+  for (let a = 0; ; a++) {
+    try {
+      const r = await fn();
+      if ((r.status === 429 || r.status >= 500) && a < waits.length) { await sleep(waits[a]); continue; }
+      return r;
+    } catch (err) {
+      if (a >= waits.length) throw err;
+      await sleep(waits[a]);
+    }
+  }
+}
+
 // --- מטמון ---
 const cache = new Map();      // key -> { t, ttl, status, body }
 const inflight = new Map();   // key -> Promise
@@ -68,7 +84,7 @@ async function cachedGet(key, ttl, hostname, path, extraHeaders) {
   const hit = cache.get(key);
   if (hit && Date.now() - hit.t < hit.ttl) return hit;
   if (inflight.has(key)) return inflight.get(key);
-  const p = limit(() => rawGet(hostname, path, extraHeaders))
+  const p = limit(() => withRetry(() => rawGet(hostname, path, extraHeaders)))
     .then(r => {
       const entry = { t: Date.now(), ttl: r.status === 200 ? ttl : 15000, status: r.status, body: r.body };
       cache.set(key, entry);

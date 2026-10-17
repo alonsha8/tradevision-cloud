@@ -52,6 +52,10 @@
   .pos { color:var(--pos); } .neg { color:var(--neg); }
   .verdict ul { margin:6px 0 0; padding-inline-start:18px; color:var(--txt); font-size:15px; }
   @media (max-width:600px) { .v-grid { grid-template-columns:repeat(2, 1fr); } }
+  .dq { margin:12px 0 4px; padding:10px 12px; border-radius:12px; background:#fffbeb; border:1px solid #fde68a; color:#92400e; font-size:14px; }
+  .dq ul { margin:4px 0 0; padding-inline-start:18px; }
+  .dq-bad { background:#fef2f2; border-color:#fecaca; color:#991b1b; }
+  .dq-ok { background:#f0fdf4; border-color:#bbf7d0; color:#166534; }
   .foot { color:var(--mut); font-size:13px; margin-top:18px; }
   .err { background:#fef2f2; border:1px solid #fecaca; color:#991b1b; padding:12px; border-radius:12px; }
   .load { color:var(--mut); padding:30px 0; text-align:center; }
@@ -97,6 +101,10 @@ function render(d) {
     <span class="px" style="color:${I.changePct >= 0 ? 'var(--pos)' : 'var(--neg)'}">${I.changePct >= 0 ? '+' : ''}${I.changePct.toFixed(2)}%</span></div>
     <span class="badge ${cls}">הטיה ${esc(d.bias)}</span>
     <div class="meter"><i style="right:${pos}%"></i></div><div class="meter-l"><span>שלילית</span><span>ניטרלית</span><span>חיובית</span></div>`;
+  const DQ = d.dataQuality || { blocking: [], warnings: [] };
+  if (DQ.blocking.length) h += `<div class="dq dq-bad">⛔ <b>בעיית נתונים — אין לסמוך על הניתוח:</b><ul>${DQ.blocking.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>`;
+  if (DQ.warnings.length) h += `<div class="dq">⚠️ <b>שימו לב לנתונים:</b><ul>${DQ.warnings.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>`;
+  if (!DQ.blocking.length && !DQ.warnings.length) h += `<div class="dq dq-ok">✓ הנתונים עברו את כל בדיקות התקינות</div>`;
   for (const s of d.sections) {
     h += `<h2>${esc(s.title)}</h2>`;
     if (s.body) h += s.body.map(x => `<p>${x}</p>`).join('');   // הטקסט נבנה בשרת וכולל רק <b>
@@ -106,7 +114,7 @@ function render(d) {
   const V = d.verdict;
   if (V) {
     const vc = V.decision === 'enter' ? 'v-yes' : V.decision === 'wait' ? 'v-wait' : 'v-no';
-    h += `<div class="verdict ${vc}"><div class="v-title">${V.decision === 'enter' ? '✅' : V.decision === 'wait' ? '⏳' : '⛔'} ${esc(V.title)}</div>` +
+    h += `<div class="verdict ${vc}"><div class="v-title">${V.decision === 'enter' ? '✅' : V.decision === 'wait' ? '⏳' : V.decision === 'nodata' ? '⚠️' : '⛔'} ${esc(V.title)}</div>` +
       (V.entry ? `${V.decision === 'wait' ? `<div class="v-how">תוכנית: ${esc(V.how)}</div>` : ''}<div class="v-grid">
         <div><span>כניסה</span><b>${esc(V.entry)}</b></div>
         <div><span>יעד</span><b class="pos">${esc(V.target)}</b><small>+${esc(V.rewardPct)}%</small></div>

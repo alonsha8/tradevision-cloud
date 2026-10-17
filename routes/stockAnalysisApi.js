@@ -51,19 +51,26 @@ async function resolveSymbol(q) {
 
 async function getBars(symbol) {
   const r = await yc.getChart(symbol, '1d', '2y');
-  const j = JSON.parse(r.body);
+  let j;
+  try { j = JSON.parse(r.body); } catch (e) { throw new Error(`תשובה לא תקינה משרת הנתונים (קוד ${r.status}). נסו שוב.`); }
+  if (j.chart && j.chart.error) {
+    const code = j.chart.error.code || '';
+    throw new Error(code === 'Not Found' ? `הסימול ${symbol} לא קיים ב-Yahoo. בדקו את הסימול (מניות ת"א מסתיימות ב-.TA).` : `שגיאה משרת הנתונים: ${j.chart.error.description || code}`);
+  }
   const res = j.chart && j.chart.result && j.chart.result[0];
   if (!res || !res.timestamp) throw new Error(`אין נתוני מחיר עבור ${symbol}`);
   const qd = res.indicators.quote[0];
   const bars = res.timestamp.map((t, i) => ({ t, o: qd.open[i], h: qd.high[i], l: qd.low[i], c: qd.close[i], v: qd.volume[i] }))
     .filter(b => b.c != null && b.o != null && b.h != null && b.l != null);
   const m = res.meta;
+  const rawLastClose = bars.length ? bars[bars.length - 1].c : null;
   if (m.regularMarketPrice && bars.length) {
     const lb = { ...bars[bars.length - 1] };
     lb.c = m.regularMarketPrice; lb.h = Math.max(lb.h, lb.c); lb.l = Math.min(lb.l, lb.c);
     bars[bars.length - 1] = lb;
   }
-  return { bars, meta: { symbol: m.symbol, currency: m.currency, exchange: m.exchangeName, name: m.longName || m.shortName } };
+  return { bars, meta: { symbol: m.symbol, currency: m.currency, exchange: m.exchangeName, name: m.longName || m.shortName,
+    livePrice: m.regularMarketPrice || null, rawLastClose, marketTime: m.regularMarketTime || null } };
 }
 
 async function handleStockAnalysis(req, res) {
