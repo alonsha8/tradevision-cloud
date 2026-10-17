@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>בדיקה היסטורית</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<style>
+  :root { --bg:#f5f7fb; --card:#fff; --line:#e2e6ee; --txt:#18202f; --mut:#5f6b80; --pos:#16a34a; --neg:#dc2626; --neu:#d97706; --acc:#0a9b80; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt); font-family:Heebo, system-ui, sans-serif; line-height:1.6; }
+  .wrap { max-width:980px; margin:0 auto; padding:16px; }
+  h1 { font-size:22px; margin:6px 0 4px; } h2 { font-size:17px; margin:22px 0 8px; }
+  .sub { color:var(--mut); font-size:14px; margin-bottom:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px; box-shadow:0 1px 3px rgba(16,24,40,.05); }
+  .controls { display:flex; flex-wrap:wrap; gap:10px 16px; align-items:center; }
+  select, button { font:inherit; border-radius:10px; padding:8px 12px; border:1px solid var(--line); background:#fff; color:var(--txt); }
+  button.go { background:var(--acc); color:#fff; border:0; font-weight:700; padding:9px 18px; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:default; }
+  .bar { height:8px; background:var(--line); border-radius:4px; overflow:hidden; margin-top:10px; } .bar i { display:block; height:100%; background:var(--acc); width:0; transition:width .4s; }
+  .kpis { display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:10px; }
+  .kpi { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 12px; }
+  .kpi span { display:block; color:var(--mut); font-size:13px; } .kpi b { font-size:20px; unicode-bidi:plaintext; }
+  .verdict { border-inline-start:6px solid var(--mut); font-size:16px; }
+  .v-good { border-inline-start-color:var(--pos); } .v-mid { border-inline-start-color:var(--neu); } .v-bad { border-inline-start-color:var(--neg); }
+  .tbl { overflow-x:auto; } table { width:100%; border-collapse:collapse; font-size:14px; min-width:520px; }
+  th, td { padding:8px 10px; text-align:right; border-bottom:1px solid var(--line); white-space:nowrap; } th { color:var(--mut); font-weight:500; }
+  td.n { unicode-bidi:plaintext; }
+  .pos { color:var(--pos); } .neg { color:var(--neg); }
+  #curve { height:260px; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; } @media (max-width:700px) { .grid2 { grid-template-columns:1fr; } }
+  .note { color:var(--mut); font-size:13px; }
+  a { color:var(--acc); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a href="/">→ חזרה לאפליקציה</a>
+  <h1>🧪 בדיקה היסטורית של כללי ההחלטה</h1>
+  <div class="sub">מריץ את אותו מנוע של "ניתוח מניה" על כל יום בעבר, כאילו היה היום, ובודק מה היה קורה לכל עסקה שהמערכת הייתה ממליצה עליה.</div>
+
+  <div class="card">
+    <div class="controls">
+      <label>שוק: <select id="uni"><option value="all">ארה"ב + ת"א (317 מניות)</option><option value="us">ארה"ב (200)</option><option value="ta">ת"א (117)</option></select></label>
+      <label>תקופה: <select id="yrs"><option value="2">שנתיים אחרונות</option><option value="5">5 שנים אחרונות</option></select></label>
+      <label><input type="checkbox" id="wait" checked> כולל פקודות ממתינות ("ממתין לכניסה")</label>
+      <button class="go" id="go">הרץ בדיקה</button>
+    </div>
+    <div id="prog" style="display:none"><div class="bar"><i id="pbar"></i></div><div class="note" id="ptxt"></div></div>
+  </div>
+
+  <div id="out"></div>
+
+  <h2>איך הבדיקה עובדת</h2>
+  <div class="card note">
+    • בכל יום המנוע רואה רק את הנתונים שהיו ידועים עד אותו יום, בלי הצצה לעתיד.<br>
+    • "כן, הייתי נכנס": כניסה בפתיחה של היום הבא. "ממתין לכניסה": פקודה ממתינה (בתיקון או בפריצה) בתוקף ל-5 ימי מסחר.<br>
+    • יציאה ביעד, בסטופ, או אחרי 30 ימי מסחר. כשהסטופ והיעד נפגעים באותו יום, העסקה נרשמת כהפסד. פער פתיחה מעבר לסטופ נרשם במחיר הפתיחה.<br>
+    • עמלה והחלקה: 0.1% לכל צד בארה"ב, 0.2% בת"א.<br>
+    • R = הרווח או ההפסד ביחידות של הסיכון. ‎+1R הוא רווח בגודל המרחק לסטופ, ו-‎−1R הוא הפסד מלא.<br>
+    • עקומת ההון מניחה סיכון של 1% מההון בכל עסקה, ולא מגבילה עסקאות חופפות. זו אינדיקציה בלבד, ולא סימולציה של תיק אמיתי.
+  </div>
+</div>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+const sgn = (x, d = 2) => x == null ? '—' : (x > 0 ? '+' : '') + Number(x).toFixed(d);
+const cls = x => x > 0 ? 'pos' : x < 0 ? 'neg' : '';
+let timer = null;
+
+$('#go').onclick = async () => {
+  $('#go').disabled = true;
+  const r = await fetch('/api/backtest/start', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ universe: $('#uni').value, years: +$('#yrs').value, includeWait: $('#wait').checked }) });
+  if (r.status === 401) { location.href = '/login'; return; }
+  poll();
+};
+
+async function poll() {
+  clearTimeout(timer);
+  let d;
+  try { d = await (await fetch('/api/backtest/status')).json(); } catch (e) { timer = setTimeout(poll, 3000); return; }
+  if (d.state === 'running') {
+    $('#go').disabled = true; $('#prog').style.display = 'block';
+    const p = d.progress || { done: 0, total: 1 };
+    $('#pbar').style.width = (p.done / p.total * 100) + '%';
+    $('#ptxt').textContent = `נבדקו ${p.done} מתוך ${p.total} מניות… (${p.current || ''}) — אפשר לסגור את הדף, הבדיקה ממשיכה בשרת`;
+    timer = setTimeout(poll, 2000);
+  } else {
+    $('#go').disabled = false; $('#prog').style.display = 'none';
+    if (d.state === 'done') render(d.result);
+    if (d.state === 'error') $('#out').innerHTML = `<div class="card" style="margin-top:14px;color:var(--neg)">שגיאה: ${esc(d.error)}</div>`;
+  }
+}
+
+function judge(o) {
+  if (!o.trades || o.trades < 30) return ['v-mid', '⚠️ מעט מדי עסקאות כדי להסיק מסקנה', 'צריך לפחות 30 עסקאות. נסו תקופה ארוכה יותר או שוק רחב יותר.'];
+  if (o.profitFactor >= 1.3 && o.expectancyR >= 0.15) return ['v-good', '✅ לכללים יש יתרון סטטיסטי בתקופה הזו', `בממוצע כל עסקה הניבה ${sgn(o.expectancyR)}R אחרי עמלות. שווה לבדוק שהיתרון עקבי גם לאורך השנים (בטבלה למטה).`];
+  if (o.profitFactor >= 1.0 && o.expectancyR > 0) return ['v-mid', '🟡 יתרון שולי', `תוחלת של ${sgn(o.expectancyR)}R לעסקה. חיובית, אבל קרובה לאפס, ולכן רגישה לעמלות ולביצוע. מומלץ לכייל את הכללים לפני מסחר בכסף אמיתי.`];
+  return ['v-bad', '⛔ אין יתרון — לא לסחור לפי הכללים כפי שהם', `תוחלת של ${sgn(o.expectancyR)}R לעסקה אחרי עמלות. הכללים צריכים כיול לפני שסומכים עליהם.`];
+}
+
+function statRow(name, s) {
+  if (!s || !s.trades) return `<tr><td>${name}</td><td colspan="6" class="note">אין עסקאות</td></tr>`;
+  return `<tr><td>${name}</td><td class="n">${s.trades}</td><td class="n">${s.winRate}%</td><td class="n pos">${sgn(s.avgWinPct)}%</td><td class="n neg">${sgn(s.avgLossPct)}%</td><td class="n">${s.profitFactor ?? '—'}</td><td class="n ${cls(s.expectancyR)}">${sgn(s.expectancyR)}R</td></tr>`;
+}
+const HEAD = '<tr><th></th><th>עסקאות</th><th>הצלחה</th><th>רווח ממוצע</th><th>הפסד ממוצע</th><th>Profit factor</th><th>תוחלת</th></tr>';
+
+function render(r) {
+  const o = r.overall;
+  if (!o.trades) { $('#out').innerHTML = '<div class="card" style="margin-top:14px">לא נוצרו עסקאות בבדיקה הזו.</div>'; return; }
+  const [vc, vt, vd] = judge(o);
+  const P = r.params || {};
+  let h = `<h2>תוצאות — ${P.universe === 'us' ? 'ארה"ב' : P.universe === 'ta' ? 'ת"א' : 'ארה"ב + ת"א'}, ${P.years} שנים${P.includeWait ? ', כולל פקודות ממתינות' : ''}</h2>
+  <div class="card verdict ${vc}"><b>${vt}</b><div>${vd}</div></div>
+  <div class="kpis" style="margin-top:12px">
+    <div class="kpi"><span>עסקאות</span><b>${o.trades}</b></div>
+    <div class="kpi"><span>אחוז הצלחה</span><b>${o.winRate}%</b></div>
+    <div class="kpi"><span>רווח ממוצע / הפסד ממוצע</span><b><span class="pos">${sgn(o.avgWinPct)}%</span> / <span class="neg">${sgn(o.avgLossPct)}%</span></b></div>
+    <div class="kpi"><span>Profit factor</span><b>${o.profitFactor ?? '—'}</b></div>
+    <div class="kpi"><span>תוחלת לעסקה</span><b class="${cls(o.expectancyR)}">${sgn(o.expectancyR)}R</b></div>
+    <div class="kpi"><span>ירידה מקסימלית (1% סיכון)</span><b class="neg">${o.maxDrawdownPct}%</b></div>
+    <div class="kpi"><span>ימי החזקה בממוצע</span><b>${o.avgDays}</b></div>
+    <div class="kpi"><span>קנה-והחזק (ממוצע למניה)</span><b class="${cls(r.buyHoldAvgPct)}">${sgn(r.buyHoldAvgPct, 1)}%</b></div>
+  </div>
+  <div class="note" style="margin-top:6px">יציאות: ${o.byOutcome.target} ביעד · ${o.byOutcome.stop} בסטופ · ${o.byOutcome.time} אחרי 30 יום. נבדקו ${r.tickersTested} מניות${r.failed.length ? `, ${r.failed.length} נכשלו (${r.failed.slice(0, 5).map(f => esc(f.ticker)).join(', ')}${r.failed.length > 5 ? '…' : ''})` : ''} · ${r.seconds} שניות · ${new Date(r.finishedAt).toLocaleString('he-IL')}</div>
+
+  <h2>עקומת הון (סיכון 1% לעסקה)</h2><div class="card"><div id="curve"></div></div>
+
+  <h2>לפי סוג החלטה ושוק</h2>
+  <div class="card tbl"><table>${HEAD}${statRow('✅ "כן, הייתי נכנס"', r.byKind.enter)}${statRow('⏳ "ממתין" (פקודה ממתינה)', r.byKind.wait)}${statRow('🇺🇸 ארה"ב', r.byMarket.US)}${statRow('🇮🇱 ת"א', r.byMarket.TA)}</table></div>
+
+  <h2>לפי שנה — האם היתרון עקבי?</h2>
+  <div class="card tbl"><table><tr><th>שנה</th><th>עסקאות</th><th>הצלחה</th><th>Profit factor</th><th>תוחלת</th></tr>${Object.entries(r.byYear).map(([y, s]) => `<tr><td>${y}</td><td class="n">${s.trades}</td><td class="n">${s.winRate}%</td><td class="n">${s.profitFactor ?? '—'}</td><td class="n ${cls(s.expectancyR)}">${sgn(s.expectancyR)}R</td></tr>`).join('')}</table></div>
+
+  <div class="grid2">
+    <div><h2>המניות הטובות ביותר</h2><div class="card tbl"><table style="min-width:0"><tr><th>מניה</th><th>עסקאות</th><th>הצלחה</th><th>תוחלת</th></tr>${r.best.map(p => `<tr><td>${esc(p.ticker)}</td><td class="n">${p.trades}</td><td class="n">${p.winRate}%</td><td class="n pos">${sgn(p.expectancyR)}R</td></tr>`).join('')}</table></div></div>
+    <div><h2>המניות הגרועות ביותר</h2><div class="card tbl"><table style="min-width:0"><tr><th>מניה</th><th>עסקאות</th><th>הצלחה</th><th>תוחלת</th></tr>${r.worst.map(p => `<tr><td>${esc(p.ticker)}</td><td class="n">${p.trades}</td><td class="n">${p.winRate}%</td><td class="n neg">${sgn(p.expectancyR)}R</td></tr>`).join('')}</table></div></div>
+  </div>
+  <div class="note">מניה עם תוצאה טובה בעבר אינה מבטיחה תוצאה טובה בעתיד. עם מעט עסקאות, ייתכן שזה מזל.</div>
+
+  <h2>50 העסקאות האחרונות</h2>
+  <div class="card tbl"><table><tr><th>מניה</th><th>סוג</th><th>כניסה</th><th>יציאה</th><th>ימים</th><th>תוצאה</th><th>תשואה</th><th>R</th></tr>${r.recentTrades.map(t => `<tr><td>${esc(t.ticker)}</td><td>${t.kind === 'enter' ? '✅' : '⏳'}</td><td class="n">${new Date(t.entryDate * 1000).toLocaleDateString('he-IL')}</td><td class="n">${new Date(t.exitDate * 1000).toLocaleDateString('he-IL')}</td><td class="n">${t.days}</td><td>${t.outcome === 'target' ? '🎯 יעד' : t.outcome === 'stop' ? '🛑 סטופ' : '⌛ זמן'}</td><td class="n ${cls(t.retPct)}">${sgn(t.retPct)}%</td><td class="n ${cls(t.R)}">${sgn(t.R)}</td></tr>`).join('')}</table></div>`;
+  $('#out').innerHTML = h;
+  const el = $('#curve');
+  const ch = LightweightCharts.createChart(el, { width: el.clientWidth, height: 260, layout: { background: { color: '#fff' }, textColor: '#5f6b80' }, grid: { vertLines: { color: '#f0f2f6' }, horzLines: { color: '#f0f2f6' } }, rightPriceScale: { borderColor: '#e2e6ee' }, timeScale: { borderColor: '#e2e6ee' } });
+  const pts = []; let last = 0;
+  for (const p of o.curve) { const t = p.t <= last ? last + 1 : p.t; pts.push({ time: t, value: p.v }); last = t; }
+  ch.addAreaSeries({ lineColor: '#0a9b80', topColor: 'rgba(10,155,128,.25)', bottomColor: 'rgba(10,155,128,0)', lineWidth: 2 }).setData(pts);
+  ch.timeScale().fitContent();
+  window.addEventListener('resize', () => ch.applyOptions({ width: el.clientWidth }));
+}
+poll();
+</script>
+</body>
+</html>

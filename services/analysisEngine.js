@@ -448,7 +448,7 @@ function analyze(rawBars, meta = {}) {
     how: plan ? plan.desc : null,
     entry: plan ? plan.entry : null, stop: plan ? plan.stop.split(' — ')[0] : null, target: plan ? plan.target : null,
     rr: plan ? plan.rr : null, riskPct: plan ? plan.riskPct : null, rewardPct: plan ? plan.rewardPct : null,
-    reasons: why, trigger,
+    reasons: why, trigger, raw: plan ? plan.raw : null, planType: plan ? (sNow && plan.desc === sNow.desc ? "market" : plan.raw.entry < close ? "limit" : "stop") : null,
   };
 
   // --- סדרות לגרף ---
