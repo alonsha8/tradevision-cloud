@@ -4,7 +4,9 @@ const fs = require('fs');
 const path = require('path');
 const url = require('url');
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
+const yc = require('./services/yahooCache');
+const { handleStockAnalysis } = require('./routes/stockAnalysisApi');
 const API_KEY = process.env.ANTHROPIC_API_KEY;
 
 function getContentType(filePath) {
@@ -193,9 +195,14 @@ const server = http.createServer((req, res) => {
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
   if (req.method === 'GET' && (req.url === '/' || req.url === '/index.html')) {
-    const html = fs.readFileSync(path.join(__dirname, 'public', 'index.html'));
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(html);
+    const html = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
+    yc.send(req, res, 200, html, 'text/html; charset=utf-8');
+    return;
+  }
+
+  // ניתוח טכני מלא למניה (מודול חדש)
+  if (req.method === 'GET' && req.url.startsWith('/api/stock-analysis')) {
+    handleStockAnalysis(req, res);
     return;
   }
 
@@ -213,7 +220,9 @@ const server = http.createServer((req, res) => {
     const parsed = new url.URL('http://x' + req.url);
     const ticker = parsed.searchParams.get('ticker');
     if (!ticker) { res.writeHead(400); res.end('Missing ticker'); return; }
-    proxyYahooQuote(ticker, res);
+    yc.getQuote(ticker)
+      .then(r => yc.send(req, res, 200, r.body))
+      .catch(err => yc.send(req, res, 500, JSON.stringify({ error: err.message })));
     return;
   }
 
@@ -259,7 +268,10 @@ const server = http.createServer((req, res) => {
     if (!ticker) { res.writeHead(400); res.end('Missing ticker'); return; }
     const interval = parsed.searchParams.get('interval') || '1d';
     const range = parsed.searchParams.get('range') || '3mo';
-    proxyYahoo(ticker, res, interval, range);
+    // מטמון + חיבור קבוע: סריקה חוזרת כמעט מיידית
+    yc.getChart(ticker, interval, range)
+      .then(r => yc.send(req, res, 200, r.body))
+      .catch(err => yc.send(req, res, 500, JSON.stringify({ error: err.message })));
     return;
   }
 

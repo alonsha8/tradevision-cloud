@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ניתוח טכני</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<style>
+  :root { --bg:#f5f7fb; --card:#ffffff; --line:#e2e6ee; --txt:#18202f; --mut:#5f6b80; --pos:#16a34a; --neg:#dc2626; --neu:#d97706; --acc:#0a9b80; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt); font-family:Heebo, system-ui, sans-serif; font-size:16px; line-height:1.65; }
+  .wrap section, .sec { }
+  .wrap { max-width:860px; margin:0 auto; padding:16px; }
+  header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  header h1 { font-size:20px; margin:0; } header h1 span { color:var(--acc); }
+  form { display:flex; gap:8px; position:sticky; top:0; background:var(--bg); padding:8px 0; z-index:5; }
+  input { flex:1; min-width:0; background:var(--card); border:1px solid var(--line); color:var(--txt); border-radius:12px; padding:12px 14px; font:inherit; }
+  input:focus { outline:2px solid var(--acc); border-color:transparent; }
+  button { background:var(--acc); color:#fff; border:0; border-radius:12px; padding:0 18px; font:inherit; font-weight:700; cursor:pointer; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 16px; }
+  .chip { background:var(--card); border:1px solid var(--line); border-radius:999px; padding:3px 12px; font-size:14px; color:var(--mut); cursor:pointer; }
+  .head { display:flex; flex-wrap:wrap; align-items:baseline; gap:10px 16px; margin:8px 0 4px; }
+  .head .nm { font-size:22px; font-weight:700; } .head .sym { color:var(--mut); direction:ltr; }
+  .head .px { font-size:22px; font-weight:700; margin-inline-start:auto; direction:ltr; }
+  .badge { display:inline-block; padding:2px 10px; border-radius:999px; font-weight:700; font-size:14px; }
+  .b-pos { background:#dcfce7; color:#166534; } .b-neg { background:#fee2e2; color:#991b1b; } .b-neu { background:#fef3c7; color:#92400e; }
+  .meter { height:6px; background:var(--line); border-radius:3px; position:relative; margin:10px 0 2px; }
+  .meter { background:linear-gradient(to left, #dc2626, #e5e7eb 50%, #16a34a); }
+  .meter i { position:absolute; top:-4px; width:14px; height:14px; border-radius:50%; background:#fff; border:2px solid var(--txt); transform:translateX(50%); }
+  .meter-l { display:flex; justify-content:space-between; font-size:12px; color:var(--mut); }
+  h2 { font-size:18px; margin:22px 0 6px; }
+  p { margin:4px 0; }
+  .tbl { overflow-x:auto; border:1px solid var(--line); border-radius:12px; }
+  table { width:100%; border-collapse:collapse; min-width:560px; font-size:15px; }
+  th, td { padding:10px 12px; text-align:right; border-bottom:1px solid var(--line); white-space:nowrap; }
+  th { background:var(--card); color:var(--mut); font-weight:500; } tr:last-child td { border-bottom:0; }
+  td.num { unicode-bidi:plaintext; text-align:right; }
+  .chart-card { box-shadow:0 1px 3px rgba(16,24,40,.06); background:var(--card); border:1px solid var(--line); border-radius:14px; padding:8px; margin-top:22px; }
+  #main { height:420px; } #macd { height:130px; margin-top:4px; }
+  .legend { display:flex; flex-wrap:wrap; gap:4px 12px; font-size:12px; color:var(--mut); padding:4px 6px; direction:ltr; justify-content:flex-start; }
+  .legend b { display:inline-block; width:10px; height:3px; margin-right:4px; vertical-align:middle; }
+  .verdict { margin-top:22px; border-radius:14px; padding:16px; border:1px solid var(--line); background:var(--card); box-shadow:0 1px 3px rgba(16,24,40,.06); border-inline-start:6px solid var(--mut); }
+  .v-yes { border-inline-start-color:var(--pos); } .v-wait { border-inline-start-color:var(--neu); } .v-no { border-inline-start-color:var(--neg); }
+  .v-title { font-size:20px; font-weight:700; margin-bottom:6px; }
+  .v-how { color:var(--mut); font-size:15px; margin:4px 0 8px; }
+  .v-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin:10px 0; }
+  .v-grid div { background:var(--bg); border-radius:10px; padding:8px; text-align:center; }
+  .v-grid span { display:block; font-size:12px; color:var(--mut); } .v-grid b { display:block; font-size:16px; unicode-bidi:plaintext; }
+  .v-grid small { color:var(--mut); font-size:12px; direction:ltr; display:block; }
+  .pos { color:var(--pos); } .neg { color:var(--neg); }
+  .verdict ul { margin:6px 0 0; padding-inline-start:18px; color:var(--txt); font-size:15px; }
+  @media (max-width:600px) { .v-grid { grid-template-columns:repeat(2, 1fr); } }
+  .foot { color:var(--mut); font-size:13px; margin-top:18px; }
+  .err { background:#fef2f2; border:1px solid #fecaca; color:#991b1b; padding:12px; border-radius:12px; }
+  .load { color:var(--mut); padding:30px 0; text-align:center; }
+  @media (max-width:600px) { #main { height:320px; } body { font-size:15px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><h1>ניתוח <span>טכני</span></h1></header>
+  <form id="f"><input id="q" placeholder="שם מניה או סימול: טבע, לאומי, Apple, NVDA, TEVA.TA" autocomplete="off" autofocus><button>נתח</button></form>
+  <div class="chips" id="recent"></div>
+  <div id="out"></div>
+</div>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+let recent = []; try { recent = JSON.parse(localStorage.getItem('sa_recent') || '[]'); } catch (e) {}
+function drawRecent() { $('#recent').innerHTML = recent.map(r => `<span class="chip">${esc(r)}</span>`).join(''); }
+$('#recent').onclick = e => { if (e.target.classList.contains('chip')) { $('#q').value = e.target.textContent; run(); } };
+drawRecent();
+$('#f').onsubmit = e => { e.preventDefault(); run(); };
+
+let charts = [];
+async function run() {
+  const q = $('#q').value.trim(); if (!q) return;
+  $('#out').innerHTML = '<div class="load">מנתח…</div>';
+  try {
+    const r = await fetch('/api/stock-analysis?q=' + encodeURIComponent(q));
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'שגיאה');
+    recent = [q, ...recent.filter(x => x !== q)].slice(0, 8);
+    try { localStorage.setItem('sa_recent', JSON.stringify(recent)); } catch (e) {}
+    drawRecent(); render(d);
+  } catch (e) { $('#out').innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+}
+
+function render(d) {
+  const cls = d.bias === 'חיובית' ? 'b-pos' : d.bias === 'שלילית' ? 'b-neg' : 'b-neu';
+  const I = d.indicators, cur = d.meta.currency;
+  const sec = d.sections.find(s => s.title === 'תמונת מצב');
+  const pos = ((d.score + d.maxScore) / (2 * d.maxScore)) * 100;
+  let h = `<div class="head"><span class="nm">${esc(d.meta.name || d.meta.symbol)}</span><span class="sym">${esc(d.meta.symbol)} · ${esc(d.meta.exchange || '')}</span>
+    <span class="px" style="color:${I.changePct >= 0 ? 'var(--pos)' : 'var(--neg)'}">${I.changePct >= 0 ? '+' : ''}${I.changePct.toFixed(2)}%</span></div>
+    <span class="badge ${cls}">הטיה ${esc(d.bias)}</span>
+    <div class="meter"><i style="right:${pos}%"></i></div><div class="meter-l"><span>שלילית</span><span>ניטרלית</span><span>חיובית</span></div>`;
+  for (const s of d.sections) {
+    h += `<h2>${esc(s.title)}</h2>`;
+    if (s.body) h += s.body.map(x => `<p>${x}</p>`).join('');   // הטקסט נבנה בשרת וכולל רק <b>
+    if (s.table) h += `<div class="tbl"><table><tr><th>תרחיש</th><th>אופן כניסה</th><th>כניסה</th><th>סטופ</th><th>יעד</th><th>סיכוי/סיכון</th></tr>` +
+      s.table.map(t => `<tr><td>${esc(t.type)}</td><td>${esc(t.desc)}</td><td class="num">${esc(t.entry)}</td><td>${esc(t.stop)}</td><td class="num">${esc(t.target)}</td><td class="num">1:${esc(t.rr)}</td></tr>`).join('') + '</table></div>';
+  }
+  const V = d.verdict;
+  if (V) {
+    const vc = V.decision === 'enter' ? 'v-yes' : V.decision === 'wait' ? 'v-wait' : 'v-no';
+    h += `<div class="verdict ${vc}"><div class="v-title">${V.decision === 'enter' ? '✅' : V.decision === 'wait' ? '⏳' : '⛔'} ${esc(V.title)}</div>` +
+      (V.entry ? `${V.decision === 'wait' ? `<div class="v-how">תוכנית: ${esc(V.how)}</div>` : ''}<div class="v-grid">
+        <div><span>כניסה</span><b>${esc(V.entry)}</b></div>
+        <div><span>יעד</span><b class="pos">${esc(V.target)}</b><small>+${esc(V.rewardPct)}%</small></div>
+        <div><span>סטופ</span><b class="neg">${esc(V.stop)}</b><small>−${esc(V.riskPct)}%</small></div>
+        <div><span>סיכוי/סיכון</span><b>1:${esc(V.rr)}</b></div></div>` : '') +
+      `<ul>${V.reasons.map(r => `<li>${esc(r)}</li>`).join('')}</ul>` +
+      (V.trigger ? `<div class="v-how">${esc(V.trigger)}</div>` : '') + `</div>`;
+  }
+  h += `<p class="foot">התוכן מבוסס על חישוב אינדיקטורים מנתוני מסחר יומיים, מיועד למטרות מידע בלבד ואינו מהווה ייעוץ השקעות. נכון ל-${new Date(d.asOf * 1000).toLocaleDateString('he-IL')} · חושב ב-${d.ms}ms</p>`;
+  h += `<div class="chart-card"><div class="legend">
+    <span><b style="background:#22c55e"></b>BB(20,2)</span><span><b style="background:#f59e0b"></b>SMA20</span><span><b style="background:#38bdf8"></b>SMA50</span>
+    <span><b style="background:#c084fc"></b>SMA200</span><span><b style="background:#ef4444"></b>SuperTrend(10,3)</span><span><b style="background:#1a1f2b"></b>MACD(12,26,9)</span></div>
+    <div id="main"></div><div id="macd"></div></div>`;
+  $('#out').innerHTML = h;
+  drawChart(d);
+}
+
+function drawChart(d) {
+  charts.forEach(c => c.remove()); charts = [];
+  const LW = LightweightCharts;
+  const opt = { layout:{ background:{ color:'#ffffff' }, textColor:'#667085', fontFamily:'Heebo' }, grid:{ vertLines:{ color:'#f0f2f6' }, horzLines:{ color:'#f0f2f6' } },
+    rightPriceScale:{ borderColor:'#e3e6ee' }, timeScale:{ borderColor:'#e3e6ee' }, crosshair:{ mode:0 } };
+  const el = $('#main'), em = $('#macd');
+  const c1 = LW.createChart(el, { ...opt, width: el.clientWidth, height: el.clientHeight });
+  const c2 = LW.createChart(em, { ...opt, width: em.clientWidth, height: em.clientHeight, timeScale:{ visible:false } });
+  charts = [c1, c2];
+  const S = d.series.slice(-260);
+  const pts = k => S.filter(x => x[k] != null).map(x => ({ time: x.t, value: x[k] }));
+  const line = (ch, k, color, w = 1, style = 0) => ch.addLineSeries({ color, lineWidth: w, lineStyle: style, priceLineVisible:false, lastValueVisible:false, crosshairMarkerVisible:false }).setData(pts(k));
+  const bbc = 'rgba(34,197,94,.7)';
+  line(c1, 'bu', bbc); line(c1, 'bl', bbc); line(c1, 'bm', 'rgba(34,197,94,.35)', 1, 2);
+  line(c1, 's20', '#f59e0b'); line(c1, 's50', '#38bdf8'); line(c1, 's200', '#c084fc', 2);
+  // SuperTrend בצבע לפי כיוון
+  c1.addLineSeries({ lineWidth: 2, priceLineVisible:false, lastValueVisible:false, crosshairMarkerVisible:false })
+    .setData(S.filter(x => x.st != null).map(x => ({ time: x.t, value: x.st, color: x.sd === 1 ? '#22c55e' : '#ef4444' })));
+  const cs = c1.addCandlestickSeries({ upColor:'#22c55e', downColor:'#ef4444', borderVisible:false, wickUpColor:'#22c55e', wickDownColor:'#ef4444' });
+  cs.setData(S.map(x => ({ time: x.t, open: x.o, high: x.h, low: x.l, close: x.c })));
+  d.resistances.forEach(r => cs.createPriceLine({ price: r.price, color:'#ef4444', lineWidth:1, lineStyle:2, axisLabelVisible:true, title:'התנגדות' }));
+  d.supports.forEach(s => cs.createPriceLine({ price: s.price, color:'#22c55e', lineWidth:1, lineStyle:2, axisLabelVisible:true, title:'תמיכה' }));
+  const hs = c2.addHistogramSeries({ priceLineVisible:false, lastValueVisible:false });
+  hs.setData(S.filter(x => x.mh != null).map((x, i, a) => ({ time: x.t, value: x.mh, color: x.mh >= 0 ? (i && a[i-1].mh > x.mh ? '#86efac' : '#22c55e') : (i && a[i-1].mh < x.mh ? '#fca5a5' : '#ef4444') })));
+  line(c2, 'm', '#1a1f2b', 1); line(c2, 'ms', '#f97316', 1);
+  c1.timeScale().fitContent(); c2.timeScale().fitContent();
+  c1.timeScale().subscribeVisibleLogicalRangeChange(r => r && c2.timeScale().setVisibleLogicalRange(r));
+  c2.timeScale().subscribeVisibleLogicalRangeChange(r => r && c1.timeScale().setVisibleLogicalRange(r));
+}
+window.addEventListener('resize', () => { if (charts.length) { charts[0].applyOptions({ width: $('#main').clientWidth }); charts[1].applyOptions({ width: $('#macd').clientWidth }); } });
+const qp = new URLSearchParams(location.search).get('q'); if (qp) { $('#q').value = qp; run(); }
+</script>
+</body>
+</html>
