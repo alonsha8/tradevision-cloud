@@ -84,6 +84,7 @@ async function run() {
   $('#out').innerHTML = '<div class="load">מנתח…</div>';
   try {
     const r = await fetch('/api/stock-analysis?q=' + encodeURIComponent(q));
+    if (r.status === 401) { (window.top || window).location.href = '/login'; return; }
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || 'שגיאה');
     recent = [q, ...recent.filter(x => x !== q)].slice(0, 8);

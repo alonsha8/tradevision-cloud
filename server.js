@@ -1,304 +1,177 @@
-const http = require('http');
-const https = require('https');
-const fs = require('fs');
-const path = require('path');
-const url = require('url');
+// server.js — TradeVision Cloud
+//
+// משתני סביבה (Render → Environment):
+//   ANTHROPIC_API_KEY  — מפתח Claude (חובה לפיצ'רים של AI)
+//   APP_PASSWORD       — סיסמת כניסה לאפליקציה (מומלץ מאוד; בלעדיה האפליקציה פתוחה לכל העולם)
+//   DATABASE_URL       — PostgreSQL (יומן עסקאות, התראות, היסטוריית סקטורים). בלעדיו החלקים האלה מושבתים.
 
-const PORT = process.env.PORT || 3000;
+const express = require('express');
+const compression = require('compression');
+const https = require('https');
+const path = require('path');
+const crypto = require('crypto');
+const { Pool } = require('pg');
+
 const yc = require('./services/yahooCache');
 const { handleStockAnalysis } = require('./routes/stockAnalysisApi');
 const news = require('./routes/newsApi');
-const API_KEY = process.env.ANTHROPIC_API_KEY;
 
-function getContentType(filePath) {
-  const ext = path.extname(filePath).toLowerCase();
-  const map = {
-    '.html': 'text/html; charset=utf-8',
-    '.css': 'text/css; charset=utf-8',
-    '.js': 'application/javascript; charset=utf-8',
-    '.json': 'application/json; charset=utf-8',
-    '.png': 'image/png',
-    '.jpg': 'image/jpeg',
-    '.jpeg': 'image/jpeg',
-    '.svg': 'image/svg+xml',
-    '.ico': 'image/x-icon'
-  };
-  return map[ext] || 'application/octet-stream';
+const app = express();
+const PORT = process.env.PORT || 3000;
+const API_KEY = process.env.ANTHROPIC_API_KEY || '';
+const APP_PASSWORD = process.env.APP_PASSWORD || '';
+const DATABASE_URL = process.env.DATABASE_URL || '';
+
+if (!API_KEY) console.warn('⚠️  ANTHROPIC_API_KEY לא מוגדר — פיצ\'רי AI לא יעבדו');
+if (!APP_PASSWORD) console.warn('⚠️  APP_PASSWORD לא מוגדר — האפליקציה פתוחה לכל מי שיודע את הכתובת');
+if (!DATABASE_URL) console.warn('⚠️  DATABASE_URL לא מוגדר — יומן עסקאות והתראות מושבתים');
+
+const pool = DATABASE_URL ? new Pool({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 5 }) : null;
+if (pool) pool.on('error', err => console.error('PostgreSQL error:', err.message));
+app.locals.pool = pool;
+
+app.set('trust proxy', 1); // Render יושב מאחורי proxy — כדי לקבל IP אמיתי
+app.use(compression());
+
+// ══════════════ הגבלת קצב פשוטה (בזיכרון) ══════════════
+const buckets = new Map();
+function rateLimit(key, max, windowMs) {
+  const now = Date.now();
+  let b = buckets.get(key);
+  if (!b || now - b.start > windowMs) { b = { start: now, n: 0 }; buckets.set(key, b); }
+  b.n++;
+  if (buckets.size > 10000) buckets.clear();
+  return b.n <= max;
 }
 
-function proxyAnthropic(body, res) {
-  const req = https.request({
-    hostname: 'api.anthropic.com',
-    path: '/v1/messages',
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': API_KEY,
-      'anthropic-version': '2023-06-01'
-    }
+// ══════════════ סיסמה ══════════════
+const AUTH_COOKIE = 'tv_auth';
+const authToken = APP_PASSWORD ? crypto.createHmac('sha256', APP_PASSWORD).update('tradevision-v1').digest('hex') : '';
+
+function getCookie(req, name) {
+  const m = (req.headers.cookie || '').match(new RegExp('(?:^|;\\s*)' + name + '=([^;]+)'));
+  return m ? decodeURIComponent(m[1]) : null;
+}
+function isAuthed(req) {
+  if (!APP_PASSWORD) return true;
+  const c = getCookie(req, AUTH_COOKIE);
+  return !!c && c.length === authToken.length && crypto.timingSafeEqual(Buffer.from(c), Buffer.from(authToken));
+}
+
+const LOGIN_PAGE = (err) => `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TradeVision — כניסה</title><style>
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f5f7fb;font-family:Heebo,system-ui,sans-serif;color:#18202f}
+form{background:#fff;border:1px solid #e2e6ee;border-radius:16px;padding:28px;width:min(340px,92vw);box-shadow:0 4px 20px rgba(16,24,40,.06)}
+h1{font-size:20px;margin:0 0 16px}input{width:100%;box-sizing:border-box;padding:12px;border:1px solid #e2e6ee;border-radius:10px;font:inherit;margin-bottom:12px}
+button{width:100%;padding:12px;border:0;border-radius:10px;background:#0a9b80;color:#fff;font:inherit;font-weight:700;cursor:pointer}
+.e{color:#b91c1c;font-size:14px;margin-bottom:10px}</style></head><body>
+<form method="post" action="/login"><h1>TradeVision AI</h1>${err ? `<div class="e">${err}</div>` : ''}
+<input type="password" name="password" placeholder="סיסמה" autofocus autocomplete="current-password"><button>כניסה</button></form></body></html>`;
+
+app.get('/login', (req, res) => res.type('html').send(LOGIN_PAGE('')));
+app.post('/login', express.urlencoded({ extended: false, limit: '2kb' }), (req, res) => {
+  if (!APP_PASSWORD) return res.redirect('/');
+  if (!rateLimit('login:' + req.ip, 10, 15 * 60 * 1000)) return res.status(429).type('html').send(LOGIN_PAGE('יותר מדי ניסיונות. נסו שוב בעוד 15 דקות.'));
+  const ok = typeof req.body.password === 'string' &&
+    crypto.timingSafeEqual(crypto.createHash('sha256').update(req.body.password).digest(), crypto.createHash('sha256').update(APP_PASSWORD).digest());
+  if (!ok) return res.status(401).type('html').send(LOGIN_PAGE('סיסמה שגויה'));
+  const secure = req.secure ? ' Secure;' : '';
+  res.setHeader('Set-Cookie', `${AUTH_COOKIE}=${authToken}; Path=/; HttpOnly;${secure} SameSite=Lax; Max-Age=${60 * 60 * 24 * 60}`);
+  res.redirect('/');
+});
+app.get('/logout', (req, res) => {
+  res.setHeader('Set-Cookie', `${AUTH_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
+  res.redirect('/login');
+});
+
+app.get('/api/health', (req, res) => res.json({ status: 'ok', database: !!pool, auth: !!APP_PASSWORD, ai: !!API_KEY, time: new Date().toISOString() }));
+
+// כל השאר — רק אחרי כניסה
+app.use((req, res, next) => {
+  if (isAuthed(req)) return next();
+  if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'נדרשת כניסה מחדש — רעננו את הדף' });
+  res.redirect('/login');
+});
+
+// ══════════════ Claude — מוגן ══════════════
+// מודלים מותרים בלבד, תקרת טוקנים והגבלת קצב: גם אם מישהו עוקף את הסיסמה, הנזק מוגבל.
+const ALLOWED_MODELS = ['claude-sonnet-4-6', 'claude-haiku-4-5', 'claude-haiku-4-5-20251001'];
+app.post('/api/analyze', express.json({ limit: '12mb' }), (req, res) => {
+  if (!API_KEY) return res.status(503).json({ error: { message: 'ANTHROPIC_API_KEY לא מוגדר בשרת' } });
+  if (!rateLimit('ai:' + req.ip, 120, 60 * 60 * 1000)) return res.status(429).json({ error: { message: 'יותר מדי בקשות AI בשעה האחרונה. נסו שוב מאוחר יותר.' } });
+  const b = req.body || {};
+  if (!Array.isArray(b.messages) || !b.messages.length) return res.status(400).json({ error: { message: 'בקשה לא תקינה' } });
+  const safe = {
+    model: ALLOWED_MODELS.includes(b.model) ? b.model : 'claude-sonnet-4-6',
+    max_tokens: Math.min(Math.max(parseInt(b.max_tokens, 10) || 1000, 1), 4000),
+    messages: b.messages,
+  };
+  if (typeof b.system === 'string') safe.system = b.system;
+  if (typeof b.temperature === 'number') safe.temperature = b.temperature;
+  const body = JSON.stringify(safe);
+  const apiReq = https.request({
+    hostname: 'api.anthropic.com', path: '/v1/messages', method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01', 'Content-Length': Buffer.byteLength(body) }
   }, apiRes => {
     let data = '';
     apiRes.on('data', c => data += c);
-    apiRes.on('end', () => {
-      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-      res.end(data);
-    });
+    apiRes.on('end', () => res.status(200).type('json').send(data));
   });
-  req.on('error', err => { res.writeHead(500); res.end(JSON.stringify({ error: err.message })); });
-  req.write(body);
-  req.end();
-}
-
-function proxyYahoo(ticker, res, interval, range) {
-  interval = interval || '1d';
-  range = range || '3mo';
-  const reqOptions = {
-    hostname: 'query1.finance.yahoo.com',
-    path: '/v8/finance/chart/' + ticker + '?interval=' + interval + '&range=' + range + '&includePrePost=false',
-    method: 'GET',
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Accept': 'application/json, text/plain, */*',
-      'Accept-Language': 'en-US,en;q=0.9',
-      'Accept-Encoding': 'identity',
-      'Referer': 'https://finance.yahoo.com/',
-      'Origin': 'https://finance.yahoo.com',
-      'Connection': 'keep-alive'
-    }
-  };
-
-  const req = https.request(reqOptions, apiRes => {
-    let data = '';
-    apiRes.on('data', c => data += c);
-    apiRes.on('end', () => {
-      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-      res.end(data);
-    });
-  });
-  req.on('error', err => { res.writeHead(500); res.end(JSON.stringify({ error: err.message })); });
-  req.end();
-}
-
-let YAHOO_COOKIE = null;
-let YAHOO_CRUMB = null;
-let crumbFetchInProgress = false;
-
-function fetchYahooCrumb(callback) {
-  if (crumbFetchInProgress) { setTimeout(() => callback(YAHOO_CRUMB), 1000); return; }
-  crumbFetchInProgress = true;
-
-  const homeReq = https.request({
-    hostname: 'fc.yahoo.com',
-    path: '/',
-    method: 'GET',
-    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
-  }, homeRes => {
-    const setCookie = homeRes.headers['set-cookie'];
-    if (setCookie) YAHOO_COOKIE = setCookie.map(c => c.split(';')[0]).join('; ');
-    homeRes.resume();
-    homeRes.on('end', () => {
-      const crumbReq = https.request({
-        hostname: 'query2.finance.yahoo.com',
-        path: '/v1/test/getcrumb',
-        method: 'GET',
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Cookie': YAHOO_COOKIE || ''
-        }
-      }, crumbRes => {
-        let data = '';
-        crumbRes.on('data', c => data += c);
-        crumbRes.on('end', () => {
-          YAHOO_CRUMB = data.trim();
-          crumbFetchInProgress = false;
-          callback(YAHOO_CRUMB);
-        });
-      });
-      crumbReq.on('error', () => { crumbFetchInProgress = false; callback(null); });
-      crumbReq.end();
-    });
-  });
-  homeReq.on('error', () => { crumbFetchInProgress = false; callback(null); });
-  homeReq.end();
-}
-
-function proxyYahooQuote(ticker, res) {
-  function doRequest(crumb) {
-    let path = '/v7/finance/quote?symbols=' + ticker;
-    if (crumb) path += '&crumb=' + encodeURIComponent(crumb);
-    const reqOptions = {
-      hostname: 'query1.finance.yahoo.com',
-      path: path,
-      method: 'GET',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'application/json, text/plain, */*',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Accept-Encoding': 'identity',
-        'Referer': 'https://finance.yahoo.com/',
-        'Origin': 'https://finance.yahoo.com',
-        'Connection': 'keep-alive',
-        'Cookie': YAHOO_COOKIE || ''
-      }
-    };
-    const req = https.request(reqOptions, apiRes => {
-      let data = '';
-      apiRes.on('data', c => data += c);
-      apiRes.on('end', () => {
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(data);
-      });
-    });
-    req.on('error', err => { res.writeHead(500); res.end(JSON.stringify({ error: err.message })); });
-    req.end();
-  }
-
-  if (YAHOO_CRUMB) {
-    doRequest(YAHOO_CRUMB);
-  } else {
-    fetchYahooCrumb(crumb => doRequest(crumb));
-  }
-}
-
-function proxyTaseNews(res) {
-  const reqOptions = {
-    hostname: 'apicontent.tase.co.il',
-    path: '/api/Cms?Route=/content/news-lobby&culture=he-IL',
-    method: 'GET',
-    headers: {
-      'accept': 'application/json, */*',
-      'accept-language': 'he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7',
-      'content-type': 'application/json',
-      'origin': 'https://www.tase.co.il',
-      'referer': 'https://www.tase.co.il/',
-      'sec-fetch-dest': 'empty',
-      'sec-fetch-mode': 'cors',
-      'sec-fetch-site': 'same-site',
-      'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-    }
-  };
-  const req = https.request(reqOptions, apiRes => {
-    let data = '';
-    apiRes.on('data', c => data += c);
-    apiRes.on('end', () => {
-      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-      res.end(data);
-    });
-  });
-  req.on('error', err => { res.writeHead(500); res.end(JSON.stringify({ error: err.message })); });
-  req.end();
-}
-
-const server = http.createServer((req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
-
-  if (req.method === 'GET' && (req.url === '/' || req.url === '/index.html')) {
-    const html = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
-    yc.send(req, res, 200, html, 'text/html; charset=utf-8');
-    return;
-  }
-
-  // חדשות הבורסה: כותרות מהירות + ניתוח AI עם מטמון
-  if (req.method === 'GET' && req.url.startsWith('/api/news-headlines')) { news.handleHeadlines(req, res); return; }
-  if (req.method === 'GET' && req.url.startsWith('/api/news-analysis')) { news.handleAnalysis(req, res); return; }
-
-  // ניתוח טכני מלא למניה (מודול חדש)
-  if (req.method === 'GET' && req.url.startsWith('/api/stock-analysis')) {
-    handleStockAnalysis(req, res);
-    return;
-  }
-
-  if (req.method === 'POST' && req.url === '/api/analyze') {
-    let body = '';
-    req.on('data', c => body += c);
-    req.on('end', () => proxyAnthropic(body, res));
-    return;
-  }
-
-  // חשוב: הבדיקות הספציפיות (yahoo-quote, yahoo-news) חייבות לבוא
-  // *לפני* הבדיקה הכללית של /api/yahoo, אחרת הן ייתפסו בטעות שם.
-
-  if (req.method === 'GET' && req.url.startsWith('/api/yahoo-quote')) {
-    const parsed = new url.URL('http://x' + req.url);
-    const ticker = parsed.searchParams.get('ticker');
-    if (!ticker) { res.writeHead(400); res.end('Missing ticker'); return; }
-    yc.getQuote(ticker)
-      .then(r => yc.send(req, res, 200, r.body))
-      .catch(err => yc.send(req, res, 500, JSON.stringify({ error: err.message })));
-    return;
-  }
-
-  if (req.method === 'GET' && req.url.startsWith('/api/tase-news')) {
-    proxyTaseNews(res);
-    return;
-  }
-
-  if (req.method === 'GET' && req.url.startsWith('/api/yahoo-news')) {
-    const parsed = new url.URL('http://x' + req.url);
-    const category = parsed.searchParams.get('category') || '';
-    let newsPath = '/rss/topfinstories';
-    if (category === 'market') newsPath = '/rss/topfinstories';
-    else if (category === 'stocks') newsPath = '/rss/headline?s=^GSPC,^IXIC,^DJI';
-    else if (category === 'crypto') newsPath = '/rss/headline?s=BTC-USD';
-
-    const newsReq = https.request({
-      hostname: 'finance.yahoo.com',
-      path: newsPath,
-      method: 'GET',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'application/rss+xml, application/xml, text/xml, */*',
-        'Accept-Language': 'en-US,en;q=0.9'
-      }
-    }, newsRes => {
-      let data = '';
-      newsRes.on('data', c => data += c);
-      newsRes.on('end', () => {
-        res.writeHead(200, { 'Content-Type': 'text/xml', 'Access-Control-Allow-Origin': '*' });
-        res.end(data);
-      });
-    });
-    newsReq.on('error', err => { res.writeHead(500); res.end(JSON.stringify({ error: err.message })); });
-    newsReq.end();
-    return;
-  }
-
-  // הבדיקה הכללית של /api/yahoo (לצ'ארטים) - אחרי הבדיקות הספציפיות
-  if (req.method === 'GET' && req.url.startsWith('/api/yahoo')) {
-    const parsed = new url.URL('http://x' + req.url);
-    const ticker = parsed.searchParams.get('ticker');
-    if (!ticker) { res.writeHead(400); res.end('Missing ticker'); return; }
-    const interval = parsed.searchParams.get('interval') || '1d';
-    const range = parsed.searchParams.get('range') || '3mo';
-    // מטמון + חיבור קבוע: סריקה חוזרת כמעט מיידית
-    yc.getChart(ticker, interval, range)
-      .then(r => yc.send(req, res, 200, r.body))
-      .catch(err => yc.send(req, res, 500, JSON.stringify({ error: err.message })));
-    return;
-  }
-
-  // route גנרי לכל קובץ אחר בתוך public (css/js/watcher.html/תמונות וכו')
-  if (req.method === 'GET' && !req.url.startsWith('/api/')) {
-    const parsed = new url.URL('http://x' + req.url);
-    const safePath = path.normalize(decodeURIComponent(parsed.pathname)).replace(/^(\.\.[/\\])+/, '');
-    const filePath = path.join(__dirname, 'public', safePath);
-
-    if (filePath.startsWith(path.join(__dirname, 'public'))) {
-      fs.readFile(filePath, (err, data) => {
-        if (err) { res.writeHead(404); res.end('Not found'); return; }
-        res.writeHead(200, { 'Content-Type': getContentType(filePath) });
-        res.end(data);
-      });
-      return;
-    }
-  }
-
-  res.writeHead(404); res.end('Not found');
+  apiReq.setTimeout(90000, () => apiReq.destroy(new Error('timeout')));
+  apiReq.on('error', err => { if (!res.headersSent) res.status(502).json({ error: { message: err.message } }); });
+  apiReq.write(body);
+  apiReq.end();
 });
 
-server.listen(PORT, () => {
-  console.log('TradeVision running on http://localhost:' + PORT);
+// ══════════════ Yahoo (עם מטמון) ══════════════
+app.get('/api/yahoo-quote', (req, res) => {
+  const ticker = req.query.ticker;
+  if (!ticker) return res.status(400).send('Missing ticker');
+  yc.getQuote(String(ticker)).then(r => res.type('json').send(r.body)).catch(err => res.status(500).json({ error: err.message }));
 });
+
+app.get('/api/yahoo', (req, res) => {
+  const ticker = req.query.ticker;
+  if (!ticker) return res.status(400).send('Missing ticker');
+  yc.getChart(String(ticker), String(req.query.interval || '1d'), String(req.query.range || '3mo'))
+    .then(r => res.type('json').send(r.body))
+    .catch(err => res.status(500).json({ error: err.message }));
+});
+
+app.get('/api/yahoo-news', (req, res) => {
+  const category = req.query.category || '';
+  let newsPath = '/rss/topfinstories';
+  if (category === 'stocks') newsPath = '/rss/headline?s=^GSPC,^IXIC,^DJI';
+  else if (category === 'crypto') newsPath = '/rss/headline?s=BTC-USD';
+  yc.rawGet('finance.yahoo.com', newsPath, { Accept: 'application/rss+xml, application/xml, text/xml, */*' })
+    .then(r => res.type('text/xml').send(r.body))
+    .catch(err => res.status(500).json({ error: err.message }));
+});
+
+// ══════════════ חדשות + ניתוח מניה ══════════════
+app.get('/api/news-headlines', news.handleHeadlines);
+app.get('/api/news-analysis', news.handleAnalysis);
+app.get('/api/stock-analysis', handleStockAnalysis);
+
+// ══════════════ מודולים שהיו מנותקים מאז יולי ══════════════
+const createSectorScannerApi = require('./routes/sectorScannerApi');
+app.use('/api/sector-scanner', createSectorScannerApi(pool));
+const createPortfolioApi = require('./routes/portfolioApi');
+app.use('/api/portfolio', createPortfolioApi(API_KEY));
+
+if (pool) {
+  const createWatcherApi = require('./routes/watcherApi');
+  app.use('/api/watcher', createWatcherApi(pool));
+  require('./watchers/dailyCheck')(pool); // פורום ספונסר: 10:15, 14:00, 16:00
+} else {
+  app.use('/api/watcher', (req, res) => res.status(503).json({ error: 'מסד הנתונים לא מוגדר (DATABASE_URL)' }));
+}
+
+// ══════════════ קבצים סטטיים ══════════════
+app.use(express.static(path.join(__dirname, 'public'), { maxAge: '5m' }));
+app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
+app.use((req, res) => res.status(404).send('Not found'));
+
+if (require.main === module) app.listen(PORT, () => console.log('TradeVision running on port ' + PORT));
+
+module.exports = app;
