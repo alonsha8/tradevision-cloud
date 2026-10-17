@@ -87,7 +87,7 @@ async function analyzeTicker(ticker, quote) {
 const scanCache = {};
 async function scanMarket(market, force) {
   const c = scanCache[market];
-  if (!force && c && Date.now() - c.t < 5 * 60 * 1000) return c.v;
+  if (!force && c && Date.now() - c.t < 12 * 60 * 1000) return c.v; // הסריקה המתוזמנת (כל 10 דק׳) שומרת את זה חם
   const list = market === 'TA' ? TA : US;
   const quotes = await yc.getQuotes(list);
   const rows = [], failed = [];

@@ -26,7 +26,8 @@ if (!API_KEY) console.warn('⚠️  ANTHROPIC_API_KEY לא מוגדר — פיצ
 if (!APP_PASSWORD) console.warn('⚠️  APP_PASSWORD לא מוגדר — האפליקציה פתוחה לכל מי שיודע את הכתובת');
 if (!DATABASE_URL) console.warn('⚠️  DATABASE_URL לא מוגדר — יומן עסקאות והתראות מושבתים');
 
-const pool = DATABASE_URL ? new Pool({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 5 }) : null;
+const localDb = /@(localhost|127\.0\.0\.1)[:/]/.test(DATABASE_URL);
+const pool = DATABASE_URL ? new Pool({ connectionString: DATABASE_URL, ssl: localDb ? false : { rejectUnauthorized: false }, max: 5 }) : null;
 if (pool) pool.on('error', err => console.error('PostgreSQL error:', err.message));
 app.locals.pool = pool;
 
@@ -176,10 +177,35 @@ app.use('/api/backtest', createBacktestApi(pool));
 const createPortfolioApi = require('./routes/portfolioApi');
 app.use('/api/portfolio', createPortfolioApi(API_KEY));
 
+// ══════════════ יומן עסקאות + סריקות מתוזמנות ══════════════
+const journal = require('./services/journal');
+if (pool) {
+  journal.initTables(pool).then(() => console.log('✅ טבלאות היומן מוכנות')).catch(e => console.error('journal init:', e.message));
+  app.get('/api/journal', (req, res) => journal.journalStats(pool).then(d => res.json(d)).catch(e => res.status(500).json({ error: e.message })));
+  app.post('/api/journal', express.json(), async (req, res) => {
+    const b = req.body || {};
+    const n = x => (typeof x === 'number' && isFinite(x) && x > 0 ? x : null);
+    const entry = n(b.entry), stop = n(b.stop), target = n(b.target);
+    if (!b.ticker || !entry || !stop || !target || !(stop < entry && entry < target)) return res.status(400).json({ error: 'נתוני התוכנית לא תקינים (נדרש סטופ < כניסה < יעד)' });
+    if (!['market', 'limit', 'stop'].includes(b.planType)) return res.status(400).json({ error: 'סוג פקודה לא תקין' });
+    try {
+      const r = await pool.query(`INSERT INTO trade_journal (ticker, currency, decision, plan_type, entry, stop, target, shares, notes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
+        [String(b.ticker).toUpperCase().slice(0, 20), String(b.currency || '').slice(0, 5), String(b.decision || '').slice(0, 10), b.planType, entry, stop, target, Number.isInteger(b.shares) ? b.shares : null, String(b.notes || '').slice(0, 500)]);
+      res.json({ id: r.rows[0].id });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+  app.post('/api/journal/:id/cancel', (req, res) => pool.query(`UPDATE trade_journal SET status='cancelled' WHERE id=$1 AND status IN ('pending','open')`, [+req.params.id]).then(() => res.json({ ok: true })).catch(e => res.status(500).json({ error: e.message })));
+  app.delete('/api/journal/:id', (req, res) => pool.query('DELETE FROM trade_journal WHERE id=$1', [+req.params.id]).then(() => res.json({ ok: true })).catch(e => res.status(500).json({ error: e.message })));
+  app.post('/api/journal/refresh', (req, res) => journal.trackAll(pool).then(() => res.json({ ok: true })).catch(e => res.status(500).json({ error: e.message })));
+} else {
+  app.use('/api/journal', (req, res) => res.status(503).json({ error: 'יומן העסקאות דורש מסד נתונים (DATABASE_URL ב-Render)' }));
+}
+if (require.main === module) journal.startSchedules(pool);
+
 if (pool) {
   const createWatcherApi = require('./routes/watcherApi');
   app.use('/api/watcher', createWatcherApi(pool));
-  require('./watchers/dailyCheck')(pool); // פורום ספונסר: 10:15, 14:00, 16:00
+  if (require.main === module) require('./watchers/dailyCheck')(pool); // פורום ספונסר: 10:15, 14:00, 16:00
 } else {
   app.use('/api/watcher', (req, res) => res.status(503).json({ error: 'מסד הנתונים לא מוגדר (DATABASE_URL)' }));
 }

@@ -83,6 +83,45 @@ function simulateTicker(bars, opts) {
   return trades;
 }
 
+// מעקב אחרי תוכנית אחת (יומן עסקאות): מחשב מחדש מהנרות בכל פעם — תוצאה זהה לבדיקה ההיסטורית.
+// plan: { type: 'market'|'limit'|'stop', entry, stop, target, createdAt (שניות) }
+// מחזיר: { status: 'pending'|'open'|'target'|'stop'|'time'|'expired'|'invalid', fillPrice, fillTime, exitPrice, exitTime, R, retPct }
+function evaluatePlan(bars, plan, opts = {}) {
+  const { maxHold = 30, orderDays = ORDER_DAYS, costPct = 0.1 } = opts;
+  const after = bars.filter(b => b.t > plan.createdAt);
+  // נר של אותו יום מסחר שבו נוצרה התוכנית לא נחשב (האיתות ניתן לפי הסגירה/המחיר באותו רגע)
+  const day = t => Math.floor(t / 86400);
+  const future = after.filter(b => day(b.t) > day(plan.createdAt));
+  let pos = null;
+  for (let k = 0; k < future.length; k++) {
+    const b = future[k];
+    if (!pos) {
+      if (k >= (plan.type === 'market' ? 1 : orderDays)) return { status: 'expired' };
+      let e = null;
+      if (plan.type === 'market') e = b.o;
+      else if (plan.type === 'limit') e = b.o <= plan.entry ? b.o : (b.l <= plan.entry ? plan.entry : null);
+      else e = b.o >= plan.entry ? b.o : (b.h >= plan.entry ? plan.entry : null);
+      if (e == null) continue;
+      if (!(e > plan.stop && plan.target > e)) return { status: 'invalid', fillPrice: e, fillTime: b.t };
+      pos = { e, k, t: b.t };
+    }
+    const first = k === pos.k;
+    let x = null, why = null;
+    if (!first && b.o <= plan.stop) { x = b.o; why = 'stop'; }
+    else if (!first && b.o >= plan.target) { x = b.o; why = 'target'; }
+    else if (b.l <= plan.stop) { x = plan.stop; why = 'stop'; }
+    else if (b.h >= plan.target) { x = plan.target; why = 'target'; }
+    else if (k - pos.k >= maxHold) { x = b.c; why = 'time'; }
+    if (x != null) {
+      const net = (x - pos.e) / pos.e - 2 * costPct / 100;
+      return { status: why, fillPrice: pos.e, fillTime: pos.t, exitPrice: x, exitTime: b.t, retPct: net * 100, R: net / ((pos.e - plan.stop) / pos.e) };
+    }
+  }
+  if (!pos) return { status: 'pending' };
+  const last = future[future.length - 1];
+  return { status: 'open', fillPrice: pos.e, fillTime: pos.t, lastPrice: last.c, openR: (last.c - pos.e) / (pos.e - plan.stop) };
+}
+
 function stats(trades) {
   if (!trades.length) return { trades: 0 };
   const wins = trades.filter(t => t.retPct > 0), losses = trades.filter(t => t.retPct <= 0);
@@ -125,4 +164,4 @@ function byYear(trades) {
   }));
 }
 
-module.exports = { simulateTicker, stats, byYear };
+module.exports = { simulateTicker, stats, byYear, evaluatePlan };
