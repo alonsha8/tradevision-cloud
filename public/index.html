@@ -213,6 +213,8 @@
 <script>
   // מוחל לפני הציור כדי שלא יהבהב
   (function(){var t='light';try{t=localStorage.getItem('tv_theme')||'light';}catch(e){}document.documentElement.setAttribute('data-theme',t);})();
+  // כניסה פגה: כל קריאת API שמחזירה 401 מחזירה לדף הכניסה
+  (function(){var f=window.fetch;window.fetch=function(){return f.apply(this,arguments).then(function(r){if(r.status===401&&!window.__tvRedirect){window.__tvRedirect=1;location.href='/login';}return r;});};})();
   function toggleTheme(){
     var t=document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';
     document.documentElement.setAttribute('data-theme',t);
@@ -226,7 +228,9 @@
   <div class="logo-mark">TV</div>
   <div><div class="logo-text">TradeVision AI</div><div class="logo-sub">POWERED BY CLAUDE</div></div>
   <div class="header-badge">BETA v8.0</div>
+  <a href="/watcher.html" class="theme-btn" style="text-decoration:none;" title="הודעות פורום ספונסר">👁 פורום</a>
   <button id="theme-btn" class="theme-btn" onclick="toggleTheme()">🌙 כהה</button>
+  <a href="/logout" class="theme-btn" style="text-decoration:none;">יציאה</a>
 </header>
 <script>(function(){var b=document.getElementById('theme-btn');if(document.documentElement.getAttribute('data-theme')!=='light')b.textContent='☀️ בהיר';})();</script>
 <div class="tabs">
