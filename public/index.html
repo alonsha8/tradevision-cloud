@@ -264,6 +264,7 @@
   <div class="tab" onclick="switchTab('fundamental')" style="display:none;">🏦 ניתוח פונדמנטלי</div>
   <!-- הוסתר: הנתונים בו נכתבו ע"י AI מהזיכרון (לא מדוחות). הוחלף ב"טווח ארוך" שמבוסס על דוחות SEC -->
   <div class="tab" onclick="switchTab('longterm')">📈 טווח ארוך</div>
+  <div class="tab" onclick="switchTab('lows')">📉 קרוב לשפל</div>
   <div class="tab" onclick="switchTab('watchlist')">⭐ רשימת מעקב</div>
 </div>
 
@@ -725,6 +726,11 @@
   <iframe id="lt-frame" title="השקעה לטווח ארוך" style="width:100%;height:calc(100vh - 130px);border:0;display:block;" loading="lazy"></iframe>
 </div>
 
+<!-- TAB: NEAR 52W LOW -->
+<div id="tab-lows" class="tab-content">
+  <iframe id="lows-frame" title="קרוב לשפל" style="width:100%;height:calc(100vh - 130px);border:0;display:block;" loading="lazy"></iframe>
+</div>
+
 <!-- TAB 7: WATCHLIST -->
 <div id="tab-watchlist" class="tab-content">
 <div class="scanner-wrap">
@@ -778,8 +784,9 @@ emailjs.init('LkDpHo19XM92ZLmZm');
 
 // Tabs
 function switchTab(t){
-  ['dashboard','stockanalysis','analyzer','scanner','portfolio','trading','fundamental','longterm','watchlist'].forEach(function(n){document.getElementById('tab-'+n).classList.toggle('active',n===t);});
-  var order=['dashboard','stockanalysis','analyzer','scanner','portfolio','trading','fundamental','longterm','watchlist'];
+  ['dashboard','stockanalysis','analyzer','scanner','portfolio','trading','fundamental','longterm','lows','watchlist'].forEach(function(n){document.getElementById('tab-'+n).classList.toggle('active',n===t);});
+  var order=['dashboard','stockanalysis','analyzer','scanner','portfolio','trading','fundamental','longterm','lows','watchlist'];
+  if(t==='lows'){var wf=document.getElementById('lows-frame');if(!wf.src)wf.src='/lows.html';}
   if(t==='longterm'){var lf=document.getElementById('lt-frame');if(!lf.src)lf.src='/longterm.html';}
   if(t==='stockanalysis'){var f=document.getElementById('sa-frame');if(!f.src)f.src='/stock-analysis.html';}
   document.querySelectorAll('.tab').forEach(function(el,i){el.classList.toggle('active',order[i]===t);});

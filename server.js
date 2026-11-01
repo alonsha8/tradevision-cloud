@@ -231,6 +231,7 @@ app.get('/api/regime', (req, res) => {
 // ══════════════ מודולים שהיו מנותקים מאז יולי ══════════════
 const createSectorScannerApi = require('./routes/sectorScannerApi');
 app.use('/api/sector-scanner', createSectorScannerApi(pool));
+app.use('/api/lows', require('./routes/lowsApi')());
 const createBacktestApi = require('./routes/backtestApi');
 app.use('/api/backtest', createBacktestApi(pool));
 const createPortfolioApi = require('./routes/portfolioApi');
