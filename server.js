@@ -237,6 +237,10 @@ app.use('/api/backtest', createBacktestApi(pool));
 const createPortfolioApi = require('./routes/portfolioApi');
 app.use('/api/portfolio', createPortfolioApi(API_KEY));
 
+// ══════════════ תיק אחזקות אישי (מעקב 1:1 אחר אקסלנס) ══════════════
+const myPortfolioRoutes = require('./routes/portfolio');
+app.use('/api/myportfolio', myPortfolioRoutes);
+
 // ══════════════ יומן עסקאות + סריקות מתוזמנות ══════════════
 const journal = require('./services/journal');
 if (pool) {
