@@ -266,6 +266,7 @@
   <div class="tab" onclick="switchTab('longterm')">📈 טווח ארוך</div>
   <div class="tab" onclick="switchTab('lows')">📉 קרוב לשפל</div>
   <div class="tab" onclick="switchTab('watchlist')">⭐ רשימת מעקב</div>
+  <div class="tab" onclick="switchTab('myportfolio')">📊 תיק שלי</div>
 </div>
 
 <!-- TAB 1 -->
@@ -778,14 +779,210 @@
 </div>
 </div>
 
+<!-- TAB: MY PORTFOLIO (תיק אלון שלום — מעקב 1:1 אחרי אקסלנס) -->
+<div id="tab-myportfolio" class="tab-content">
+<style>
+  .mp-wrap{max-width:1200px;margin:0 auto;padding:28px 20px;}
+  .mp-summary-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;}
+  @media(max-width:900px){.mp-summary-row{grid-template-columns:repeat(3,1fr);}}
+  @media(max-width:600px){.mp-summary-row{grid-template-columns:1fr 1fr;}}
+  .mp-stat{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center;}
+  .mp-stat-label{font-size:11px;color:var(--muted);font-family:var(--mono);letter-spacing:0.5px;margin-bottom:6px;}
+  .mp-stat-value{font-family:var(--mono);font-size:20px;font-weight:700;}
+  .mp-stat-value.pos{color:var(--green);}
+  .mp-stat-value.neg{color:var(--red);}
+  .mp-top-bar{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;}
+  .mp-top-bar h2{font-size:18px;font-weight:700;flex:1;}
+  .mp-btn{background:var(--accent);color:#000;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--sans);transition:opacity 0.2s;}
+  .mp-btn:hover{opacity:0.85;}
+  .mp-btn.secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border);}
+  .mp-btn.secondary:hover{border-color:var(--accent);}
+  .mp-btn.red{background:rgba(255,77,106,0.15);color:var(--red);border:1px solid rgba(255,77,106,0.3);}
+  .mp-section{margin-bottom:24px;}
+  .mp-section-title{font-size:13px;font-weight:700;color:var(--muted);font-family:var(--mono);letter-spacing:1px;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+  .mp-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;overflow-x:auto;}
+  .mp-table{width:100%;border-collapse:collapse;min-width:900px;}
+  .mp-table th{padding:10px 12px;font-size:10px;font-family:var(--mono);color:var(--muted);letter-spacing:0.8px;text-align:right;border-bottom:1px solid var(--border);background:var(--surface2);white-space:nowrap;}
+  .mp-table td{padding:10px 12px;font-size:13px;border-bottom:1px solid rgba(30,39,64,0.5);vertical-align:middle;}
+  .mp-table tr:last-child td{border-bottom:none;}
+  .mp-table tr:hover td{background:rgba(0,212,168,0.03);}
+  .mp-ticker{font-family:var(--mono);font-weight:700;font-size:13px;color:var(--accent);}
+  .mp-name{font-size:13px;color:var(--text);}
+  .mp-name small{font-size:10px;color:var(--muted);display:block;}
+  .mp-grade{font-family:var(--mono);font-size:13px;font-weight:700;padding:2px 8px;border-radius:6px;}
+  .mp-grade.A{background:rgba(0,212,168,0.15);color:var(--green);}
+  .mp-grade.B{background:rgba(0,180,120,0.12);color:#00c896;}
+  .mp-grade.C{background:rgba(245,166,35,0.15);color:var(--accent2);}
+  .mp-grade.D{background:rgba(255,100,80,0.15);color:#ff6450;}
+  .mp-grade.F{background:rgba(255,77,106,0.15);color:var(--red);}
+  .mp-rec{font-family:var(--mono);font-size:11px;font-weight:700;padding:2px 8px;border-radius:12px;white-space:nowrap;}
+  .mp-rec.STRONG_BUY{background:rgba(0,212,168,0.2);color:var(--green);border:1px solid rgba(0,212,168,0.4);}
+  .mp-rec.BUY{background:rgba(0,212,168,0.1);color:var(--green);border:1px solid rgba(0,212,168,0.2);}
+  .mp-rec.HOLD{background:rgba(245,166,35,0.1);color:var(--accent2);border:1px solid rgba(245,166,35,0.2);}
+  .mp-rec.REDUCE{background:rgba(255,100,80,0.1);color:#ff6450;border:1px solid rgba(255,100,80,0.3);}
+  .mp-rec.SELL{background:rgba(255,77,106,0.15);color:var(--red);border:1px solid rgba(255,77,106,0.3);}
+  .mp-thesis-alert{font-size:11px;background:rgba(245,166,35,0.1);color:var(--accent2);border:1px solid rgba(245,166,35,0.3);border-radius:6px;padding:1px 7px;font-family:var(--mono);}
+  .mp-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9000;align-items:center;justify-content:center;}
+  .mp-modal-overlay.open{display:flex;}
+  .mp-modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;width:420px;max-width:95vw;max-height:90vh;overflow-y:auto;}
+  .mp-modal h3{font-size:16px;font-weight:700;margin-bottom:18px;}
+  .mp-modal .field{margin-bottom:12px;}
+  .mp-modal label{font-size:11px;color:var(--muted);font-family:var(--mono);display:block;margin-bottom:5px;}
+  .mp-modal input,.mp-modal select{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:14px;width:100%;outline:none;direction:ltr;}
+  .mp-modal input:focus,.mp-modal select:focus{border-color:var(--accent);}
+  .mp-modal-btns{display:flex;gap:10px;margin-top:18px;}
+  .mp-modal-btns button{flex:1;padding:11px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;border:none;font-family:var(--sans);}
+  .mp-modal-btns .ok{background:var(--accent);color:#000;}
+  .mp-modal-btns .cancel{background:var(--surface2);color:var(--text);border:1px solid var(--border);}
+  .mp-flash{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 20px;font-size:13px;z-index:9999;display:none;box-shadow:0 4px 24px rgba(0,0,0,0.4);}
+  .mp-flash.ok{border-color:var(--green);color:var(--green);}
+  .mp-flash.err{border-color:var(--red);color:var(--red);}
+  .pnl-pos{color:var(--green);font-family:var(--mono);}
+  .pnl-neg{color:var(--red);font-family:var(--mono);}
+</style>
+
+<div class="mp-wrap">
+  <div class="mp-top-bar">
+    <h2>📊 תיק אלון שלום — מעקב אחזקות אקסלנס</h2>
+    <button class="mp-btn secondary" onclick="showCashModal()">💵 עדכן מזומן</button>
+    <button class="mp-btn secondary" onclick="showAddHoldingModal()">➕ אחזקה חדשה</button>
+    <button class="mp-btn" onclick="showTransactionModal()">📝 פעולת קנייה/מכירה</button>
+    <button class="mp-btn secondary" onclick="loadMyPortfolio()">🔄 רענן</button>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="mp-summary-row" id="mp-summary">
+    <div class="mp-stat"><div class="mp-stat-label">שווי תיק</div><div class="mp-stat-value" id="mp-total">—</div></div>
+    <div class="mp-stat"><div class="mp-stat-label">מזומן</div><div class="mp-stat-value" id="mp-cash">—</div></div>
+    <div class="mp-stat"><div class="mp-stat-label">רווח/הפסד כולל</div><div class="mp-stat-value" id="mp-pnl">—</div></div>
+    <div class="mp-stat"><div class="mp-stat-label">ציון תיק</div><div class="mp-stat-value" id="mp-score">—</div></div>
+    <div class="mp-stat"><div class="mp-stat-label">דולר/שקל</div><div class="mp-stat-value" id="mp-rate">—</div></div>
+  </div>
+
+  <!-- Holdings Table -->
+  <div class="mp-section">
+    <div class="mp-section-title">🇮🇱 ישראל — בורסת ת"א</div>
+    <div class="mp-table-wrap">
+      <table class="mp-table">
+        <thead><tr>
+          <th>טיקר</th><th>שם</th><th>כמות</th><th>עלות ממוצעת</th><th>מחיר נוכחי</th><th>שווי ₪</th><th>רווח/הפסד</th><th>ציון</th><th>המלצה</th><th>ניתוח</th><th>פעולה</th>
+        </tr></thead>
+        <tbody id="mp-tase-body"><tr><td colspan="11" style="text-align:center;color:var(--muted);padding:30px;">טוען...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="mp-section">
+    <div class="mp-section-title">🇺🇸 ארה"ב — US Markets</div>
+    <div class="mp-table-wrap">
+      <table class="mp-table">
+        <thead><tr>
+          <th>טיקר</th><th>שם</th><th>כמות</th><th>עלות $</th><th>מחיר $</th><th>שווי ₪</th><th>רווח/הפסד</th><th>ציון</th><th>המלצה</th><th>ניתוח</th><th>פעולה</th>
+        </tr></thead>
+        <tbody id="mp-us-body"><tr><td colspan="11" style="text-align:center;color:var(--muted);padding:30px;">טוען...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Last Report -->
+  <div class="mp-section" id="mp-last-report-section" style="display:none;">
+    <div class="mp-section-title">📋 דוח אחרון מ-Claude</div>
+    <div class="card">
+      <div class="card-body">
+        <div id="mp-last-report-date" style="font-size:11px;color:var(--muted);margin-bottom:10px;"></div>
+        <pre id="mp-last-report-text" style="font-size:12px;line-height:1.7;white-space:pre-wrap;font-family:var(--sans);color:var(--text);"></pre>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:16px;" class="disclaimer">⚠️ נתונים ממסד הנתונים — מחירים מתעדכנים על ידי Claude כל ערב. לא ייעוץ השקעות.</div>
+</div>
+
+<!-- Transaction Modal -->
+<div class="mp-modal-overlay" id="mp-tx-modal">
+  <div class="mp-modal">
+    <h3>📝 פעולת קנייה / מכירה</h3>
+    <div class="field">
+      <label>פעולה</label>
+      <select id="mp-tx-action"><option value="BUY">BUY — קנייה</option><option value="SELL">SELL — מכירה</option><option value="DIVIDEND">DIVIDEND — דיבידנד</option></select>
+    </div>
+    <div class="field">
+      <label>טיקר / מספר נייר</label>
+      <input type="text" id="mp-tx-ticker" placeholder="לדוגמה: NVDA / 1148774">
+    </div>
+    <div class="field">
+      <label>כמות</label>
+      <input type="number" id="mp-tx-qty" placeholder="31" step="any">
+    </div>
+    <div class="field">
+      <label>מחיר ליחידה</label>
+      <input type="number" id="mp-tx-price" placeholder="149.30" step="any">
+    </div>
+    <div class="field">
+      <label>מטבע</label>
+      <select id="mp-tx-currency"><option value="USD">USD</option><option value="ILS">ILS</option></select>
+    </div>
+    <div class="field">
+      <label>שער דולר (אם USD)</label>
+      <input type="number" id="mp-tx-rate" placeholder="3.72" step="any">
+    </div>
+    <div class="field">
+      <label>הערות (אופציונלי)</label>
+      <input type="text" id="mp-tx-notes" placeholder="לדוגמה: הוספה לפוזיציה">
+    </div>
+    <div class="mp-modal-btns">
+      <button class="cancel" onclick="closeMpModal('mp-tx-modal')">ביטול</button>
+      <button class="ok" onclick="submitTransaction()">אישור</button>
+    </div>
+  </div>
+</div>
+
+<!-- Cash Modal -->
+<div class="mp-modal-overlay" id="mp-cash-modal">
+  <div class="mp-modal">
+    <h3>💵 עדכון מזומן</h3>
+    <div class="field">
+      <label>סכום מזומן (₪)</label>
+      <input type="number" id="mp-cash-amount" placeholder="23760" step="any">
+    </div>
+    <div class="mp-modal-btns">
+      <button class="cancel" onclick="closeMpModal('mp-cash-modal')">ביטול</button>
+      <button class="ok" onclick="submitCash()">עדכן</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Holding Modal -->
+<div class="mp-modal-overlay" id="mp-add-modal">
+  <div class="mp-modal">
+    <h3>➕ הוספת אחזקה חדשה</h3>
+    <div class="field"><label>טיקר / מספר נייר</label><input type="text" id="mp-add-ticker" placeholder="לדוגמה: AAPL / 1148774"></div>
+    <div class="field"><label>שם (עברית)</label><input type="text" id="mp-add-name" placeholder="לדוגמה: אפל"></div>
+    <div class="field"><label>שם (אנגלית)</label><input type="text" id="mp-add-nameen" placeholder="Apple"></div>
+    <div class="field"><label>כמות</label><input type="number" id="mp-add-qty" step="any"></div>
+    <div class="field"><label>מחיר עלות ממוצע</label><input type="number" id="mp-add-price" step="any"></div>
+    <div class="field"><label>מטבע</label><select id="mp-add-currency"><option value="USD">USD</option><option value="ILS">ILS</option></select></div>
+    <div class="field"><label>שוק</label><select id="mp-add-market"><option value="US">US</option><option value="TASE">TASE</option></select></div>
+    <div class="mp-modal-btns">
+      <button class="cancel" onclick="closeMpModal('mp-add-modal')">ביטול</button>
+      <button class="ok" onclick="submitAddHolding()">הוסף</button>
+    </div>
+  </div>
+</div>
+
+<!-- Flash message -->
+<div class="mp-flash" id="mp-flash"></div>
+
+</div>
+
 <script>
 // EmailJS init
 emailjs.init('LkDpHo19XM92ZLmZm');
 
 // Tabs
 function switchTab(t){
-  ['dashboard','stockanalysis','analyzer','scanner','portfolio','trading','fundamental','longterm','lows','watchlist'].forEach(function(n){document.getElementById('tab-'+n).classList.toggle('active',n===t);});
-  var order=['dashboard','stockanalysis','analyzer','scanner','portfolio','trading','fundamental','longterm','lows','watchlist'];
+  ['dashboard','stockanalysis','analyzer','scanner','portfolio','trading','fundamental','longterm','lows','watchlist','myportfolio'].forEach(function(n){document.getElementById('tab-'+n).classList.toggle('active',n===t);});
+  var order=['dashboard','stockanalysis','analyzer','scanner','portfolio','trading','fundamental','longterm','lows','watchlist','myportfolio'];
   if(t==='lows'){var wf=document.getElementById('lows-frame');if(!wf.src)wf.src='/lows.html';}
   if(t==='longterm'){var lf=document.getElementById('lt-frame');if(!lf.src)lf.src='/longterm.html';}
   if(t==='stockanalysis'){var f=document.getElementById('sa-frame');if(!f.src)f.src='/stock-analysis.html';}
@@ -793,6 +990,7 @@ function switchTab(t){
   if(t==='trading')renderTradingDesk();
   if(t==='dashboard'){loadDashboardNews();loadMacroWidget();}
   if(t==='watchlist')refreshWatchlist();
+  if(t==='myportfolio')loadMyPortfolio();
 }
 
 // Unified scanner market toggle (US / IL)
@@ -2881,6 +3079,228 @@ function sendPriceAlertEmail(ticker,currentPrice,targetPrice,direction){
     chart_link:'https://finance.yahoo.com/chart/'+ticker
   });
 }
+
+// ══════════════════════════════════════════════════════
+//  MY PORTFOLIO — תיק אלון שלום (מעקב 1:1 אחרי אקסלנס)
+// ══════════════════════════════════════════════════════
+var MP_API = 'https://tradevision-cloud-1.onrender.com/api/myportfolio';
+var mpData = { holdings: [], cash: 0, usd_rate: 3.72 };
+
+function loadMyPortfolio(){
+  fetch(MP_API + '/holdings')
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      mpData.holdings = d.holdings || [];
+      mpData.cash = d.cash || 0;
+      mpData.usd_rate = d.summary && d.summary.usd_ils_rate ? d.summary.usd_ils_rate : 3.72;
+      renderMyPortfolio(d);
+    })
+    .catch(function(e){
+      console.error('MyPortfolio error:', e);
+      mpFlash('שגיאה בטעינת התיק', 'err');
+    });
+}
+
+function renderMyPortfolio(d){
+  var holdings = d.holdings || [];
+  var cash = d.cash || 0;
+  var summary = d.summary || {};
+  var usdRate = summary.usd_ils_rate || mpData.usd_rate;
+
+  // Totals
+  var totalValue = 0;
+  var totalCost = 0;
+  holdings.forEach(function(h){
+    if(h.is_active){
+      var val = parseFloat(h.value_ils) || 0;
+      var qty = parseFloat(h.quantity) || 0;
+      var cost = parseFloat(h.avg_buy_price) || 0;
+      totalValue += val;
+      if(h.currency === 'ILS') totalCost += qty * cost;
+      else totalCost += qty * cost * usdRate;
+    }
+  });
+  var totalPnl = totalValue - totalCost;
+  var totalPnlPct = totalCost > 0 ? (totalPnl / totalCost * 100) : 0;
+
+  // Update summary cards
+  document.getElementById('mp-total').textContent = '₪' + fmtNum(totalValue);
+  document.getElementById('mp-cash').textContent = '₪' + fmtNum(cash);
+  var pnlEl = document.getElementById('mp-pnl');
+  pnlEl.textContent = (totalPnl >= 0 ? '+' : '') + '₪' + fmtNum(totalPnl) + ' (' + totalPnlPct.toFixed(1) + '%)';
+  pnlEl.className = 'mp-stat-value ' + (totalPnl >= 0 ? 'pos' : 'neg');
+  document.getElementById('mp-rate').textContent = '₪' + usdRate.toFixed(2);
+
+  // Portfolio score from last summary
+  var scoreEl = document.getElementById('mp-score');
+  if(summary.portfolio_score){
+    scoreEl.textContent = summary.portfolio_score + '/10 (' + (summary.portfolio_grade || '') + ')';
+  } else {
+    scoreEl.textContent = '—';
+  }
+
+  // Split by market
+  var tase = holdings.filter(function(h){ return h.market === 'TASE' && h.is_active; });
+  var us   = holdings.filter(function(h){ return h.market !== 'TASE' && h.is_active; });
+
+  renderMpTable('mp-tase-body', tase, 'ILS');
+  renderMpTable('mp-us-body',   us,   'USD');
+
+  // Last report
+  if(summary.report_text){
+    document.getElementById('mp-last-report-section').style.display = '';
+    document.getElementById('mp-last-report-date').textContent = 'דוח מתאריך: ' + (summary.summary_date || '');
+    document.getElementById('mp-last-report-text').textContent = summary.report_text;
+  }
+}
+
+function renderMpTable(tbodyId, holdings, currency){
+  var tbody = document.getElementById(tbodyId);
+  if(!holdings.length){
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:30px;">אין אחזקות</td></tr>';
+    return;
+  }
+  // Sort by value_ils desc
+  holdings.sort(function(a,b){ return (parseFloat(b.value_ils)||0) - (parseFloat(a.value_ils)||0); });
+
+  tbody.innerHTML = holdings.map(function(h){
+    var pnlPct = parseFloat(h.pnl_pct) || 0;
+    var pnlIls = parseFloat(h.pnl_ils) || 0;
+    var pnlClass = pnlPct >= 0 ? 'pnl-pos' : 'pnl-neg';
+    var pnlSign = pnlPct >= 0 ? '+' : '';
+    var priceDisplay = h.last_price ? (currency === 'USD' ? '$' + parseFloat(h.last_price).toFixed(2) : '₪' + parseFloat(h.last_price).toFixed(0)) : '—';
+    var costDisplay  = currency === 'USD' ? '$' + parseFloat(h.avg_buy_price).toFixed(2) : '₪' + parseFloat(h.avg_buy_price).toFixed(0);
+
+    // Rating info
+    var grade = h.latest_grade || '';
+    var rec   = h.latest_recommendation || '';
+    var analysis = h.latest_analysis || '';
+    var thesisChanged = h.thesis_changed;
+
+    var gradeKey = grade ? grade[0] : '';
+    var gradeHtml = grade ? '<span class="mp-grade '+gradeKey+'">' + grade + '</span>' : '—';
+    var recHtml   = rec   ? '<span class="mp-rec '+rec+'">' + rec + '</span>' : '—';
+    var thesisHtml = thesisChanged ? '<span class="mp-thesis-alert">⚡ שינוי תזה</span>' : '';
+
+    return '<tr>' +
+      '<td><span class="mp-ticker">' + h.ticker + '</span></td>' +
+      '<td><span class="mp-name">' + h.name + (h.name_en ? '<small>' + h.name_en + '</small>' : '') + '</span></td>' +
+      '<td style="font-family:var(--mono)">' + parseFloat(h.quantity).toLocaleString() + '</td>' +
+      '<td style="font-family:var(--mono)">' + costDisplay + '</td>' +
+      '<td style="font-family:var(--mono)">' + priceDisplay + '</td>' +
+      '<td style="font-family:var(--mono)">₪' + fmtNum(parseFloat(h.value_ils)||0) + '</td>' +
+      '<td><span class="' + pnlClass + '">' + pnlSign + pnlPct.toFixed(1) + '%<br><small>' + pnlSign + '₪' + fmtNum(Math.abs(pnlIls)) + '</small></span></td>' +
+      '<td>' + gradeHtml + '</td>' +
+      '<td>' + recHtml + '</td>' +
+      '<td style="font-size:11px;color:var(--muted);max-width:200px;">' + (analysis || '') + thesisHtml + '</td>' +
+      '<td><button class="mp-btn secondary" style="padding:5px 10px;font-size:11px;" onclick="showTxForTicker(\'' + h.ticker + '\')">📝</button></td>' +
+    '</tr>';
+  }).join('');
+}
+
+function fmtNum(n){
+  return Math.round(n).toLocaleString('he-IL');
+}
+
+function mpFlash(msg, type){
+  var el = document.getElementById('mp-flash');
+  el.textContent = msg;
+  el.className = 'mp-flash ' + (type || 'ok');
+  el.style.display = 'block';
+  setTimeout(function(){ el.style.display = 'none'; }, 3000);
+}
+
+function closeMpModal(id){
+  document.getElementById(id).classList.remove('open');
+}
+
+function showTransactionModal(){
+  document.getElementById('mp-tx-modal').classList.add('open');
+}
+
+function showTxForTicker(ticker){
+  document.getElementById('mp-tx-ticker').value = ticker;
+  document.getElementById('mp-tx-modal').classList.add('open');
+}
+
+function showCashModal(){
+  document.getElementById('mp-cash-amount').value = mpData.cash || '';
+  document.getElementById('mp-cash-modal').classList.add('open');
+}
+
+function showAddHoldingModal(){
+  document.getElementById('mp-add-modal').classList.add('open');
+}
+
+function submitTransaction(){
+  var payload = {
+    ticker:   document.getElementById('mp-tx-ticker').value.trim().toUpperCase(),
+    action:   document.getElementById('mp-tx-action').value,
+    quantity: parseFloat(document.getElementById('mp-tx-qty').value),
+    price:    parseFloat(document.getElementById('mp-tx-price').value),
+    currency: document.getElementById('mp-tx-currency').value,
+    usd_ils_rate: parseFloat(document.getElementById('mp-tx-rate').value) || null,
+    notes:    document.getElementById('mp-tx-notes').value
+  };
+  if(!payload.ticker || !payload.quantity || !payload.price){
+    mpFlash('נא למלא טיקר, כמות ומחיר', 'err'); return;
+  }
+  fetch(MP_API + '/transaction', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(payload)
+  }).then(function(r){ return r.json(); })
+    .then(function(){
+      closeMpModal('mp-tx-modal');
+      mpFlash('✅ פעולה נרשמה בהצלחה');
+      loadMyPortfolio();
+    }).catch(function(){ mpFlash('שגיאה בשמירת הפעולה', 'err'); });
+}
+
+function submitCash(){
+  var amount = parseFloat(document.getElementById('mp-cash-amount').value);
+  if(!amount){ mpFlash('נא להזין סכום', 'err'); return; }
+  fetch(MP_API + '/cash', {
+    method: 'PUT', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ currency: 'ILS', amount: amount })
+  }).then(function(r){ return r.json(); })
+    .then(function(){
+      closeMpModal('mp-cash-modal');
+      mpFlash('✅ מזומן עודכן');
+      loadMyPortfolio();
+    }).catch(function(){ mpFlash('שגיאה', 'err'); });
+}
+
+function submitAddHolding(){
+  var payload = {
+    ticker:        document.getElementById('mp-add-ticker').value.trim().toUpperCase(),
+    name:          document.getElementById('mp-add-name').value.trim(),
+    name_en:       document.getElementById('mp-add-nameen').value.trim(),
+    quantity:      parseFloat(document.getElementById('mp-add-qty').value),
+    avg_buy_price: parseFloat(document.getElementById('mp-add-price').value),
+    currency:      document.getElementById('mp-add-currency').value,
+    market:        document.getElementById('mp-add-market').value
+  };
+  if(!payload.ticker || !payload.name || !payload.quantity || !payload.avg_buy_price){
+    mpFlash('נא למלא את כל השדות', 'err'); return;
+  }
+  fetch(MP_API + '/holding', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(payload)
+  }).then(function(r){ return r.json(); })
+    .then(function(){
+      closeMpModal('mp-add-modal');
+      mpFlash('✅ אחזקה נוספה');
+      loadMyPortfolio();
+    }).catch(function(){ mpFlash('שגיאה', 'err'); });
+}
+
+// Close modals on overlay click
+['mp-tx-modal','mp-cash-modal','mp-add-modal'].forEach(function(id){
+  document.getElementById(id).addEventListener('click', function(e){
+    if(e.target === this) this.classList.remove('open');
+  });
+});
+// ══════════════════════════════════════════════════════
 </script>
 </body>
 </html>
