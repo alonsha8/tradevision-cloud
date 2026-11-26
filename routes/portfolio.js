@@ -332,4 +332,72 @@ router.post('/save-report', async (req, res) => {
   }
 });
 
+// ─────────────────────────────────────────────
+// POST /api/myportfolio/send-telegram
+// Claude task קורא לזה כדי שRender ישלח לטלגרם
+// (Claude מחסום על api.telegram.org, Render לא)
+// body: { text, parse_mode? }
+// ─────────────────────────────────────────────
+router.post('/send-telegram', async (req, res) => {
+  const { text, parse_mode } = req.body;
+  const token   = process.env.TELEGRAM_BOT_TOKEN;
+  const chat_id = process.env.TELEGRAM_CHAT_ID;
+
+  if (!token || !chat_id) {
+    return res.status(500).json({ error: 'TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID חסרים ב-Render' });
+  }
+  if (!text) {
+    return res.status(400).json({ error: 'text חובה' });
+  }
+
+  try {
+    const https = require('https');
+    const payload = JSON.stringify({
+      chat_id,
+      text,
+      parse_mode: parse_mode || 'HTML'
+    });
+
+    const options = {
+      hostname: 'api.telegram.org',
+      path: `/bot${token}/sendMessage`,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload)
+      }
+    };
+
+    const result = await new Promise((resolve, reject) => {
+      const r = https.request(options, (resp) => {
+        let data = '';
+        resp.on('data', c => data += c);
+        resp.on('end', () => {
+          try { resolve(JSON.parse(data)); }
+          catch(e) { resolve({ raw: data }); }
+        });
+      });
+      r.on('error', reject);
+      r.write(payload);
+      r.end();
+    });
+
+    if (result.ok) {
+      // סמן report_sent=true בסיכום של היום
+      try {
+        await pool.query(`
+          UPDATE portfolio_daily_summary SET report_sent = true
+          WHERE summary_date = CURRENT_DATE
+        `);
+      } catch(e) { /* לא קריטי */ }
+      res.json({ ok: true, message_id: result.result && result.result.message_id });
+    } else {
+      res.status(502).json({ ok: false, telegram_error: result });
+    }
+  } catch (err) {
+    console.error('[send-telegram]', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
