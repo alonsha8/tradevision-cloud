@@ -4,6 +4,7 @@
 //   ANTHROPIC_API_KEY  — מפתח Claude (חובה לפיצ'רים של AI)
 //   APP_PASSWORD       — סיסמת כניסה לאפליקציה (מומלץ מאוד; בלעדיה האפליקציה פתוחה לכל העולם)
 //   DATABASE_URL       — PostgreSQL (יומן עסקאות, התראות, היסטוריית סקטורים). בלעדיו החלקים האלה מושבתים.
+//   INTERNAL_API_KEY   — מפתח פנימי לנתיבי /api/myportfolio/ (לטאסקים אוטומטיים ללא session)
 
 const express = require('express');
 const compression = require('compression');
@@ -63,6 +64,7 @@ function getCookie(req, name) {
 }
 function isAuthed(req) {
   if (!APP_PASSWORD) return true;
+  if (req._internalKeyAuthed) return true; // טאסק אוטומטי עם X-Internal-Key
   const c = getCookie(req, AUTH_COOKIE);
   if (!c) return false;
   const [tsStr, mac] = c.split('.');
@@ -105,6 +107,20 @@ app.get('/logout', (req, res) => {
 });
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', database: !!pool, auth: !!APP_PASSWORD, ai: !!API_KEY, time: new Date().toISOString() }));
+
+// ══════════════ myportfolio — גישה עם X-Internal-Key (ללא session) ══════════════
+// נתיבי /api/myportfolio/ נגישים גם ללא cookie אם מגיע X-Internal-Key תקין.
+// GET /holdings פתוח גם לדפדפן (session רגיל יעבור דרך ה-auth הכללי למטה).
+app.use('/api/myportfolio', (req, res, next) => {
+  const envKey = process.env.INTERNAL_API_KEY;
+  if (envKey) {
+    const sentKey = req.headers['x-internal-key'];
+    if (sentKey === envKey) {
+      req._internalKeyAuthed = true; // מסמן כמאומת — ה-auth הכללי יתן לעבור
+    }
+  }
+  next();
+});
 
 // כל השאר — רק אחרי כניסה
 app.use((req, res, next) => {
