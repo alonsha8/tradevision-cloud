@@ -3091,7 +3091,10 @@ function loadMyPortfolio(){
     .then(function(r){ return r.json(); })
     .then(function(d){
       mpData.holdings = d.holdings || [];
-      mpData.cash = d.cash || 0;
+      // d.cash הוא מערך [{currency,amount}] — נמצא ILS
+      var cashArr = d.cash || [];
+      var cashRow = Array.isArray(cashArr) ? cashArr.find(function(c){ return c.currency === 'ILS'; }) : null;
+      mpData.cash = cashRow ? parseFloat(cashRow.amount) : 0;
       mpData.usd_rate = d.summary && d.summary.usd_ils_rate ? d.summary.usd_ils_rate : 3.72;
       renderMyPortfolio(d);
     })
@@ -3103,24 +3106,23 @@ function loadMyPortfolio(){
 
 function renderMyPortfolio(d){
   var holdings = d.holdings || [];
-  var cash = d.cash || 0;
+  // מזומן — מערך [{currency,amount}]
+  var cashArr = d.cash || [];
+  var cashRow = Array.isArray(cashArr) ? cashArr.find(function(c){ return c.currency === 'ILS'; }) : null;
+  var cash = cashRow ? parseFloat(cashRow.amount) : mpData.cash || 0;
   var summary = d.summary || {};
   var usdRate = summary.usd_ils_rate || mpData.usd_rate;
 
-  // Totals
+  // Totals — סכום value_ils ו-pnl_ils ישירות מה-DB (מחושב נכון)
   var totalValue = 0;
-  var totalCost = 0;
+  var totalPnl = 0;
   holdings.forEach(function(h){
     if(h.is_active){
-      var val = parseFloat(h.value_ils) || 0;
-      var qty = parseFloat(h.quantity) || 0;
-      var cost = parseFloat(h.avg_buy_price) || 0;
-      totalValue += val;
-      if(h.currency === 'ILS') totalCost += qty * cost;
-      else totalCost += qty * cost * usdRate;
+      totalValue += parseFloat(h.value_ils) || 0;
+      totalPnl   += parseFloat(h.pnl_ils)   || 0;
     }
   });
-  var totalPnl = totalValue - totalCost;
+  var totalCost = totalValue - totalPnl;
   var totalPnlPct = totalCost > 0 ? (totalPnl / totalCost * 100) : 0;
 
   // Update summary cards
@@ -3172,9 +3174,9 @@ function renderMpTable(tbodyId, holdings, currency){
     var costDisplay  = currency === 'USD' ? '$' + parseFloat(h.avg_buy_price).toFixed(2) : '₪' + parseFloat(h.avg_buy_price).toFixed(0);
 
     // Rating info
-    var grade = h.latest_grade || '';
-    var rec   = h.latest_recommendation || '';
-    var analysis = h.latest_analysis || '';
+    var grade = h.grade || '';
+    var rec   = h.recommendation || '';
+    var analysis = h.analysis || '';
     var thesisChanged = h.thesis_changed;
 
     var gradeKey = grade ? grade[0] : '';
