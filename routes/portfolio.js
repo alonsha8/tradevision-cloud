@@ -4,9 +4,11 @@
 // ============================================================
 const express = require('express');
 const router  = express.Router();
-// pool — משתנה PostgreSQL הקיים ב-TradeVision (global או require)
-// אם pool מוגדר כ-global ב-server.js, אין צורך ב-require כאן.
-// אם לא — הוסף: const { pool } = require('../db');
+const { Pool } = require('pg');
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
 
 // ─────────────────────────────────────────────
 // GET /api/portfolio/holdings
