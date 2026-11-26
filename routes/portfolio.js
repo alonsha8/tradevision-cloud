@@ -10,6 +10,15 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
+// ─── Auth middleware לנתיבי אוטומציה ───
+function requireInternalKey(req, res, next) {
+  const envKey = process.env.INTERNAL_API_KEY;
+  if (!envKey) return next(); // אם לא הוגדר key ב-Render — פתוח (backward compat)
+  const sentKey = req.headers['x-internal-key'];
+  if (sentKey === envKey) return next();
+  return res.status(401).json({ error: 'Unauthorized — missing or wrong X-Internal-Key' });
+}
+
 // ─── אתחול טבלאות אוטומטי ───
 (async () => {
   try {
@@ -255,7 +264,7 @@ router.get('/transactions', async (req, res) => {
 // Claude task קורא לזה אחרי חישוב מחירים
 // body: { prices: [{ticker, last_price, value_ils, pnl_pct, pnl_ils, daily_pct}], usd_ils_rate }
 // ─────────────────────────────────────────────
-router.post('/update-prices', async (req, res) => {
+router.post('/update-prices', requireInternalKey, async (req, res) => {
   const { prices, usd_ils_rate } = req.body;
   if (!Array.isArray(prices)) return res.status(400).json({ error: 'prices חייב להיות מערך' });
   const client = await pool.connect();
@@ -283,7 +292,7 @@ router.post('/update-prices', async (req, res) => {
 // Claude task שומר את הדוח + ציונים אחרי עיבוד
 // body: { summary, ratings: [{ticker, score, grade, recommendation, analysis, ...}] }
 // ─────────────────────────────────────────────
-router.post('/save-report', async (req, res) => {
+router.post('/save-report', requireInternalKey, async (req, res) => {
   const { summary, ratings } = req.body;
   const client = await pool.connect();
   try {
@@ -338,7 +347,7 @@ router.post('/save-report', async (req, res) => {
 // (Claude מחסום על api.telegram.org, Render לא)
 // body: { text, parse_mode? }
 // ─────────────────────────────────────────────
-router.post('/send-telegram', async (req, res) => {
+router.post('/send-telegram', requireInternalKey, async (req, res) => {
   const { text, parse_mode } = req.body;
   const token   = process.env.TELEGRAM_BOT_TOKEN;
   const chat_id = process.env.TELEGRAM_CHAT_ID;
