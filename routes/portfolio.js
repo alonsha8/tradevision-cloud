@@ -10,6 +10,9 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
+// ─── JSON body parser לכל ה-router ───
+router.use(express.json({ limit: '1mb' }));
+
 // ─── Auth middleware לנתיבי אוטומציה ───
 function requireInternalKey(req, res, next) {
   const envKey = process.env.INTERNAL_API_KEY;
@@ -348,7 +351,7 @@ router.post('/save-report', requireInternalKey, async (req, res) => {
 // body: { text, parse_mode? }
 // ─────────────────────────────────────────────
 router.post('/send-telegram', requireInternalKey, async (req, res) => {
-  const { text, parse_mode } = req.body;
+  const { text, parse_mode } = req.body || {};
   const token   = process.env.TELEGRAM_BOT_TOKEN;
   const chat_id = process.env.TELEGRAM_CHAT_ID;
 
